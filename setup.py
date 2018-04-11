@@ -7,9 +7,9 @@ import setuptools
 setuptools.setup(name='SciAnalysis',
                  version='1.0',
                  author='Kevin Yager',
+                 packages=setuptools.find_packages(),
                  description="CMS Analysis",
                  include_dirs=[np.get_include()],
                  author_email='kyager@bnl.gov',
-                 # install_requires=['six', 'numpy'],  # essential deps only
                  keywords='CMS X-ray Analysis',
                  )
