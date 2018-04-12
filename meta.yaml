@@ -1,7 +1,7 @@
 {% set version = "0.0.1" %}
 
 package:
-    name: SciAnalysis
+    name: scianalysis
     version: {{ version }}
 
 source:
@@ -16,6 +16,7 @@ build:
 requirements:
     build:
         - python
+        - numpy
     run:
         - python
         - numpy

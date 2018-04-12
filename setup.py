@@ -5,7 +5,6 @@ import numpy as np
 import setuptools
 
 setuptools.setup(name='SciAnalysis',
-                 version='1.0',
                  author='Kevin Yager',
                  packages=setuptools.find_packages(),
                  description="CMS Analysis",
