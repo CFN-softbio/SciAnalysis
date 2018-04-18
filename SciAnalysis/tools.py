@@ -192,9 +192,9 @@ class Processor(object):
             except OSError:
                 print('  ERROR (OSError) with file {}.'.format(infile))
 
-            #except Exception as exception:
-                # Ignore errors, so that execution doesn't get stuck on a single bad file
-                #print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
+            except Exception as exception:
+#                 Ignore errors, so that execution doesn't get stuck on a single bad file
+                print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
 
 
     def load(self, infile, **kwargs):
