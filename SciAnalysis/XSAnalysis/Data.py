@@ -604,7 +604,66 @@ class Data2DScattering(Data2D):
         # numpy.histogram
         # scipy.ndimage.measurements.histogram
         
+    def linecut_q(self, chi0, dq, x_label='q', x_rlabel='$q \, (\mathrm{\AA}^{-1})$', y_label='I', y_rlabel=r'$I (q) \, (\mathrm{counts/pixel})$', **kwargs):
+        '''Returns the intensity integrated along a radial line with linewidth = 2 * dq.'''
         
+        if self.mask is None:
+            mask = np.ones(self.data.shape)
+        else:
+            mask = self.mask.data
+        
+        
+        data = self.data.ravel()
+        
+#        QR = self.calibration.qr_map()
+        QX = self.calibration.qx_map()
+        QZ = self.calibration.qz_map()
+
+        if np.isclose(chi0,0): # edge case for a vertical line
+            
+            pixel_list = np.where( (abs(QX.ravel()) < dq) & (mask.ravel()==1) )
+            
+            if 'show_region' in kwargs and kwargs['show_region']:
+                region = np.ma.masked_where(abs(QX) > dq, self.calibration.q_map())
+                self.regions = [region]
+        
+        elif np.isclose(chi0, np.pi/2) or np.isclose(chi0, -np.pi/2): # edge case for a horizontal line
+            
+            pixel_list = np.where( (abs(QZ.ravel()) < dq) & (mask.ravel()==1) )
+            
+            if 'show_region' in kwargs and kwargs['show_region']:
+                region = np.ma.masked_where(abs(QZ) > dq, self.calibration.q_map())
+                self.regions = [region]
+                
+        else:
+            SLOPE = - np.tan(np.pi/2 + np.radians(chi0))
+            INTCPT = dq / abs(np.sin(np.radians(chi0)))
+            pixel_list = np.where( (abs(QZ.ravel() - SLOPE * QX.ravel()) < INTCPT) & (mask.ravel()==1) )
+                    
+            if 'show_region' in kwargs and kwargs['show_region']:
+                region = np.ma.masked_where(abs(QZ - SLOPE * QX) > INTCPT, self.calibration.q_map())
+                self.regions = [region]
+
+        #Q = self.calibration.q_map().ravel()
+        dq = self.calibration.get_q_per_pixel()
+        
+        # Generate map
+        M = self.calibration.q_map().ravel()
+        scale = dq # approximate 1-pixel
+                
+        Md = (M/scale + 0.5).astype(int) # Simplify the distances to closest integers
+        Md -= np.min(Md)
+        
+        num_per_m = np.bincount(Md[pixel_list])
+        idx = np.where(num_per_m!=0) # distances that actually have data
+        
+        x_vals = np.bincount( Md[pixel_list], weights=M[pixel_list] )[idx]/num_per_m[idx]
+        I_vals = np.bincount( Md[pixel_list], weights=data[pixel_list] )[idx]/num_per_m[idx]
+        
+        line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
+        
+        return line
+
     def linecut_angle(self, q0, dq, x_label='angle', x_rlabel='$\chi \, (^{\circ})$', y_label='I', y_rlabel=r'$I (\chi) \, (\mathrm{counts/pixel})$', **kwargs):
         '''Returns the intensity integrated along a ring of constant q.'''
         

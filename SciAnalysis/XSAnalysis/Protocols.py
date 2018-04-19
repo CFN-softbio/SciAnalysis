@@ -268,7 +268,45 @@ class linecut_angle(Protocol):
         return results
                                 
                 
-                
+
+class linecut_q(Protocol):
+
+    def __init__(self, name='linecut_q', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {'show_region' : False,
+                         'plot_range' : [None, None, 0, None]
+                         }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
+        line = data.linecut_q(**run_args)
+        
+        if 'show_region' in run_args and run_args['show_region']:
+            data.plot(show=True)
+        
+        
+        #line.smooth(2.0, bins=10)
+        
+        outfile = self.get_outfile(data.name, output_dir)
+        line.plot(save=outfile, **run_args)
+
+        #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+        #line.plot_polar(save=outfile, **run_args)
+
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        line.save_data(outfile)
+        
+        return results
+
 
 
 class linecut_qr(Protocol):
