@@ -20,10 +20,20 @@
 #  Search for "TODO" below.
 ################################################################################
 
+
+
+
 import os
 import time
-#import xml.etree.ElementTree as etree # XML read/write
-from lxml import etree
+
+SUPPRESS_EXCEPTIONS = False # Set to 'True' to suppress Python exceptions (errors). This allows the script to keep running even if there is an error processing one particular file.
+USE_LXML = True # Set to 'False' if lxml is not installed
+if USE_LXML:
+    # 'Fancy' xml library
+    from lxml import etree
+else:
+    # 'Regular' xml library
+    import xml.etree.ElementTree as etree # XML read/write
 import xml.dom.minidom as minidom
 
 def make_dir(directory):
@@ -189,12 +199,12 @@ class Processor(object):
                         self.store_results(results, output_dir, infile, protocol, **md)
                         
 
-            except OSError:
-                print('  ERROR (OSError) with file {}.'.format(infile))
-
             except Exception as exception:
-#                 Ignore errors, so that execution doesn't get stuck on a single bad file
-                print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
+                if SUPPRESS_EXCEPTIONS:
+                    # Ignore errors, so that execution doesn't get stuck on a single bad file
+                    print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
+                else:
+                    raise
 
 
     def load(self, infile, **kwargs):
@@ -215,7 +225,10 @@ class Processor(object):
 
         if os.path.isfile(outfile):
             # Result XML file already exists
-            parser = etree.XMLParser(remove_blank_text=True)
+            if USE_LXML:
+                parser = etree.XMLParser(remove_blank_text=True)
+            else:
+                parser = etree.XMLParser()
             root = etree.parse(outfile, parser).getroot()
 
         else:
@@ -255,7 +268,10 @@ class Processor(object):
                 etree.SubElement(prot, 'result', name=name, value=str(content))
 
         tree = etree.ElementTree(root)
-        tree.write(outfile, pretty_print=True)
+        if USE_LXML:
+            tree.write(outfile, pretty_print=True)
+        else:
+            tree.write(outfile)
 
 
 
@@ -334,7 +350,10 @@ class Processor(object):
 
 
             except (OSError, ValueError):
-                print('  ERROR with file {}.'.format(infile))
+                if SUPPRESS_EXCEPTIONS:
+                    print('  ERROR with file {}.'.format(infile))
+                else:
+                    raise
                 
                 
 
@@ -431,8 +450,11 @@ def get_result_xml(infile, protocol):
     xml file. The most recent run of the protocol is used.'''
 
     import numpy as np
-    #import xml.etree.ElementTree as etree
-    from lxml import etree
+    
+    if USE_LXML:
+        from lxml import etree
+    else:
+        import xml.etree.ElementTree as etree
     #import xml.dom.minidom as minidom
 
     parser = etree.XMLParser(remove_blank_text=True)

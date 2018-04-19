@@ -197,7 +197,13 @@ class DataLine(object):
     def sub_range(self, xi, xf):
         '''Returns a DataLine that only has a subset of the original x range.'''
         
-        line = self.copy()
+        try:
+            line = self.copy()
+        except NotImplementedError:
+            line = DataLine()
+            line.x = self.x
+            line.y = self.y
+            
         line.trim(xi, xf)
         
         return line
@@ -227,7 +233,7 @@ class DataLine(object):
         x_sorted = x[indices]
         y_sorted = y[indices]
 
-        # Search through x for the target
+        # Search through y for the target
         idx = np.where( y_sorted>=target )[0][0]
         xcur = x_sorted[idx]
         ycur = y_sorted[idx]
@@ -372,6 +378,8 @@ class DataLine(object):
         
     def _plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.2,0.05,0.2,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, **kwargs):
         
+        # DataLine._plot()
+        
         plot_args = self.plot_args.copy()
         plot_args.update(kwargs)
         self.process_plot_args(**plot_args)
@@ -436,7 +444,7 @@ class DataLine(object):
             l = plt.errorbar( self.x, self.y, xerr=self.x_err, yerr=self.y_err, **plot_args)
         
         else:
-#            l, = plt.plot(self.x, self.y, **plot_args)
+            #l, = plt.plot(self.x, self.y, **plot_args)
             l, = self.ax.plot(self.x, self.y, **plot_args)
             
             
@@ -1005,7 +1013,7 @@ class Data2D(object):
         f = tools.Filename(infile)
         ext = f.get_ext()[1:]
         
-        if format=='image' or ext in ['png', 'tif', 'tiff', 'jpg']:
+        if format=='image' or ext in ['png', 'tif', 'tiff', 'jpg', 'TIF']:
             self.load_image(infile)
             
         elif format=='npy' or ext=='npy':
@@ -1480,6 +1488,7 @@ class Data2D(object):
             #cmap = mpl.cm.hot
             #cmap = mpl.cm.gist_heat
             #cmap = mpl.cm.gist_earth
+            #cmap = mpl.cm.Greys
             cmap = mpl.cm.jet        
         
         #img = Image.open(filename).convert("I")
@@ -1535,6 +1544,8 @@ class Data2D(object):
         
     def _plot(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.1,0.1,0.1,0.1], **kwargs):
         
+        # Data2D._plot()
+        
         plot_args = self.plot_args.copy()
         plot_args.update(kwargs)
         self.process_plot_args(**plot_args)
@@ -1573,7 +1584,7 @@ class Data2D(object):
         if zmax==zmin:
             zmax = max(values)
             
-        print( '        data: %.1f to %.1f\n        z-scaling: %.1f to %.1f\n' % (np.min(self.data), np.max(self.data), zmin, zmax) )
+        print( '        data: %.2f to %.2f\n        z-scaling: %.2f to %.2f\n' % (np.min(self.data), np.max(self.data), zmin, zmax) )
         
         self.z_display[0] = zmin
         self.z_display[1] = zmax
@@ -1627,14 +1638,20 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
+        if 'title' in plot_args:
+            #size = plot_args['rcParams']['axes.labelsize']
+            size = plot_args['rcParams']['xtick.labelsize']
+            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         self._plot_extra(**plot_args)
         
         if save:
+            if 'transparent' not in plot_args:
+                plot_args['transparent'] = True
             if 'dpi' in plot_args:
-                plt.savefig(save, dpi=plot_args['dpi'], transparent=True)
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=plot_args['transparent'])
             else:
-                plt.savefig(save, transparent=True)
+                plt.savefig(save, transparent=plot_args['transparent'])
         
         if show:
             self._plot_interact()
@@ -2111,3 +2128,15 @@ color_list_cur_hdr_goldish = [
 ]
 cmap_hdr_goldish = mpl.colors.LinearSegmentedColormap.from_list('cmap_hdr_goldish', color_list_cur_hdr_goldish)
     
+    
+# Ugly color-scale, but good for highlighting many features in HDR data
+color_list_seismic_hdr = [
+    [ 255.0/255.0, 255.0/255.0, 255.0/255.0],
+    [ 0.0/255.0, 0.0/255.0, 0.0/255.0],
+    [ 0.0/255.0, 0.0/255.0, 196.0/255.0],
+    [ 255.0/255.0, 255.0/255.0, 255.0/255.0],
+    #[ 255.0/255.0, 0.0/255.0, 0.0/255.0],
+    [ 132.0/255.0, 0.0/255.0, 0.0/255.0],
+]
+cmap_hdr_seismic = mpl.colors.LinearSegmentedColormap.from_list('cmap_hdr_seismic', color_list_seismic_hdr)
+        
