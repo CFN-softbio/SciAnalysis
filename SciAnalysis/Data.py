@@ -414,9 +414,9 @@ class DataLine(object):
         
         if save:
             if 'dpi' in plot_args:
-                plt.savefig(save, dpi=plot_args['dpi'])
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=True)
             else:
-                plt.savefig(save)
+                plt.savefig(save, transparent=True)
         
         if show:
             self._plot_interact()
@@ -436,7 +436,7 @@ class DataLine(object):
             l = plt.errorbar( self.x, self.y, xerr=self.x_err, yerr=self.y_err, **plot_args)
         
         else:
-            #l, = plt.plot(self.x, self.y, **plot_args)
+#            l, = plt.plot(self.x, self.y, **plot_args)
             l, = self.ax.plot(self.x, self.y, **plot_args)
             
             
@@ -709,9 +709,9 @@ class DataLineAngle (DataLine):
         
         if save:
             if 'dpi' in plot_args:
-                plt.savefig(save, dpi=plot_args['dpi'])
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=True)
             else:
-                plt.savefig(save)
+                plt.savefig(save, transparent=True)
         
         if show:
             self._plot_interact()
@@ -907,9 +907,9 @@ class DataLinesStacked(DataLines):
         
         if save:
             if 'dpi' in plot_args:
-                plt.savefig(save, dpi=plot_args['dpi'])
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=True)
             else:
-                plt.savefig(save)
+                plt.savefig(save, transparent=True)
         
         if show:
             self._plot_interact()
@@ -1632,9 +1632,9 @@ class Data2D(object):
         
         if save:
             if 'dpi' in plot_args:
-                plt.savefig(save, dpi=plot_args['dpi'])
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=True)
             else:
-                plt.savefig(save)
+                plt.savefig(save, transparent=True)
         
         if show:
             self._plot_interact()
