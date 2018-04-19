@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # vi: ts=4 sw=4
 '''
-:mod:`SciAnalysis.XSAnalysis.DataWAXS` - Handling wide-angle area detectors
+:mod:`SciAnalysis.XSAnalysis.DataRQconv` - Handling wide-angle area detectors
 ================================================
 .. module:: SciAnalysis.XSAnalysis
    :synopsis: Provides base classes for doing analysis of x-ray data with tilted detectors
@@ -24,7 +24,7 @@
 from .Data import *
 
 
-# Calibration
+# CalibrationRQconv
 ################################################################################    
 class CalibrationRQconv(Calibration):
     """

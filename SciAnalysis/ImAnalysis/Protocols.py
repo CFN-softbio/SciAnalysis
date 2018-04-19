@@ -1001,6 +1001,7 @@ class grain_size_hex(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
+                        'symmetry': 6,
                         'threshold' : 127,
                         'invert' : False,
                         'diagonal_detection' : False,
@@ -1026,15 +1027,24 @@ class grain_size_hex(Protocol):
             data.set_z_display( [None, None, 'gamma', 1.0] )
             outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
             data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
+
         
         # Pre-process
         #data.equalize()
-        #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-        data.lowkill(run_args['q0']*0.1)
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        #data.lowkill(run_args['q0']*0.1)
+        
         data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        #data.blur(1.0) # lowpass
+        #data.blur(0.6) # lowpass
         #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
-        #data.equalize()
+        data.equalize()
         data.maximize_intensity_spread()
+
+
 
         if run_args['verbosity']>=4:
             data.set_z_display( [None, None, 'gamma', 1.0] )
@@ -1119,7 +1129,29 @@ class grain_size_hex(Protocol):
         results.update(new_results)
 
 
-
+        # Compute defect density
+        h, w = data.data.shape
+        im_area = (w*data.x_scale)*(h*data.y_scale)*1e-6 # um^2
+        
+        # Number of defects due to image edges (these are artifacts):
+        L0 = 2*np.pi/run_args['q0']
+        d = L0/(np.sqrt(3.0)/2.0)
+        edge_defects = 2*w*data.x_scale/d # top/bottom edge
+        edge_defects += 2*2*h*data.y_scale/L0 # left/right edge
+        
+        sym = run_args['symmetry']
+        less = len(np.nonzero(NN_counts<sym)[0])
+        equal = len(np.nonzero(NN_counts==sym)[0])
+        more = len(np.nonzero(NN_counts>sym)[0])
+        
+        results['fraction_matching_symmetry'] = equal/(less+equal+more - edge_defects)
+        results['number_defects'] = int(max( ( (less + more) - edge_defects ), 0 ))
+        results['defect_density'] = { 'value': results['number_defects']/im_area, 'units': 'um^-2'}
+        if run_args['verbosity']>=2:
+            print("  {:d} (non-edge) defects / {:.2f} um^2 = ".format(results['number_defects'], im_area))
+            print("  {:.4g} defects/um^2".format(results['defect_density']['value']))
+            print("  f_6NN = {:.3f}".format(results['fraction_matching_symmetry']))
+        
         
         
         
@@ -1482,9 +1514,10 @@ class grain_size_hex(Protocol):
         less = len(np.nonzero(NN_counts<sym)[0])
         equal = len(np.nonzero(NN_counts==sym)[0])
         more = len(np.nonzero(NN_counts>sym)[0])
-        print("        <%d NN: %d (%.1f%%)" % ( sym, less, less*100.0/(less+equal+more) ) )
-        print("        =%d NN: %d (%.1f%%)" % ( sym, equal, equal*100.0/(less+equal+more) ) )
-        print("        >%d NN: %d (%.1f%%)" % ( sym, more, more*100.0/(less+equal+more) ) )
+        if run_args['verbosity']>=2:
+            print("        <%d NN: %d (%.1f%%)" % ( sym, less, less*100.0/(less+equal+more) ) )
+            print("        =%d NN: %d (%.1f%%)" % ( sym, equal, equal*100.0/(less+equal+more) ) )
+            print("        >%d NN: %d (%.1f%%)" % ( sym, more, more*100.0/(less+equal+more) ) )
         
         results['NN_less%d'%(sym)] = less
         results['NN_less%d_fraction'%(sym)] = less*1.0/(less+equal+more)
@@ -1774,7 +1807,7 @@ class grain_size(grain_size_hex):
         if 'blur' in run_args and run_args['blur'] is not None:
             data.blur(run_args['blur'])
         elif 'q0' in run_args:
-            blur_nm = 2*np.pi/run_args['q0']*run_args['blur_size_rel_d0']
+            blur_nm = (2*np.pi/run_args['q0'])*run_args['blur_size_rel_d0']
             blur_pix = blur_nm/data.x_scale
             data.blur(blur_pix)
 
@@ -1818,7 +1851,7 @@ class grain_size(grain_size_hex):
         
         if 'blur_orientation_image' in run_args and run_args['blur_orientation_image']:
             
-            blur_nm = 2*np.pi/run_args['q0']*run_args['blur_orientation_image_size_rel']
+            blur_nm = (2*np.pi/run_args['q0'])*run_args['blur_orientation_image_size_rel']
             blur_pix = blur_nm/data.x_scale
             
             for i in range(run_args['blur_orientation_image_num_passes']):
@@ -1846,5 +1879,276 @@ class grain_size(grain_size_hex):
         
         return angles
 
+
             
-                            
+class defects_lines(grain_size_hex):
+    
+    def __init__(self, name='defects_lines', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+                        'symmetry': 2,
+                        'threshold' : 127,
+                        'invert' : False,
+                        'diagonal_detection' : False,
+                        'cmap' : mpl.cm.bone,
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+        
+        orig_data = data.data.copy()
+        
+        results = {}
+        
+        if run_args['verbosity']>=5:
+            im = PIL.Image.fromarray( np.uint8(data.data) )
+            outfile = self.get_outfile('original', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
+
+        
+        # Pre-process
+        #data.equalize()
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        #data.lowkill(run_args['q0']*0.1)
+        
+        data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        #data.blur(1.0) # lowpass
+        #data.blur(0.6) # lowpass
+        #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
+        data.equalize()
+        data.maximize_intensity_spread()
+
+
+
+        if run_args['verbosity']>=4:
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('processed', output_dir, ext='.jpg', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
+            
+        data.threshold(run_args['threshold'], run_args['invert'])
+        
+        if run_args['verbosity']>=4:
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('thresholded', output_dir, ext='.png', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
+            
+            
+        # Identify particles positions
+        if 'diagonal_detection' in run_args and run_args['diagonal_detection']:
+            #s = [[1,1,1],
+            #    [1,1,1],
+            #    [1,1,1]]
+            s = ndimage.generate_binary_structure(2,2)
+        else:
+            s = [[0,1,0],
+                [1,1,1],
+                [0,1,0]]
+        
+        labeled_array, num_features = ndimage.measurements.label(data.data, structure=s)
+        num_objects = num_features
+        
+        # Remove objects outside of size cutoffs
+        bins = np.bincount(labeled_array.flatten('C'))
+        bins = bins[1:] # Remove the 'surrounding field' (index 0)
+        if 'area_min' in run_args:
+            cutoff = run_args['area_min']/(data.x_scale*data.y_scale) # pix^2
+            idx = np.where(bins<cutoff)[0]
+            for object_index in idx:
+                labeled_array[labeled_array==(object_index+1)] = 0
+                
+            #num_objects -= len(idx)
+            
+            # Update labeled_array
+            labeled_array, num_features = ndimage.measurements.label(labeled_array, structure=s)
+            num_objects = num_features
+            
+
+        # TODO:
+        #if 'area_max' in run_args:
+        
+        
+        
+        results['num_particles'] = num_objects
+            
+
+        # Determine (x,y) position of each particle (center-of-mass of each particle)
+        x_positions = np.zeros( (num_features) )
+        y_positions = np.zeros( (num_features) )
+        counts = np.zeros( (num_features) )
+        for ix in range( len(labeled_array[0]) ):
+            for iy in range( len(labeled_array) ):
+                if labeled_array[iy,ix]!=0:
+                    object_index = labeled_array[iy,ix] - 1
+                    
+                    x_positions[object_index] +=  1.0*ix
+                    y_positions[object_index] +=  1.0*iy
+                    counts[object_index] +=  1.0  
+                    
+        x_positions /= counts
+        y_positions /= counts
+
+
+
+        
+        idx = np.where( np.nan_to_num(counts)>0 )[0]
+        if(num_objects!=len(idx)):
+            print('WARNING: disagreement in particle count.')
+            print( '    num_features: {:d}, num_objects: {:d}, counts: {:d}'.format(num_features, num_objects, len(idx)) )
+            
+            
+            
+
+        # Compute defect density
+        h, w = data.data.shape
+        im_area = (w*data.x_scale)*(h*data.y_scale)*1e-6 # um^2
+        
+        # Number of particles expected in perfect case
+        L0 = 2*np.pi/run_args['q0']
+        num_perfect = h*data.y_scale/(L0)
+        
+        results['number_defects'] = int(max(num_objects - num_perfect, 0))
+        results['defect_density'] = { 'value': results['number_defects']/im_area, 'units': 'um^-2'}
+        if run_args['verbosity']>=2:
+            print("  {:d} (non-edge) defects / {:.2f} um^2 = ".format(results['number_defects'], im_area))
+            print("  {:.4g} defects/um^2".format(results['defect_density']['value']))
+        
+        
+        
+            
+        if run_args['verbosity']>=5:
+            # Colored image
+            
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
+            
+            color_list = [ (1,0,0), (0,1,0), (0,0,1), (1,1,0), (1,0,1),(0,1,1),(1,1,1),]
+            color_list2 = [ (0.7*c[0], 0.7*c[1], 0.7*c[2]) for c in color_list ]
+            color_list3 = [ (0.5*c[0], 1.0*c[1], 1.0*c[2]) for c in color_list ]
+            color_list4 = [ (1.0*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list ]
+            color_list5 = [ (1.0*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list ]
+            color_list6 = [ (1.0*c[0], 0.7*c[1], 0.5*c[2]) for c in color_list ]
+            color_list7 = [ (1.0*c[0], 0.5*c[1], 0.7*c[2]) for c in color_list ]
+            color_list8 = [ (0.7*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list ]
+            color_list9 = [ (0.5*c[0], 1.0*c[1], 0.7*c[2]) for c in color_list ]
+            color_list10 = [ (0.7*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list ]
+            color_list11 = [ (0.5*c[0], 0.7*c[1], 1.0*c[2]) for c in color_list ]
+            color_list = color_list + color_list2 + color_list3 + color_list4 + color_list5 + color_list6 + color_list7 + color_list8 + color_list9 + color_list10 + color_list11
+            
+            h, w = data.data.shape
+            for ix in range(w):
+                for iy in range(h):
+                    object_index = labeled_array[iy,ix]
+                    if object_index==0:
+                        c = (0, 0, 0)
+                    else:
+                        c = color_list[ object_index%len(color_list) ]
+                        c = ( int(c[0]*255), int(c[1]*255), int(c[2]*255) )
+                    pix[ix,iy] = c            
+            
+            
+            outfile = self.get_outfile('colored', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+            
+        
+        if run_args['verbosity']>=5:
+            # Boundary image
+            
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
+            
+            c = ( 1*255, 0*255, 0*255 )
+            h, w = data.data.shape
+            for ix in range(w-1):
+                for iy in range(h-1):
+                    
+                    num_zeros = np.bincount( labeled_array[iy:iy+2,ix:ix+2].flatten() )[0]
+                    if not (num_zeros==0 or num_zeros==4):
+                        pix[ix,iy] = c            
+            
+            # Put a dot at center-of-mass (COM) of each object
+            c = ( 0*255, 1*255, 0*255 )
+            for object_index in range(len(counts)):
+                #if counts[object_index]>0:
+                ix = int(x_positions[object_index])
+                iy = int(y_positions[object_index])
+                pix[ix,iy] = c
+
+            outfile = self.get_outfile('boundaries', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+
+
+
+
+        
+        
+        # Statistics on particles that have been found
+        bins = np.bincount(labeled_array.flatten('C'))
+        h, w = data.data.shape
+        total_pixels = w*h
+        background_pixels = bins[0]
+        particle_pixels = total_pixels - background_pixels
+        coverage = particle_pixels*1./(total_pixels*1.)
+        results['coverage'] = coverage
+        if run_args['verbosity']>=4:
+            print('    Particle coverage: {:.1f}%'.format(coverage*100.))
+        
+        
+        # Remove 'particles' of zero size
+        idx = np.nonzero(bins)
+        bins = bins[idx]
+        # Remove the 'surrounding field' (index 0)
+        bins = bins[1:]
+        
+        # Convert to physical sizes
+        particle_sizes = bins*data.x_scale*data.y_scale # nm^2
+        
+        if 'area_min' in run_args:
+            particle_sizes = particle_sizes[particle_sizes>run_args['area_min']]
+        if 'area_max' in run_args:
+            particle_sizes = particle_sizes[particle_sizes<run_args['area_max']]
+        
+        
+        particle_radii = np.sqrt(particle_sizes/np.pi) # nm
+        
+        if 'radius_min' in run_args:
+            particle_radii = particle_radii[particle_radii>run_args['radius_min']]
+        if 'radius_max' in run_args:
+            particle_radii = particle_radii[particle_radii<run_args['radius_max']]
+
+        particle_sizes = np.pi*np.square(particle_radii)
+        
+        results['area_average'] = np.average(particle_sizes)
+        results['area_std'] = np.std(particle_sizes)
+        results['area_median'] = np.median(particle_sizes)
+        
+        results['radius_average'] = np.average(particle_radii)
+        results['radius_std'] = np.std(particle_radii)
+        results['radius_median'] = np.median(particle_radii)
+        
+        
+        
+        if run_args['verbosity']>=4:
+            
+            new_results = self.plot_particle_histograms(particle_radii, particle_sizes, output_dir, results, **run_args)
+            results.update(new_results)
+            
+            
+            
+            
+        return results

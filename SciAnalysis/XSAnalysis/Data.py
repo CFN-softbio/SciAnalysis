@@ -93,10 +93,11 @@ class Data2DScattering(Data2D):
             
         else:
             super(Data2DScattering, self).load(infile=infile, format=format, **kwargs)
-                  
-        if self.mask is not None:
-            #self.name = tools.Filename(infile).get_filebase()
-            self.data *= self.mask.data
+
+
+        # Masking is now applied in the Processor's load method
+        #if self.mask is not None:
+            #self.data *= self.mask.data
             
             
     def load_eiger(self, infile, frame='all'):
@@ -209,10 +210,15 @@ class Data2DScattering(Data2D):
         self.data[self.data>threshold] = new_value
         
         
-    def crop(self, size):
+    def crop(self, size, shift_crop_up=0.0):
         '''Crop the data, centered about the q-origin. I.e. this throws away 
         some of the high-q information. The size specifies the size of the new
-        image (as a fraction of the original full image width).'''
+        image (as a fraction of the original full image width).
+        
+        shift_crop_up forces the crop to be off-center in the vertical (e.g. a
+        value of 1.0 will shift it up so the q-origin is at the bottom of the
+        image, which is nice for GISAXS).'''
+        
         
         height, width = self.data.shape
         #self.data = self.data[ 0:height, 0:width ] # All the data
@@ -220,8 +226,9 @@ class Data2DScattering(Data2D):
         x0, y0 = self.get_origin()
         xi = max( int(x0 - size*width/2), 0 )
         xf = min( int(x0 + size*width/2), width )
-        yi = max( int(y0 - size*height/2), 0 )
-        yf = min( int(y0 + size*height/2), height )
+        yi = max( int(y0 - size*height*(0.5+0.5*shift_crop_up) ), 0 )
+        yf = min( int(y0 + size*height*(0.5-0.5*shift_crop_up) ), height )
+        
         
         self.data = self.data[ yi:yf, xi:xf ]
         
@@ -604,6 +611,134 @@ class Data2DScattering(Data2D):
         # numpy.histogram
         # scipy.ndimage.measurements.histogram
         
+        
+    def linecut_angle(self, q0, dq, x_label='angle', x_rlabel='$\chi \, (^{\circ})$', y_label='I', y_rlabel=r'$I (\chi) \, (\mathrm{counts/pixel})$', **kwargs):
+        '''Returns the intensity integrated along a ring of constant q.'''
+        
+        if self.mask is None:
+            mask = np.ones(self.data.shape)
+        else:
+            mask = self.mask.data
+        
+        
+        data = self.data.ravel()
+        pixel_list = np.where( (abs(self.calibration.q_map().ravel()-q0)<dq) & (mask.ravel()==1) )
+        
+
+        if 'show_region' in kwargs and kwargs['show_region']:
+            region = np.ma.masked_where(abs(self.calibration.q_map()-q0)>dq, self.calibration.angle_map())
+            self.regions = [region]
+
+        #Q = self.calibration.q_map().ravel()
+        dq = self.calibration.get_q_per_pixel()
+        
+        # Generate map
+        M = self.calibration.angle_map().ravel()
+        scale = np.degrees( np.abs(np.arctan(1.0/(q0/dq))) ) # approximately 1-pixel
+        
+        Md = (M/scale + 0.5).astype(int) # Simplify the distances to closest integers
+        Md -= np.min(Md)
+        
+        num_per_m = np.bincount(Md[pixel_list])
+        idx = np.where(num_per_m!=0) # distances that actually have data
+        
+        x_vals = np.bincount( Md[pixel_list], weights=M[pixel_list] )[idx]/num_per_m[idx]
+        I_vals = np.bincount( Md[pixel_list], weights=data[pixel_list] )[idx]/num_per_m[idx]
+        
+        line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
+        
+        return line         
+    
+    
+    def linecut_qr(self, qz, dq, x_label='qr', x_rlabel='$q_r \, (\mathrm{\AA}^{-1})$', y_label='I', y_rlabel=r'$I (q_r) \, (\mathrm{counts/pixel})$', **kwargs):
+        '''Returns the intensity integrated along a line of constant qz.'''
+
+        if self.mask is None:
+            mask = np.ones(self.data.shape)
+        else:
+            mask = self.mask.data
+
+        data = self.data.ravel()
+        pixel_list = np.where( (abs(self.calibration.qz_map().ravel()-qz)<dq) & (mask.ravel()==1) )
+
+
+        if 'show_region' in kwargs and kwargs['show_region']:
+            region = np.ma.masked_where(abs(self.calibration.qz_map()-qz)>dq, self.calibration.qr_map())
+            self.regions = [region]
+
+        #Q = self.calibration.q_map().ravel()
+        dq = self.calibration.get_q_per_pixel()
+
+        # Generate map
+        M = self.calibration.qr_map().ravel()
+        scale = dq # approximately 1-pixel
+
+        Md = (M/scale + 0.5).astype(int) # Simplify the distances to closest integers
+        Md -= np.min(Md)
+
+        num_per_m = np.bincount(Md[pixel_list])
+        idx = np.where(num_per_m!=0) # distances that actually have data
+
+        x_vals = np.bincount( Md[pixel_list], weights=M[pixel_list] )[idx]/num_per_m[idx]
+        I_vals = np.bincount( Md[pixel_list], weights=data[pixel_list] )[idx]/num_per_m[idx]
+
+        line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
+
+        return line
+
+
+    def linecut_qz(self, qr, dq, x_label='qz', x_rlabel='$q_z \, (\mathrm{\AA}^{-1})$', y_label='I', y_rlabel=r'$I (q_z) \, (\mathrm{counts/pixel})$', q_mode='qr', **kwargs):
+        '''Returns the intensity integrated along a line of constant qr.'''
+
+        if self.mask is None:
+            mask = np.ones(self.data.shape)
+        else:
+            mask = self.mask.data
+
+        data = self.data.ravel()
+        
+        if q_mode=='qr':
+            pixel_list = np.where( (abs(self.calibration.qr_map().ravel()-qr)<dq) & (mask.ravel()==1) )
+        elif q_mode=='qx':
+            pixel_list = np.where( (abs(self.calibration.qx_map().ravel()-qr)<dq) & (mask.ravel()==1) )
+        else:
+            print('ERROR: q_mode {} not recognized in linecut_qz.'.format(q_mode))
+
+
+        if 'show_region' in kwargs and kwargs['show_region']:
+            
+            if q_mode=='qr':
+                map_use = self.calibration.qr_map()
+            elif q_mode=='qx':
+                map_use = self.calibration.qx_map()
+            else:
+                print('ERROR: q_mode {} not recognized in linecut_qz.'.format(q_mode))
+            
+            
+            region = np.ma.masked_where(abs(map_use-qr)>dq, self.calibration.qz_map())
+            self.regions = [region]
+
+        #Q = self.calibration.q_map().ravel()
+        dq = self.calibration.get_q_per_pixel()
+
+        # Generate map
+        M = self.calibration.qz_map().ravel()
+        scale = dq # approximately 1-pixel
+
+        Md = (M/scale + 0.5).astype(int) # Simplify the distances to closest integers
+        Md -= np.min(Md)
+
+        num_per_m = np.bincount(Md[pixel_list])
+        idx = np.where(num_per_m!=0) # distances that actually have data
+
+        x_vals = np.bincount( Md[pixel_list], weights=M[pixel_list] )[idx]/num_per_m[idx]
+        I_vals = np.bincount( Md[pixel_list], weights=data[pixel_list] )[idx]/num_per_m[idx]
+
+        line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
+
+        return line
+
+        
     def linecut_q(self, chi0, dq, x_label='q', x_rlabel='$q \, (\mathrm{\AA}^{-1})$', y_label='I', y_rlabel=r'$I (q) \, (\mathrm{counts/pixel})$', **kwargs):
         '''Returns the intensity integrated along a radial line with linewidth = 2 * dq.'''
         
@@ -615,7 +750,7 @@ class Data2DScattering(Data2D):
         
         data = self.data.ravel()
         
-#        QR = self.calibration.qr_map()
+        #QR = self.calibration.qr_map()
         QX = self.calibration.qx_map()
         QZ = self.calibration.qz_map()
 
@@ -663,119 +798,8 @@ class Data2DScattering(Data2D):
         line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
         
         return line
-
-    def linecut_angle(self, q0, dq, x_label='angle', x_rlabel='$\chi \, (^{\circ})$', y_label='I', y_rlabel=r'$I (\chi) \, (\mathrm{counts/pixel})$', **kwargs):
-        '''Returns the intensity integrated along a ring of constant q.'''
-        
-        if self.mask is None:
-            mask = np.ones(self.data.shape)
-        else:
-            mask = self.mask.data
-        
-        
-        data = self.data.ravel()
-        pixel_list = np.where( (abs(self.calibration.q_map().ravel()-q0)<dq) & (mask.ravel()==1) )
-        
-
-        if 'show_region' in kwargs and kwargs['show_region']:
-            region = np.ma.masked_where(abs(self.calibration.q_map()-q0)>dq, self.calibration.angle_map())
-            self.regions = [region]
-
-        #Q = self.calibration.q_map().ravel()
-        dq = self.calibration.get_q_per_pixel()
-        
-        # Generate map
-        M = self.calibration.angle_map().ravel()
-        scale = np.degrees( np.abs(np.arctan(1.0/(q0/dq))) ) # approximately 1-pixel
-        
-        Md = (M/scale + 0.5).astype(int) # Simplify the distances to closest integers
-        Md -= np.min(Md)
-        
-        num_per_m = np.bincount(Md[pixel_list])
-        idx = np.where(num_per_m!=0) # distances that actually have data
-        
-        x_vals = np.bincount( Md[pixel_list], weights=M[pixel_list] )[idx]/num_per_m[idx]
-        I_vals = np.bincount( Md[pixel_list], weights=data[pixel_list] )[idx]/num_per_m[idx]
-        
-        line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
-        
-        return line         
     
     
-    def linecut_qr(self, qz, dq, x_label='qr', x_rlabel='$q_r \, (\mathrm{\AA}^{-1})$', y_label='I', y_rlabel=r'$I (q_r) \, (\mathrm{counts/pixel})$', **kwargs):
-        '''Returns the intensity integrated along a ring of constant q.'''
-
-        if self.mask is None:
-            mask = np.ones(self.data.shape)
-        else:
-            mask = self.mask.data
-
-        data = self.data.ravel()
-        pixel_list = np.where( (abs(self.calibration.qz_map().ravel()-qz)<dq) & (mask.ravel()==1) )
-
-
-        if 'show_region' in kwargs and kwargs['show_region']:
-            region = np.ma.masked_where(abs(self.calibration.qz_map()-qz)>dq, self.calibration.qr_map())
-            self.regions = [region]
-
-        #Q = self.calibration.q_map().ravel()
-        dq = self.calibration.get_q_per_pixel()
-
-        # Generate map
-        M = self.calibration.qr_map().ravel()
-        scale = dq # approximately 1-pixel
-
-        Md = (M/scale + 0.5).astype(int) # Simplify the distances to closest integers
-        Md -= np.min(Md)
-
-        num_per_m = np.bincount(Md[pixel_list])
-        idx = np.where(num_per_m!=0) # distances that actually have data
-
-        x_vals = np.bincount( Md[pixel_list], weights=M[pixel_list] )[idx]/num_per_m[idx]
-        I_vals = np.bincount( Md[pixel_list], weights=data[pixel_list] )[idx]/num_per_m[idx]
-
-        line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
-
-        return line
-
-
-    def linecut_qz(self, qr, dq, x_label='qz', x_rlabel='$q_z \, (\mathrm{\AA}^{-1})$', y_label='I', y_rlabel=r'$I (q_z) \, (\mathrm{counts/pixel})$', **kwargs):
-        '''Returns the intensity integrated along a ring of constant q.'''
-
-        if self.mask is None:
-            mask = np.ones(self.data.shape)
-        else:
-            mask = self.mask.data
-
-        data = self.data.ravel()
-        pixel_list = np.where( (abs(self.calibration.qr_map().ravel()-qr)<dq) & (mask.ravel()==1) )
-
-
-        if 'show_region' in kwargs and kwargs['show_region']:
-            region = np.ma.masked_where(abs(self.calibration.qr_map()-qr)>dq, self.calibration.qz_map())
-            self.regions = [region]
-
-        #Q = self.calibration.q_map().ravel()
-        dq = self.calibration.get_q_per_pixel()
-
-        # Generate map
-        M = self.calibration.qz_map().ravel()
-        scale = dq # approximately 1-pixel
-
-        Md = (M/scale + 0.5).astype(int) # Simplify the distances to closest integers
-        Md -= np.min(Md)
-
-        num_per_m = np.bincount(Md[pixel_list])
-        idx = np.where(num_per_m!=0) # distances that actually have data
-
-        x_vals = np.bincount( Md[pixel_list], weights=M[pixel_list] )[idx]/num_per_m[idx]
-        I_vals = np.bincount( Md[pixel_list], weights=data[pixel_list] )[idx]/num_per_m[idx]
-
-        line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
-
-        return line
-
-        
         
     # Data remeshing
     ########################################
@@ -929,6 +953,33 @@ class Data2DScattering(Data2D):
         
         return q_phi_data
 
+
+
+    def remesh_q_bin_explicit(self, qx_min, qx_max, num_qx, qz_min, qz_max, num_qz, **kwargs):
+        '''Converts the data from detector-space into reciprocal-space.
+        
+        This version allows explicit control of the remesh matrix, and returns
+        the corresponding mask. (This can be useful, e.g. for stitching/tiling 
+        images together into a combined/total reciprocal-space).'''
+        
+        
+        
+        pixel_list = np.where( self.mask.data.ravel()==1 ) # Only consider non-masked pixels
+        
+        QZ = self.calibration.qz_map().ravel()[pixel_list]
+        QX = self.calibration.qx_map().ravel()[pixel_list]
+        D = self.data.ravel()[pixel_list]
+
+        bins = [num_qz, num_qx]
+        range = [ [qz_min,qz_max], [qx_min,qx_max] ]
+        
+        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, normed=False, weights=D)
+
+        # Normalize by the binning
+        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, normed=False, weights=None)
+        #remesh_data = np.nan_to_num( remesh_data/num_per_bin )
+        
+        return remesh_data, num_per_bin
         
         
     # Plotting
@@ -1072,6 +1123,8 @@ class Calibration(object):
         self.distance_m = distance_m
         self.pixel_size_um = pixel_size_um
         
+        self.sample_normal = None
+        
         
         # Data structures will be generated as needed
         # (and preserved to speedup repeated calculations)
@@ -1183,6 +1236,23 @@ class Calibration(object):
         
         return self.q_per_pixel
     
+    def set_angles(self, sample_normal=0):
+        self.sample_normal = sample_normal
+    
+    
+    # Convenience methods
+    ########################################
+    def q_to_angle(self, q):
+        '''Convert from q to angle (full scattering angle, 2theta, in degrees).'''
+        kpre = 2.0*self.get_k()
+        return np.degrees( 2.0*np.arcsin(q/kpre) )
+    
+    def angle_to_q(self, angle):
+        '''Convert from scattering angle (full scattering angle, in degrees)
+        to q-value (in inverse angstroms).'''
+        kpre = 2.0*self.get_k()
+        return kpre*np.sin(np.radians(angle/2))    
+    
     
     # Maps
     ########################################
@@ -1252,6 +1322,10 @@ class Calibration(object):
 
         
         self.angle_map_data = M
+
+        if self.sample_normal is not None:
+            self.angle_map_data += self.sample_normal
+        
         
         return self.angle_map_data
     
@@ -1310,6 +1384,11 @@ class Calibration(object):
         self.qx_map_data = self.get_k()*np.sin(theta_f)*np.cos(alpha_f)
         self.qy_map_data = self.get_k()*( np.cos(theta_f)*np.cos(alpha_f) - 1 ) # TODO: Check sign
         self.qz_map_data = -1.0*self.get_k()*np.sin(alpha_f)
+
+        if self.sample_normal is not None:
+            s = np.sin(np.radians(self.sample_normal))
+            c = np.cos(np.radians(self.sample_normal))
+            self.qx_map_data, self.qz_map_data = c*self.qx_map_data - s*self.qz_map_data, s*self.qx_map_data + c*self.qz_map_data
         
         self.qr_map_data = np.sign(self.qx_map_data)*np.sqrt(np.square(self.qx_map_data) + np.square(self.qy_map_data))
 
@@ -1320,7 +1399,7 @@ class Calibration(object):
     ########################################
     
     
-    
+
     
     
 # Data2DReciprocal
@@ -1376,7 +1455,7 @@ class Data2DReciprocal(Data2D):
         
     def _plot_extra(self, **plot_args):
         self.ax.get_yaxis().set_tick_params(which='both', direction='out')
-        self.ax.get_xaxis().set_tick_params(which='both', direction='out')        
+        self.ax.get_xaxis().set_tick_params(which='both', direction='out')       
         
     def _format_coord(self, x, y):
         
