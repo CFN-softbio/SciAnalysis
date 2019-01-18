@@ -76,6 +76,27 @@ def get_filematch_s(pattern):
     return infiles
 
 # =============================================================================
+# Given x y position, find the file
+# =============================================================================
+def find_file(xf, yf, feature_args):
+    filename = feature_args['filename']
+    feature_id = feature_args['feature_id']
+    if feature_id == 1:
+        kwargs = feature_args['feature_1_args']
+    elif feature_id == 2:
+        kwargs = feature_args['feature_2_args']
+    elif feature_id == 3:
+        kwargs = feature_args['feature_3_args']
+    source_dir = kwargs['source_dir']
+    
+    n = filename.find('*') # assume before this is the sample name
+    temp = '*x{:.2f}*_y{:.2f}*'.format(xf, yf) # ignoring decimal position 3
+    temp = filename[0:n-1]+temp # ignore char filename[n]
+    pattern = os.path.join(source_dir, temp) 
+    infiles = get_filematch_s(pattern)
+    return infiles
+
+# =============================================================================
 #
 # Define features! 
 #
@@ -178,6 +199,8 @@ def get_map(infiles, match_re, feature_args):
             val = get_feature(infile, feature_args)
             feature.append(val)
     #print('Done mapping')
+    feature_args.update(val_stat=[np.min(feature), np.max(feature)])
+    
     return scans, x_pos, y_pos, feature
     
     

@@ -43,7 +43,7 @@ feature_3_args = {'source_dir' : '../linecut_angle/',
 feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args)
 
 ########## Feature map
-for idx in [1,2]:
+for idx in [1, 2, 3]:
     feature_args.update(feature_id=idx); 
     
     ## Find matching files
@@ -51,7 +51,6 @@ for idx in [1,2]:
     
     ## Get map
     scans, x_pos, y_pos, feature = get_map(infiles, match_re, feature_args) 
-    feature_args.update(val_stat=[np.min(feature), np.max(feature)])
     
     ## Plot map
     fig = plt.figure(100+feature_args['feature_id'], figsize=[15,5]); plt.clf()
@@ -64,6 +63,5 @@ for idx in [1,2]:
     ax2 = plt.subplot2grid((1, 5), (0, 0), colspan=2); ax2.cla()
     cmap = plt.get_cmap('magma');  feature_args.update(cmap=cmap)
     plot_data(infiles[0], feature_args)
-
 
 
