@@ -50,7 +50,7 @@ for idx in [1,2]:
     infiles, match_re = get_filematch(feature_args)  
     
     ## Get map
-    x_pos, y_pos, feature = get_map(infiles, match_re, feature_args) 
+    scans, x_pos, y_pos, feature = get_map(infiles, match_re, feature_args) 
     feature_args.update(val_stat=[np.min(feature), np.max(feature)])
     
     ## Plot map

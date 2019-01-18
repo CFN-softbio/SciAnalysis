@@ -20,6 +20,7 @@ from skimage import io
 
 # =============================================================================
 # Load data from .dat 
+# - Extract columns col[0] and col[1]
 # =============================================================================   
 def extract_data(filename, col):
     infile = open(filename, 'r')
@@ -35,6 +36,8 @@ def extract_data(filename, col):
 
 # =============================================================================
 # Get files with matching dir, filename, ext
+# - Depending on feature_id, it loads the corresponding args and files
+# - sort: scan number (better implementation?)
 # ============================================================================= 
 def get_filematch(feature_args):
     filename = feature_args['filename']    
@@ -53,7 +56,9 @@ def get_filematch(feature_args):
     pattern = filename+'*'+ext
     infiles = glob.glob(os.path.join(source_dir, pattern))
     infiles.sort(key=lambda name: int(name[-15:-9]))  #key=lambda x:float(re.findall("(\d+)",x)[0])
-    parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_SAXS{}$'.format(ext)
+    
+    #parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_SAXS{}$'.format(ext)
+    parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_SAXS{}$'.format(ext)
     match_re = re.compile(parse_re)    
     if verbose>0:
         print(pattern)
@@ -143,6 +148,7 @@ def get_idx_q(q, target):
 # Fill the map: coordinates x, y, and the feature
 # =============================================================================
 def get_map(infiles, match_re, feature_args):
+    scans = []
     x_pos = []
     y_pos = []
     feature = []
@@ -154,14 +160,15 @@ def get_map(infiles, match_re, feature_args):
         if m!=None:
             x = float(m.groups()[0]) 
             y = float(m.groups()[1]) # note: y is sometimes off by 0.5um because filename has only 3 decimal
-
+            scan = int(m.groups()[2]) # scan number
             x_pos.append(x)
             y_pos.append(y)
+            scans.append(scan)
     
             val = get_feature(infile, feature_args)
             feature.append(val)
     #print('Done mapping')
-    return x_pos, y_pos, feature
+    return scans, x_pos, y_pos, feature
     
     
 # =============================================================================
