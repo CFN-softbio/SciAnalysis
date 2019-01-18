@@ -66,6 +66,16 @@ def get_filematch(feature_args):
     return infiles, match_re
 
 # =============================================================================
+# Get files with matching pattern
+# ============================================================================= 
+def get_filematch_s(pattern):
+    infiles = glob.glob(pattern)
+    infiles.sort()  
+    parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)$'
+    match_re = re.compile(parse_re)      
+    return infiles
+
+# =============================================================================
 #
 # Define features! 
 #
