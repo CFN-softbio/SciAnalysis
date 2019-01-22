@@ -90,7 +90,7 @@ def find_file(xf, yf, feature_args):
     source_dir = kwargs['source_dir']
     
     n = filename.find('*') # assume before this is the sample name
-    temp = '*x{:.2f}*_y{:.2f}*'.format(xf, yf) # ignoring decimal position 3
+    temp = '*x{:.3f}*_y{:.3f}*'.format(xf, yf) 
     temp = filename[0:n-1]+temp # ignore char filename[n]
     pattern = os.path.join(source_dir, temp) 
     infiles = get_filematch_s(pattern)
