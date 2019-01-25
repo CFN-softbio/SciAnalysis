@@ -55,7 +55,8 @@ def get_filematch(feature_args):
 
     pattern = filename+'*'+ext
     infiles = glob.glob(os.path.join(source_dir, pattern))
-    infiles.sort(key=lambda name: int(name[-15:-9]))  #key=lambda x:float(re.findall("(\d+)",x)[0])
+    infiles.sort()
+    #infiles.sort(key=lambda name: int(name[-15:-9]))  #key=lambda x:float(re.findall("(\d+)",x)[0])
     
     #parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_SAXS{}$'.format(ext)
     parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_SAXS{}$'.format(ext)
@@ -90,12 +91,31 @@ def find_file(xf, yf, feature_args):
     source_dir = kwargs['source_dir']
     
     n = filename.find('*') # assume before this is the sample name
+    
     temp = '*x{:.3f}*_y{:.3f}*'.format(xf, yf) 
     temp = filename[0:n-1]+temp # ignore char filename[n]
     pattern = os.path.join(source_dir, temp) 
     infiles = get_filematch_s(pattern)
     return infiles
 
+# =============================================================================
+# Given x,y and a list of data positions, find the closest point with data
+# =============================================================================
+def get_closest(pos, post_list):# pos_list is 2 by N
+    r_min = 1e10;
+    for idx, item in enumerate(post_list[0]):
+        x = post_list[0][idx]
+        y = post_list[1][idx]
+        r = calc_distance(pos, [x, y])
+        if r<r_min:
+            r_min = r
+            xf = x; yf = y
+            #idxf = int(idx)
+    return xf, yf
+
+def calc_distance(p0, p1):
+    r =  math.hypot(p0[0]-p1[0], p0[1]-p1[1])
+    return r
 # =============================================================================
 #
 # Define features! 
@@ -118,7 +138,7 @@ def get_feature(infile, feature_args):
         imarray = np.array(im)
         val_list = []
         for idx, pixel in enumerate(pixels):
-            temp_roi = imarray[pixel[1]-3:pixel[1]+3,pixel[0]-3:pixel[0]+3] #TEMP
+            temp_roi = imarray[pixel[1]-1:pixel[1]+1,pixel[0]-1:pixel[0]+1] #TEMP
             temp = np.max(temp_roi)
             if log10: temp = np.log10(temp)
             val_list.extend([temp]) 
@@ -128,6 +148,8 @@ def get_feature(infile, feature_args):
             val = np.max(val_list)
         elif pixels_stat=='var':
             val = np.var(val_list)
+        elif pixels_stat=='diff':
+            val = (val_list[1]-val_list[0])
         else:
             val = val_list[pixels_stat]
         
