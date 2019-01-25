@@ -118,7 +118,8 @@ def get_feature(infile, feature_args):
         imarray = np.array(im)
         val_list = []
         for idx, pixel in enumerate(pixels):
-            temp = imarray[pixel[0],pixel[1]]
+            temp_roi = imarray[pixel[1]-3:pixel[1]+3,pixel[0]-3:pixel[0]+3] #TEMP
+            temp = np.max(temp_roi)
             if log10: temp = np.log10(temp)
             val_list.extend([temp]) 
         if pixels_stat=='mean':
