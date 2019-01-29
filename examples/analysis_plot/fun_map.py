@@ -231,6 +231,7 @@ def get_map(infiles, match_re, feature_args):
 # Plot one data
 # =============================================================================        
 def plot_data(infile, feature_args):
+    log10 = feature_args['log10']
     feature_id = feature_args['feature_id']
     if feature_id == 1:
         kwargs = feature_args['feature_1_args']
@@ -238,13 +239,16 @@ def plot_data(infile, feature_args):
         kwargs = feature_args['feature_2_args']
     elif feature_id == 3:
         kwargs = feature_args['feature_3_args']
+    if 'cmap' in feature_args and feature_args['cmap']:
+        cmap = feature_args['cmap']
+    else:
+        cmap = 'viridis'
+    
     if feature_id == 1:
         pixels = kwargs['pixels']
-        if 'cmap' in kwargs and kwargs['cmap']:
-            cmap = kwargs['cmap']
-        else:
-            cmap = plt.get_cmap('viridis')
         im = color.rgb2gray(io.imread(infile))
+        if log10:
+            im = np.log10(im)
         plt.imshow(im, cmap=cmap)
         plt.colorbar(shrink=0.8, aspect=24)
         for pixel in pixels:
@@ -255,8 +259,8 @@ def plot_data(infile, feature_args):
         q_targets = kwargs['q_targets']
         data_col = kwargs['data_col']
         q, I = extract_data(infile, data_col)
-        I_log10 = np.log10(I)
-        plt.plot(q, I_log10)     
+        I = np.log10(I)
+        plt.plot(q, I)     
         for idx, q_target in enumerate(q_targets):
             plt.plot([q_target, q_target], [-1, 4])
             plt.text(q_target,-1+idx*0.2, '('+str(q_target)+')')
@@ -267,8 +271,8 @@ def plot_data(infile, feature_args):
         data_col = kwargs['data_col']
         angle_targets = kwargs['angle_targets']
         angle, I = extract_data(infile, data_col)
-        I_log10 = np.log10(I)
-        plt.plot(angle, I_log10)     
+        I = np.log10(I)
+        plt.plot(angle, I)     
         if angle_targets =='max':
             i0 = get_idx_q(angle, 5)
             i1 = get_idx_q(angle, 65)
