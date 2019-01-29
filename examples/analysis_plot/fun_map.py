@@ -59,7 +59,15 @@ def get_filematch(feature_args):
     #infiles.sort(key=lambda name: int(name[-15:-9]))  #key=lambda x:float(re.findall("(\d+)",x)[0])
     
     #parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_SAXS{}$'.format(ext)
-    parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_SAXS{}$'.format(ext)
+    if feature_args['map_type']=='xy':
+        parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_SAXS{}$'.format(ext)
+    elif feature_args['map_type']=='xT':
+        parse_re = '^.+_x(-?\d+\.\d+)_T(-?\d+\.\d+)_.+_(\d+)_SAXS{}$'.format(ext)
+    else:
+        print('Specify map type (eg. xy, T)!')
+        match_re = [];
+        return infilles, match_re
+        
     match_re = re.compile(parse_re)    
     if verbose>0:
         print(pattern)
