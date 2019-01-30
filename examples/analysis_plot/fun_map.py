@@ -297,7 +297,8 @@ def plot_data(infile, feature_args):
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         
     plt.title(infile)
- 
+
+    
 # =============================================================================
 # Plot map based on feature
 # =============================================================================       
@@ -358,8 +359,9 @@ def button_callback_incr(counter, feature_args, w):
     
 
 def plot_scan(scan, feature_args):
-    fdim = [2, 1]
-    for idx in [1,2]:
+    N = feature_args['Nf_plot']
+    fdim = [N, 1]
+    for idx in np.arange(1,N+1,1):
         feature_args.update(feature_id=idx); 
         infiles, match_re = get_filematch(feature_args) 
         ax = plt.subplot2grid((fdim[0], fdim[1]), (idx-1, 0), colspan=1); ax.cla() 
