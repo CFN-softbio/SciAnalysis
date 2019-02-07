@@ -1057,6 +1057,25 @@ class Data2D(object):
             self.data = self.data[:-kwargs['crop_bottom'],:]
             
         
+    # Data export
+    ########################################
+    def save_data(self, outfile):
+        '''
+        Save image (2D matrix data) as .npz 
+        including:
+            ['image'] : array, image
+            ['x_axis'] : list, x-axis in q
+            ['y_axis'] : list, y-axis in q
+            ['x_scale'] : float, q on each pixel in x-axis
+            ['y_scale'] : float, q on each pixel in y-axis
+        Parameters
+        ----------
+        image_outfile : str
+            save the data as image_outfile.npz
+        '''
+
+        np.savez(outfile, image=self.data, x_axis=self.x_axis, y_axis=self.y_axis, x_scale=self.x_scale, y_scale=self.y_scale)
+        
         
     # Coordinate methods
     ########################################
