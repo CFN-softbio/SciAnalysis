@@ -931,6 +931,14 @@ class q_image(Protocol):
         q_data.plot(outfile, plot_buffers=[0.30,0.05,0.25,0.05], **run_args)
 
 
+        if 'plot_buffers' not in run_args:
+            run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
+        q_data.plot(outfile, **run_args)
+        
+        if 'save_data' in run_args and run_args['save_data']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)
+        
         
         return results
     
@@ -987,14 +995,261 @@ class qr_image(Protocol):
         q_data.x_label = 'qr'
         q_data.x_rlabel = '$q_r \, (\AA^{-1})$'
 
-        q_data.plot(outfile, plot_buffers=[0.30,0.05,0.25,0.05], **run_args)
+        if 'plot_buffers' not in run_args:
+            run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
+        q_data.plot(outfile, **run_args)
+        
+        if 'save_data' in run_args and run_args['save_data']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)
         
         if image_output==True:
             q_data.save_image(image_outfile)
         
         return results
         
+       
+class q_image_special(q_image):
     
+    def __init__(self, name='q_image_special', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+                        'blur' : None,
+                        'ztrim' : [0.05, 0.005],
+                        'method' : 'nearest',
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if run_args['blur'] is not None:
+            data.blur(run_args['blur'])
+        
+        q_data = data.remesh_q_bin(**run_args)
+        
+        data_hold = data.data
+        data.data = data.mask.data
+        q_mask = data.remesh_q_bin(**run_args)
+        data.data = data_hold
+        
+        if 'file_extension' in run_args and run_args['file_extension'] is not None:
+            outfile = self.get_outfile(data.name, output_dir, ext=run_args['file_extension'])
+        else:
+            outfile = self.get_outfile(data.name, output_dir)
+
+        if 'q_max' in run_args and run_args['q_max'] is not None:
+            q_max = run_args['q_max']
+            run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
+            
+        
+        # Determine incident angle
+        if 'incident_angle' not in run_args:
+            import re
+            filename_re = re.compile('^.+_th(-?\d+)_.+')
+            m = filename_re.match(data.name)
+            if m:
+                run_args['incident_angle'] = float(m.groups()[0])/100.0
+            else:
+                print("ERROR: Couldn't identify theta from filename: {}".format(data.name))
+                run_args['incident_angle'] = 0
+        
+        # Tweak the plotting methods of our q_data object/instance
+        q_data.incident_angle = run_args['incident_angle']
+        q_data.critical_angle = run_args['critical_angle']
+        
+        
+        def _plot(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.1,0.1,0.1,0.1], **kwargs):
+            
+            # Data2D._plot()
+            
+            plot_args = self.plot_args.copy()
+            plot_args.update(kwargs)
+            self.process_plot_args(**plot_args)
+            
+            
+            self.fig = plt.figure( figsize=(size,size), facecolor='white' )
+            left_buf, right_buf, bottom_buf, top_buf = plot_buffers
+            fig_width = 1.0-right_buf-left_buf
+            fig_height = 1.0-top_buf-bottom_buf
+            self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
+            
+            
+            
+            # Set zmin and zmax. Top priority is given to a kwarg to this plot function.
+            # If that is not set, the value set for this object is used. If neither are
+            # specified, a value is auto-selected using ztrim.
+            
+            values = np.sort( self.data.flatten() )
+            if 'zmin' in plot_args and plot_args['zmin'] is not None:
+                zmin = plot_args['zmin']
+            elif self.z_display[0] is not None:
+                zmin = self.z_display[0]
+            else:
+                zmin = values[ +int( len(values)*ztrim[0] ) ]
+                
+            if 'zmax' in plot_args and plot_args['zmax'] is not None:
+                zmax = plot_args['zmax']
+            elif self.z_display[1] is not None:
+                zmax = self.z_display[1]
+            else:
+                idx = -int( len(values)*ztrim[1] )
+                if idx>=0:
+                    idx = -1
+                zmax = values[idx]
+                
+            if zmax==zmin:
+                zmax = max(values)
+                
+            print( '        data: %.1f to %.1f\n        z-scaling: %.1f to %.1f\n' % (np.min(self.data), np.max(self.data), zmin, zmax) )
+            
+            self.z_display[0] = zmin
+            self.z_display[1] = zmax
+            self._plot_z_transform()
+                
+            
+            shading = 'flat'
+            #shading = 'gouraud'
+            
+            if 'cmap' in plot_args:
+                cmap = plot_args['cmap']
+                
+            else:
+                # http://matplotlib.org/examples/color/colormaps_reference.html
+                #cmap = mpl.cm.RdBu
+                #cmap = mpl.cm.RdBu_r
+                #cmap = mpl.cm.hot
+                #cmap = mpl.cm.gist_heat
+                cmap = mpl.cm.jet
+            
+            x_axis, y_axis = self.xy_axes()
+            extent = [x_axis[0], x_axis[-1], y_axis[0], y_axis[-1]]
+            
+            Zm = np.ma.masked_where(q_mask.data < 0.5, self.Z)
+            self.im = plt.imshow(Zm, vmin=0, vmax=1, cmap=cmap, interpolation='nearest', extent=extent, origin='lower')
+            #plt.pcolormesh( self.x_axis, self.y_axis, self.Z, cmap=cmap, vmin=zmin, vmax=zmax, shading=shading )
+            
+            if self.regions is not None:
+                for region in self.regions:
+                    plt.imshow(region, cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75)
+                    #plt.imshow(np.flipud(region), cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75, origin='lower')
+
+            x_label = self.x_rlabel if self.x_rlabel is not None else self.x_label
+            y_label = self.y_rlabel if self.y_rlabel is not None else self.y_label
+            plt.xlabel(x_label)
+            plt.ylabel(y_label)
+            
+            if 'xticks' in kwargs and kwargs['xticks'] is not None:
+                self.ax.set_xticks(kwargs['xticks'])
+            if 'yticks' in kwargs and kwargs['yticks'] is not None:
+                self.ax.set_yticks(kwargs['yticks'])
+            
+            
+            if 'plot_range' in plot_args:
+                plot_range = plot_args['plot_range']
+                # Axis scaling
+                xi, xf, yi, yf = self.ax.axis()
+                if plot_range[0] != None: xi = plot_range[0]
+                if plot_range[1] != None: xf = plot_range[1]
+                if plot_range[2] != None: yi = plot_range[2]
+                if plot_range[3] != None: yf = plot_range[3]
+                self.ax.axis( [xi, xf, yi, yf] )
+            
+            if 'title' in plot_args:
+                #size = plot_args['rcParams']['axes.labelsize']
+                size = plot_args['rcParams']['xtick.labelsize']
+                plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+            
+            self._plot_extra(**plot_args)
+            
+            if save:
+                if 'transparent' not in plot_args:
+                    plot_args['transparent'] = True
+                if 'dpi' in plot_args:
+                    plt.savefig(save, dpi=plot_args['dpi'], transparent=plot_args['transparent'])
+                else:
+                    plt.savefig(save, transparent=plot_args['transparent'])
+            
+            if show:
+                self._plot_interact()
+                plt.show()
+                
+            plt.close(self.fig.number)        
+            
+        
+        def _plot_extra(self, **plot_args):
+            '''This internal function can be over-ridden in order to force additional
+            plotting behavior.'''
+            
+            self.ax.get_yaxis().set_tick_params(which='both', direction='out')
+            self.ax.get_xaxis().set_tick_params(which='both', direction='out')       
+            
+            xi, xf, yi, yf = self.ax.axis()
+            
+            xmin, xmax = 0.5, 1.0
+            
+            # Horizon
+            s = '$\mathrm{H}$'
+            qz = data.calibration.angle_to_q(self.incident_angle)
+            self.ax.axhline(qz, xmin=xmin, xmax=xmax, color='0.5', linewidth=4.0, dashes=[15,15])
+            self.ax.text(xf, qz, s, size=30, color='0.5', horizontalalignment='left', verticalalignment='center')
+            # Specular
+            s = '$\mathrm{R}$'
+            qz = data.calibration.angle_to_q(2.0*self.incident_angle)
+            self.ax.axhline(qz, xmin=xmin, xmax=xmax, color='r', linewidth=4.0)
+            self.ax.text(xf, qz, s, size=30, color='r', horizontalalignment='left', verticalalignment='center')
+            # Yoneda
+            s = '$\mathrm{Y}$'
+            qz = data.calibration.angle_to_q(self.incident_angle+self.critical_angle)
+            self.ax.axhline(qz, xmin=xmin, xmax=xmax, color='#bfbf00', linewidth=4.0)
+            self.ax.text(xf, qz, s, size=30, color='#bfbf00', horizontalalignment='left', verticalalignment='center')
+            # Transmitted beam
+            s = '$\mathrm{T}$'
+            if self.incident_angle < self.critical_angle:
+                qz = data.calibration.angle_to_q(self.incident_angle)
+            else:
+                numerator = np.cos(np.radians(self.incident_angle))
+                denominator = np.cos(np.radians(self.critical_angle))
+                alpha_incident = np.degrees(np.arccos(numerator/denominator))
+                qz = data.calibration.angle_to_q(self.incident_angle - alpha_incident)
+            self.ax.axhline(qz, xmin=xmin, xmax=xmax, color='#5555ff', linewidth=4.0)
+            self.ax.text(xf, qz, s, size=30, color='#0000ff', horizontalalignment='left', verticalalignment='center')
+                
+            
+                                 
+            
+        import types
+        q_data._plot = types.MethodType(_plot, q_data)
+        q_data._plot_extra = types.MethodType(_plot_extra, q_data)
+    
+    
+        q_data.set_z_display([None, None, 'gamma', 0.3])
+        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
+                                    'xtick.labelsize': 40,
+                                    'ytick.labelsize': 40,
+                                    'xtick.major.pad': 10,
+                                    'ytick.major.pad': 10,
+                                    },
+                            } 
+
+        if 'plot_buffers' not in run_args:
+            run_args['plot_buffers'] = [0.30,0.08,0.25,0.05]
+        q_data.plot(outfile, **run_args)
+        
+        
+        if 'save_data' in run_args and run_args['save_data']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)
+        
+        
+        return results
+            
     
 class q_phi_image(Protocol):
     
@@ -1010,6 +1265,7 @@ class q_phi_image(Protocol):
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
                         'yticks' : [-180, -90, 0, 90, 180],
+                        'save_data_pickle': True,
                         }
         self.run_args.update(kwargs)
         
@@ -1040,7 +1296,7 @@ class q_phi_image(Protocol):
                             } 
         q_data.plot(outfile, plot_buffers=[0.20,0.05,0.20,0.05], **run_args)
         
-        if True:
+        if 'save_data_pickle' in run_args and run_args['save_data_pickle']:
             # Save Data2DQPhi() object
             import pickle
             outfile = self.get_outfile(data.name, output_dir, ext='.pkl')
@@ -1048,8 +1304,6 @@ class q_phi_image(Protocol):
                 out_data = q_data.data, q_data.x_axis, q_data.y_axis
                 pickle.dump(out_data, fout)
             
-        
-        
         
         return results
 

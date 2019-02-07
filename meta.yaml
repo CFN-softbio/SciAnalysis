@@ -1,4 +1,4 @@
-{% set version = "0.0.1" %}
+{% set version = "1.0.0" %}
 
 package:
     name: scianalysis
@@ -25,6 +25,7 @@ requirements:
         - scipy
         - lxml
         - pillow
+        - lmfit
 
 about:
     home: https://github.com/CFN-SoftBio/SciAnalysis

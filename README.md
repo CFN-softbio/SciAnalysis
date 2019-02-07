@@ -1,4 +1,4 @@
-# SciAnalysis for CMS pipeline.
+# SciAnalysis
 
 ## Author : Kevin G. Yager
 ## Ported to git by : Julien Lhermitte
@@ -14,7 +14,3 @@ INSTALL:
 
  * python setup.py develop
 
-TODO:
-
- * current tests are not unit tests. Meant only for debugging
- * add databroker interface to all functions
