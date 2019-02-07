@@ -4,6 +4,7 @@
 ## Ported to git by : Julien Lhermitte
 ## Contributors: Ruipeng Li, Esther Tsai
 
+
 SciAnalysis is a set of Python scripts for batch processing of image data,
 including x-ray scattering detector images. The code was written primarily by
 Kevin Yager.
