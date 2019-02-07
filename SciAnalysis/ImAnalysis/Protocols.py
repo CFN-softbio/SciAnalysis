@@ -30,8 +30,27 @@ class ProcessorIm(Processor):
     
     def load(self, infile, **kwargs):
 
+        if 'load_param_file' in kwargs and kwargs['load_param_file']:
+            # Load information about the image from the corresponding parameter file
+            # For the Hitachi SEM, this is a txt file with the same name
+            
+            import re
+            match_re = re.compile('^PixelSize=(\d+\.\d+)$')
+            
+            with open(infile[:-4]+'.txt') as fin:
+                for line in fin.readlines():
+                    m = match_re.match(line)
+                    if m:
+                        kwargs['scale'] = float(m.groups()[0])
+            
+
         data = Data2DImage(infile, **kwargs)
         data.infile = infile
+        
+        if 'crop_edges' in kwargs:
+            left, right, bottom, top = kwargs['crop_edges']
+            data.crop_edges(left=left, right=right, bottom=bottom, top=top, relative=False)
+
         
         return data
         
@@ -162,7 +181,7 @@ class fft(Protocol):
             outfile = self.get_outfile('fft_zoom', output_dir, ext='.png', ir=True)
             x_axis, y_axis = data_fft.xy_axes()
             q_max = np.max(x_axis)*0.25
-            data_fft.plot(save=outfile, ztrim=[0.5,0.001], plot_range=[-q_max,+q_max,-q_max,+q_max], blur=run_args['blur'])
+            data_fft.plot(save=outfile, ztrim=[0.5,0.0001], plot_range=[-q_max,+q_max,-q_max,+q_max], blur=run_args['blur'])
             if run_args['verbosity']>=4:
                 outfile = self.get_outfile('fft_zoom_blur', output_dir, ext='.png', ir=True)
                 data_fft.plot(save=outfile, ztrim=[0.5,0.001], plot_range=[-q_max,+q_max,-q_max,+q_max], blur=1.0,)
@@ -348,6 +367,11 @@ class fft(Protocol):
             outfile = self.get_outfile('fft_1d_peak', output_dir, ext='.png', ir=True)
             plot_range = [0, np.max(sub_line.x)*1.2, 0, None]
             lines = DataLines_current([sub_line, fit_line, fit_line_extended])
+            lines.x_label = line.x_label
+            lines.x_rlabel = line.x_rlabel
+            lines.y_label = line.y_label
+            lines.y_rlabel = line.y_rlabel
+            
             lines.plot(save=outfile, ylog=False, plot_range=plot_range)                
         
         lines = DataLines_current([line, fit_line, fit_line_extended])        
@@ -376,7 +400,7 @@ class fft(Protocol):
         
         params = lmfit.Parameters()
         params.add('prefactor', value=np.max(line.y), min=0)
-        params.add('x_center', value=np.average(line.x))
+        params.add('x_center', value=np.average(line.x), min=0)
         params.add('sigma', value=np.std(line.x), min=0)
         params.add('m', value=0)
         params.add('b', value=0)
@@ -1030,20 +1054,38 @@ class grain_size_hex(Protocol):
 
         
         # Pre-process
-        #data.equalize()
-        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-        for i in range(2):
-            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-        #data.lowkill(run_args['q0']*0.1)
         
-        data.blur(2.0) # lowpass
-        data.blur(2.0) # lowpass
-        #data.blur(1.0) # lowpass
-        #data.blur(0.6) # lowpass
-        #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
-        data.equalize()
-        data.maximize_intensity_spread()
+        # Typical processing for SEM images:
+        if False:
+            #data.equalize()
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            for i in range(2):
+                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            #data.lowkill(run_args['q0']*0.1)
+            
+            data.blur(2.0) # lowpass
+            data.blur(2.0) # lowpass
+            #data.blur(1.0) # lowpass
+            #data.blur(0.6) # lowpass
+            #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
+            data.equalize()
+            data.maximize_intensity_spread()
+        
+        
+        # Typical processing for AFM images:
+        if False:
+            data.equalize()
+            data.maximize_intensity_spread()
 
+        # Custom
+        if True:
+            data.blur(0.6) # lowpass
+            for i in range(2):
+                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            for i in range(2):
+                data.blur(0.8) # lowpass
+            data.equalize()
+            data.maximize_intensity_spread()
 
 
         if run_args['verbosity']>=4:
@@ -1150,7 +1192,7 @@ class grain_size_hex(Protocol):
         if run_args['verbosity']>=2:
             print("  {:d} (non-edge) defects / {:.2f} um^2 = ".format(results['number_defects'], im_area))
             print("  {:.4g} defects/um^2".format(results['defect_density']['value']))
-            print("  f_6NN = {:.3f}".format(results['fraction_matching_symmetry']))
+            print("  f_{}NN = {:.3f}".format(run_args['symmetry'], results['fraction_matching_symmetry']))
         
         
         
@@ -1249,7 +1291,7 @@ class grain_size_hex(Protocol):
                         elif NN_count==5:
                             c = (0, 255, 255)
                         elif NN_count==6:
-                            c = (0, 255, 0) # Greem
+                            c = (0, 255, 0) # Green
                         elif NN_count==7:
                             c = (255, 255, 0)
                         elif NN_count==8:
@@ -1300,7 +1342,7 @@ class grain_size_hex(Protocol):
             outfile = self.get_outfile('angles', output_dir, ext='.png', ir=True)
             img_blend.save(outfile)
 
-            
+        
             
         # Angle histogram
         # TODO: Fix the angle histograms.
@@ -1364,9 +1406,14 @@ class grain_size_hex(Protocol):
             results.update(new_results)
             
             
-            
-        # TODO: Compute correlation function.
-      
+
+        # TODO:
+        # Compute correlation function.
+        if 'scale' not in run_args:
+            run_args['scale'] = (data.x_scale+data.y_scale)*0.5
+        #new_results = self.correlation_function(x_positions, y_positions, angles, output_dir=output_dir, **run_args)
+        #results.update(new_results)
+
             
         return results
             
@@ -1450,7 +1497,7 @@ class grain_size_hex(Protocol):
         hist.std = prev_results['area_std']
         hist.median = prev_results['area_median']
         
-        outfile = self.get_outfile('particle_areas', output_dir, ext='.png')
+        outfile = self.get_outfile('particle_areas', output_dir, ext='.png', ir=True)
         hist.plot(save=outfile, plot_range=[0, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
         
         
@@ -1466,7 +1513,7 @@ class grain_size_hex(Protocol):
         hist.std = prev_results['radius_std']
         hist.median = prev_results['radius_median']
         
-        outfile = self.get_outfile('particle_radii', output_dir, ext='.png')
+        outfile = self.get_outfile('particle_radii', output_dir, ext='.png', ir=True)
         hist.plot(save=outfile, plot_range=[0, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
         
         
@@ -1651,8 +1698,7 @@ class grain_size_hex(Protocol):
 
         if run_args['verbosity']>=3:
             outfile = self.get_outfile('orientation_polar', output_dir, ext='.png', ir=True)
-            line.plot_polar(save=outfile)
-            
+            line.plot_polar(save=outfile, assumed_symmetry=run_args['symmetry'])
             
         # TODO: Obtain order parameter from line
         # TODO: Add line.stats() to results
@@ -1712,6 +1758,9 @@ class grain_size_hex(Protocol):
             angle -= 2*span
             
         return angle
+
+
+
     
 class grain_size(grain_size_hex):
 
@@ -1721,11 +1770,14 @@ class grain_size(grain_size_hex):
         
         self.default_ext = '.png'
         self.run_args = {
+                        'symmetry': 2,
                         'cmap' : mpl.cm.bone,
                         'blur_size_rel_d0' : 0.25,
                         'blur_orientation_image' : True,
                         'blur_orientation_image_num_passes' : 3,
                         'blur_orientation_image_size_rel' : 0.25,
+                        'correlation_edge_exclusion' : 10,
+                        'correlation_step_size_points' : 5,
                         }
         self.run_args.update(kwargs)
             
@@ -1751,10 +1803,21 @@ class grain_size(grain_size_hex):
         #data.equalize()
         #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
         #data.lowkill(run_args['q0']*0.1)
-        data.blur(2.0) # lowpass
-        data.enhance(contrast=1.3, contrast_passes=2, resharpen_passes=2)
-        data.equalize()
-        data.maximize_intensity_spread()
+        
+        
+        # Typical processing for SEM images:
+        if True:
+            data.blur(2.0) # lowpass
+            data.enhance(contrast=1.3, contrast_passes=2, resharpen_passes=2)
+            data.equalize()
+            data.maximize_intensity_spread()
+
+        
+        # Typical processing for AFM images:
+        if False:
+            data.equalize()
+            data.maximize_intensity_spread()
+        
 
         if run_args['verbosity']>=4:
             data.set_z_display( [None, None, 'gamma', 1.0] )
@@ -1797,9 +1860,197 @@ class grain_size(grain_size_hex):
         new_results = self.orientation_fit(np.degrees(bin_edges[:-1]), hist, output_dir, result_prepend='ori_', **run_args)
         results.update(new_results)     
 
+
+
+        # Compute correlation function
+        new_results = self.correlation_function(angles, output_dir=output_dir, **run_args)
+        results.update(new_results)
+
         
         return results
+    
 
+
+    def correlation_function(self, angles, output_dir='./', fit_curve=True, **run_args):
+        '''Accumluate the pair-wise correlations into a 1D correlation curve.
+        The decay of this curve reveals a characteristic correlation distance.
+        This function computes the curve, fits it to an exponential decay, and
+        plots the results.'''
+        
+        results = {}
+        
+        ex = run_args['correlation_edge_exclusion']
+        step = run_args['correlation_step_size_points']
+        symmetry = run_args['symmetry']
+        scale = run_args['scale'] # nm/pixel
+        
+        h, w = angles.shape
+        
+        accumulator = np.zeros( (h*2,w*2) ) # Sum of correlation values
+        count_accumulator = np.zeros( (h*2,w*2) ) # Keep track of counts (for normalization)
+        one_field = np.ones( (h,w) )
+        
+        for ix in range(ex, w-ex, step):
+            if run_args['verbosity']>=4:
+                print( '        Correlation analysis {:.1f}%'.format (100.*ix/w))
+            for iy in range(ex, h-ex, step):
+                
+                deltatheta = angles[iy,ix] - angles
+                orderparameter = np.cos(symmetry*deltatheta)
+                
+                accumulator[h-iy:-iy, w-ix:-ix] += orderparameter
+                count_accumulator[h-iy:-iy, w-ix:-ix] += one_field
+
+        # Compute array of distances associated with the accumulator
+        r_dist = np.zeros( (h*2,w*2) )
+        ix_list = np.asarray( range(0, w*2) )
+        for iy in range(0, h*2):
+            r_dist[iy,:] = np.round( np.sqrt( (ix_list-w)**2 + (iy-h)**2 ) )
+
+        
+        
+        # Create a g(r) curve by summing up the values in the accumulator
+        # TODO: This section could be improved by using various numpy functions
+        # (where, bincount, etc.)
+        r_list = range( 0, int(np.max(r_dist)) )
+        g_of_r = np.zeros( (len(r_list)) )
+        count_list = np.zeros( (len(r_list)) )
+        
+        for iy in range(0, h*2):
+            for ix in range(0, w*2):
+                
+                if count_accumulator[iy,ix]>0:
+                    r = r_dist[iy,ix]
+                    g_of_r[r] += accumulator[iy,ix]
+                    count_list[r] += count_accumulator[iy,ix]
+        
+        
+        r_list_final = []
+        r_nm_list_final = []
+        g_of_r_final = []
+        for r in range(len(r_list)):
+            if count_list[r]>0 and not np.isnan(g_of_r[r]):
+                
+                # Convert from pixels to nm
+                r_list_final.append( r_list[r] )
+                r_nm_list_final.append( scale*r_list[r] )
+                g_of_r_final.append( g_of_r[r]/count_list[r] )
+                
+                
+        line = DataLine(x=r_nm_list_final, y=g_of_r_final)
+
+
+        if fit_curve:
+            # Fit correlation curve
+            
+            
+            # Get the 1/e distance
+            x_1e, y_1e = line.target_y(1.0/np.e)
+            results['xi_1_over_e_nm'] = x_1e
+            
+            
+            
+            lm_result, fit_line, fit_line_extended = self._fit_exp(line, **run_args)
+            
+            fit_name = 'fit_exp'
+            for param_name, param in lm_result.params.items():
+                results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
+            
+            results['xi_nm'] = results['fit_exp_xi']['value']
+            
+            
+        
+
+
+        if run_args['verbosity']>=3:
+            # Plot curve
+            
+            
+            class DataLines_current(DataLines):
+                
+                def _plot_extra(self, **plot_args):
+                    self.ax.axhline(0, color='k')
+                    
+                    r, g, b = 0, 0, 1
+                    self.ax.plot(x_1e, y_1e, 'o', color='b', markersize=20, markerfacecolor=(r,g,b,0.75), markeredgewidth=1.5, markeredgecolor=(r,g,b,1.0), zorder=10)
+                    
+                    if fit_curve:
+                        self.ax.axvline(x_1e, color='0.5', dashes=[5,5], linewidth=1.0, zorder=-10)
+                        s = r'$\xi_{{1/e}} = {:.1f} \, \mathrm{{nm}}$'.format(x_1e)
+                        self.ax.text(x_1e, 1.0, s, size=20, color='0.5', verticalalignment='top', horizontalalignment='left')
+                        
+                        
+                        xi, xf, yi, yf = self.ax.axis()
+                        s = r'$g(r) = e^{{-r/\xi}}$' + '\n' + r'$\xi = {:.1f} \pm {:.1f} \, \mathrm{{nm}}$'.format(results['fit_exp_xi']['value'], results['fit_exp_xi']['error'])
+                        self.ax.text(xf, 1.0, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+                        
+                    
+            lines = DataLines_current()
+            
+            
+            lines.add_line(line)
+            
+            if fit_curve:
+                lines.add_line(fit_line_extended)
+            
+            
+            lines.x_label = 'r'
+            lines.x_rlabel = '$r \, \mathrm{(nm)}$'
+            lines.y_label = 'g(r)'
+            lines.y_rlabel = '$g(r)$'
+            
+            outfile = self.get_outfile('correlation', output_dir, ext='.png', ir=True)
+            lines.plot(save=outfile, plot_range=[0, None, None, 1.0])
+        
+        
+        
+        return results
+    
+    def _fit_exp(self, line, **run_args):
+        
+        # Usage: lm_result, fit_line, fit_line_extended = self._fit_exp(line, **run_args)
+        
+        x_1e, y_1e = line.target_y(1.0/np.e)
+
+        line_full = line
+        if 'fit_range' in run_args:
+            line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
+            
+        line.x = np.asarray(line.x)
+        line.y = np.asarray(line.y)
+        
+        import lmfit
+        
+        def model(v, x):
+            return np.exp( -x/v['xi'] )
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        params = lmfit.Parameters()
+        params.add('xi', value=x_1e, min=0, max=np.max(line.x)*+10, vary=True)
+        
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'marker':None, 'linewidth':4.0})
+        
+        #fit_x = np.linspace(np.min(line_full.x), np.max(line_full.x), num=200)
+        fit_x = np.linspace(0, np.max(line.x)*1.1, num=500)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'alpha':0.75, 'marker':None, 'linewidth':3.0})        
+
+        return lm_result, fit_line, fit_line_extended             
+    
 
 
     def orientation_angle_map(self, data, output_dir, **run_args):

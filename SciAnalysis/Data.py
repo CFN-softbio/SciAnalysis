@@ -25,6 +25,9 @@
 import numpy as np
 import pylab as plt
 import matplotlib as mpl
+mpl.rcParams['mathtext.fontset'] = 'cm'
+
+
 from scipy import signal # For gaussian smoothing
 from scipy import ndimage # For resize, etc.
 from scipy import stats # For skew
@@ -376,13 +379,15 @@ class DataLine(object):
         self._plot(save=save, show=show, plot_range=plot_range, plot_buffers=plot_buffers, **kwargs)
         
         
-    def _plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.2,0.05,0.2,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, **kwargs):
+    def _plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.2,0.05,0.2,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, transparent=False, **kwargs):
         
         # DataLine._plot()
         
         plot_args = self.plot_args.copy()
         plot_args.update(kwargs)
         self.process_plot_args(**plot_args)
+        
+        
         
         self.fig = plt.figure( figsize=(10,7), facecolor='white' )
         left_buf, right_buf, bottom_buf, top_buf = plot_buffers
@@ -422,9 +427,9 @@ class DataLine(object):
         
         if save:
             if 'dpi' in plot_args:
-                plt.savefig(save, dpi=plot_args['dpi'], transparent=True)
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=transparent)
             else:
-                plt.savefig(save, transparent=True)
+                plt.savefig(save, transparent=transparent)
         
         if show:
             self._plot_interact()
@@ -702,7 +707,7 @@ class DataLineAngle (DataLine):
         
         bins = len(yh)/assumed_symmetry
         color_list = cmap_cyclic_spectrum( np.linspace(0, 1.0, bins, endpoint=True) )
-        color_list = np.concatenate( (color_list[bins/2:], color_list[0:bins/2]) ) # Shift
+        color_list = np.concatenate( (color_list[int(bins/2):], color_list[0:int(bins/2)]) ) # Shift
         color_list = np.concatenate( [color_list for i in range(assumed_symmetry)] )
         
         
@@ -712,14 +717,15 @@ class DataLineAngle (DataLine):
         self.ax.yaxis.set_ticklabels([])
         self.ax.xaxis.set_ticks([np.radians(angle) for angle in range(-180+45, 180+45, +45)])
         
+        self.ax.set_xlim(np.radians(-180),np.radians(+180))
         
         self._plot_extra_polar()
         
         if save:
             if 'dpi' in plot_args:
-                plt.savefig(save, dpi=plot_args['dpi'], transparent=True)
+                plt.savefig(save, dpi=plot_args['dpi'])
             else:
-                plt.savefig(save, transparent=True)
+                plt.savefig(save)
         
         if show:
             self._plot_interact()
@@ -915,9 +921,9 @@ class DataLinesStacked(DataLines):
         
         if save:
             if 'dpi' in plot_args:
-                plt.savefig(save, dpi=plot_args['dpi'], transparent=True)
+                plt.savefig(save, dpi=plot_args['dpi'])
             else:
-                plt.savefig(save, transparent=True)
+                plt.savefig(save)
         
         if show:
             self._plot_interact()
@@ -1299,8 +1305,9 @@ class Data2D(object):
         center. The old center is then at the corners.'''
         
         dim_y, dim_x = self.data.shape
-        self.data = np.concatenate( (self.data[dim_y/2:,:], self.data[0:dim_y/2,:]), axis=0 )
-        self.data = np.concatenate( (self.data[:,dim_x/2:], self.data[:,0:dim_x/2]), axis=1 )    
+        
+        self.data = np.concatenate( (self.data[int(dim_y/2):,:], self.data[0:int(dim_y/2),:]), axis=0 )
+        self.data = np.concatenate( (self.data[:,int(dim_x/2):], self.data[:,0:int(dim_x/2)]), axis=1 )    
         
         
     def transpose(self):
@@ -1521,6 +1528,7 @@ class Data2D(object):
         self._plot_z_transform()
         
         img = PIL.Image.fromarray(np.uint8(cmap(self.Z)*255))
+        img = img.convert("RGB")
         
         img.save(save)
         
@@ -2128,8 +2136,7 @@ color_list_cur_hdr_goldish = [
 ]
 cmap_hdr_goldish = mpl.colors.LinearSegmentedColormap.from_list('cmap_hdr_goldish', color_list_cur_hdr_goldish)
     
-    
-# Ugly color-scale, but good for highlighting many features in HDR data
+# Non-standard HDR
 color_list_seismic_hdr = [
     [ 255.0/255.0, 255.0/255.0, 255.0/255.0],
     [ 0.0/255.0, 0.0/255.0, 0.0/255.0],

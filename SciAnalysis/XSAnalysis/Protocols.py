@@ -72,6 +72,7 @@ class thumbnails(Protocol):
         self.run_args = {
                         'crop' : None,
                         'shift_crop_up' : 0.0,
+                        'make_square' : False,
                         'blur' : 2.0,
                         'resize' : 0.2,
                         'ztrim' : [0.05, 0.005]
@@ -85,7 +86,7 @@ class thumbnails(Protocol):
         results = {}
         
         if run_args['crop'] is not None:
-            data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'])
+            data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'], make_square=run_args['make_square'])
         if run_args['blur'] is not None:
             data.blur(run_args['blur'])
         if run_args['resize'] is not None:
@@ -136,7 +137,7 @@ class circular_average(Protocol):
         outfile = self.get_outfile(data.name, output_dir)
         
         try:
-            line.plot(save=outfile, show=False, **run_args)
+            line.plot(save=outfile, **run_args)
         except ValueError:
             pass
 
@@ -173,7 +174,7 @@ class circular_average_q2I(Protocol):
         
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-        line.plot(save=outfile, show=False, **run_args)
+        line.plot(save=outfile, **run_args)
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
         line.save_data(outfile)        
@@ -229,7 +230,7 @@ class sector_average(Protocol):
         outfile = self.get_outfile(data.name, output_dir)
         
         try:
-            line.plot(save=outfile, show=False, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+            line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
         except ValueError:
             pass
 
@@ -239,7 +240,37 @@ class sector_average(Protocol):
         return results
                                 
                 
-                
+class roi(Protocol):
+
+    def __init__(self, name='roi', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.txt'
+        self.run_args = {}
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        results.update( data.roi_q(**run_args) )
+        
+        if 'show_region' in run_args and run_args['show_region']:
+            data.plot(show=True)
+        
+        if run_args['verbosity']>=3:
+            print('ROI stats:')
+            print(results)
+            
+        outfile = self.get_outfile(data.name, output_dir)
+        with open(outfile, 'w') as fout:
+            for k, v in results.items():
+                fout.write('{} : {}\n'.format(k, v))
+        
+        return results                
                 
                 
 class linecut_angle(Protocol):
@@ -525,7 +556,7 @@ class linecut_qr_fit(linecut_qr):
         
     def _fit_peaks(self, line, num_curves=1, **run_args):
         
-        # Usage: lm_result, fit_line, fit_line_extended = self.fit_peaks(line, **run_args)
+        # Usage: lm_result, fit_line, fit_line_extended = self._fit_peaks(line, **run_args)
 
         line_full = line
         if 'fit_range' in run_args:
@@ -933,7 +964,10 @@ class q_image(Protocol):
                                     },
                             } 
 
-        q_data.plot(outfile, plot_buffers=[0.30,0.05,0.25,0.05], **run_args)
+
+        if 'plot_buffers' not in run_args:
+            run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
+        q_data.plot(outfile, **run_args)
         
         
         return results
@@ -986,7 +1020,7 @@ class qr_image(Protocol):
                                     },
                             } 
         q_data.x_label = 'qr'
-        q_data.x_rlabel = '$q_r \, (\AA^{-1})$'
+        q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
 
         q_data.plot(outfile, plot_buffers=[0.30,0.05,0.25,0.05], **run_args)
         
@@ -1290,6 +1324,131 @@ class q_phi_image(Protocol):
 
 
 
+
+class export_STL(Protocol):
+    
+    def __init__(self, name='export_STL', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.stl'
+        self.run_args = {
+                        'crop' : None ,
+                        'shift_crop_up' : 0.0 ,
+                        'blur' : 0.5 ,
+                        'resize' : 1.0 ,
+                        'ztrim' : [0.05, 0.005] ,
+                        'stl_pedestal' : 75.0 ,
+                        'stl_zscale' : 200.0 ,
+                        'crop_zone' : None ,
+                        'crop_beam' : None , 
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        data.data = data.data.astype(float)
+        
+        if run_args['crop'] is not None:
+            data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'])
+        if run_args['crop_zone'] is not None:
+            xi, xf, yi, yf = run_args['crop_zone']
+        elif run_args['crop_beam'] is not None:
+            xw, yw = run_args['crop_beam']
+            xi = calibration.x0 - xw/2
+            xf = calibration.x0 + xw/2
+            yi = calibration.y0 - yw/2
+            yf = calibration.y0 + yw/2
+            data.data = data.data[ int(yi):int(yf), int(xi):int(xf) ]
+        elif run_args['crop_GI'] is not None:
+            w = run_args['crop_GI']
+            xi = calibration.x0 - w/2
+            xf = calibration.x0 + w/2
+            yi = calibration.y0 - w
+            yf = calibration.y0
+            data.data = data.data[ int(yi):int(yf), int(xi):int(xf) ]
+            
+        if run_args['blur'] is not None:
+            data.blur(run_args['blur'])
+        if run_args['resize'] is not None:
+            data.resize(run_args['resize']) # Shrink
+        
+        
+        
+        
+        # Adjust scaling of data
+        data.set_z_display([None, None, 'gamma', 0.2])
+        
+        if run_args['verbosity']>=3:
+        
+            outfile = self.get_outfile(data.name, output_dir, ext='.jpg')
+            results['files_saved'] = [
+                { 'filename': '{}'.format(outfile) ,
+                'description' : 'quick view (thumbnail) image' ,
+                'type' : 'plot' # 'data', 'plot'
+                } ,
+                ]
+            data.plot_image(outfile, cmap=cmap_vge_hdr, **run_args)
+                
+        
+
+        if run_args['verbosity']>=4:
+            print('        data.data from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(data.data), np.max(data.data), np.average(data.data), np.std(data.data)))
+                                                                                      
+        data._plot_z_transform()
+        
+        if run_args['verbosity']>=4:
+            print('        data.Z from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(data.Z), np.max(data.Z), np.average(data.Z), np.std(data.Z)))
+                                                                                      
+                                                                                      
+        height_map = (data.Z - np.min(data.Z))/(np.max(data.Z)-np.min(data.Z)) # Data now from 0...1
+        
+        
+        if run_args['verbosity']>=4:
+            print('        height_map (normed) from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(height_map), np.max(height_map), np.average(height_map), np.std(height_map)))
+            
+        
+        # Readjust height map output
+        height_map = ( height_map*run_args['stl_zscale'] ) + run_args['stl_pedestal']
+        height_map *= run_args['resize']
+        if run_args['verbosity']>=4:
+            print('        height_map (STL scale) from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(height_map), np.max(height_map), np.average(height_map), np.std(height_map)))
+        
+        
+        
+        if 'file_extension' in run_args and run_args['file_extension'] is not None:
+            outfile = self.get_outfile(data.name, output_dir, ext=run_args['file_extension'])
+        else:
+            outfile = self.get_outfile(data.name, output_dir)
+        
+        #print(data.stats())
+        
+        results['files_saved'] = [
+            { 'filename': '{}'.format(outfile) ,
+             'description' : 'STL version of data (for 3D printing)' ,
+             'type' : 'print' # 'data', 'plot'
+            } ,
+            ]
+        
+        
+        # Kludge: We clip a corner to enforce a definition of the 'bottom' (minimum height)
+        height_map[0,0] = 0
+        
+        if run_args['verbosity']>=4:
+            print('        height_map (STL scale final) from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(height_map), np.max(height_map), np.average(height_map), np.std(height_map)))
+        
+        
+        from stl_tools import numpy2stl
+        numpy2stl( height_map, outfile, scale=1.0, mask_val=0, solid=True)
+
+        
+        
+        return results            
+        
 
 
 

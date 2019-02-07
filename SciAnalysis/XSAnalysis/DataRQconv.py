@@ -28,7 +28,7 @@ from .Data import *
 ################################################################################    
 class CalibrationRQconv(Calibration):
     """
-    The geomatric claculations used here are described in Yang, J Synch Rad (2013) 20, 211–218
+    The geometric claculations used here are described in Yang, J Synch Rad (2013) 20, 211–218
     http://dx.doi.org/10.1107/S0909049512048984
     
     """    
@@ -244,7 +244,7 @@ class CalibrationRQconv(Calibration):
 
 class ExpPara:
     """
-    The geomatric claculations used here are described in Yang, J Synch Rad (2013) 20, 211–218
+    The geometric claculations used here are described in Yang, J Synch Rad (2013) 20, 211–218
     http://dx.doi.org/10.1107/S0909049512048984
     
     Initilized with image size:

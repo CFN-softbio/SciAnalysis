@@ -27,6 +27,7 @@ import os
 import time
 
 SUPPRESS_EXCEPTIONS = False # Set to 'True' to suppress Python exceptions (errors). This allows the script to keep running even if there is an error processing one particular file.
+
 USE_LXML = True # Set to 'False' if lxml is not installed
 if USE_LXML:
     # 'Fancy' xml library
@@ -409,12 +410,12 @@ class Protocol(object):
 
         
     def output_exists(self, name, output_dir):
-    
+        
         if 'file_extension' in self.run_args:
             ext = self.run_args['file_extension']
         else:
             ext = None
-    
+            
         outfile = self.get_outfile(name, output_dir, ext=ext)
         return os.path.isfile(outfile)
 
@@ -446,7 +447,7 @@ class Protocol(object):
 # get_result
 ################################################################################
 def get_result_xml(infile, protocol):
-    '''Extracts a list of results for the given protocl, from the specified
+    '''Extracts a list of results for the given protocol, from the specified
     xml file. The most recent run of the protocol is used.'''
 
     import numpy as np

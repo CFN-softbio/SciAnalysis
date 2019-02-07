@@ -31,7 +31,7 @@ class ProtocolMultiple(Protocol):
         if run_args['processor'] is None:
             print('ERROR: {} needs a reference to the Processor (so that it can load files).'.format(self.name))
             return None
-
+        
         if len(infiles)<1:
             print('ERROR: {} needs 1 or more files ({} files supplied)).'.format(self.name, len(infiles)))
             return None
@@ -52,8 +52,8 @@ class ProtocolMultiple(Protocol):
                 print(name_base)
         else:
             import os
-            name_base = os.path.commonprefix(infiles)
-
+            prefix = os.path.commonprefix(infiles)
+            filepath, name_base = os.path.split(prefix)
 
         if 'append_protocol_name' in run_args:
             output_dir = output_dir + self.name
@@ -87,6 +87,8 @@ class sum_images(ProtocolMultiple):
                         'file_extension' : '-sum.npy',
                         'processor' : None,
                         'append_protocol_name' : True,
+                        'force' : False,
+                        'verbosity' : 3,
                         }
         self.run_args.update(kwargs)
         

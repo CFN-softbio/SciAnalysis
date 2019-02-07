@@ -782,7 +782,7 @@ class DataLineStructuredSort(DataLineStructured):
         self._plot_extra(**plot_args)
         
         if save:
-            plt.savefig(save, transparent=True)
+            plt.savefig(save)
         
         if show:
             self._plot_interact()
@@ -1093,7 +1093,7 @@ class DataLineStructuredStd(DataLineStructured):
         self._plot_extra(**plot_args)
         
         if save:
-            plt.savefig(save, transparent=True)
+            plt.savefig(save)
         
         if show:
             self._plot_interact()
@@ -1323,7 +1323,7 @@ class DataLineStructuredFFT(DataLineStructured):
         self._plot_extra(**plot_args)
         
         if save:
-            plt.savefig(save, transparent=True)
+            plt.savefig(save)
         
         if show:
             self._plot_interact()

@@ -7,8 +7,8 @@ import setuptools
 setuptools.setup(name='SciAnalysis',
                  author='Kevin Yager',
                  packages=setuptools.find_packages(),
-                 description="CMS Analysis",
+                 description="Analysis",
                  include_dirs=[np.get_include()],
                  author_email='kyager@bnl.gov',
-                 keywords='CMS X-ray Analysis',
+                 keywords='Analysis',
                  )

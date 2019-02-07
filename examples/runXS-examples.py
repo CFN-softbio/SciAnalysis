@@ -417,8 +417,6 @@ class circular_average_subtract(Protocols.circular_average):
 
 
     
-    
-    
 class circular_average_q2I_fit(Protocols.circular_average_q2I):
 
     def __init__(self, name=None, **kwargs):
@@ -440,19 +438,20 @@ class circular_average_q2I_fit(Protocols.circular_average_q2I):
         
         line = data.circular_average_q_bin(error=True)
         
-        line.y *= np.square(line.x)
-        line.y_label = 'q^2*I(q)'
-        line.y_rlabel = '$q^2 I(q) \, (\AA^{-2} \mathrm{counts/pixel})$'
+        #line.y *= np.square(line.x)
+        #line.y *= np.power(line.x, 0.75)
+        line.y *= np.abs(line.x)
         
         
-        outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-        line.plot(save=outfile, show=False, **run_args)
+        line.y_label = 'q^n *I(q)'
+        line.y_rlabel = r'$q^n I(q) \, (\mathrm{ \AA^{-n} \times counts/pixel})$'
         
+        
+        #outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
+        #line.plot(save=outfile, show=False, **run_args)
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
         line.save_data(outfile)        
-        
-        
-        
+
         
         # Fit data
         #if 'fit_range' in run_args:
@@ -475,17 +474,17 @@ class circular_average_q2I_fit(Protocols.circular_average_q2I):
         results['{}_prefactor_total'.format(fit_name)] = prefactor_total
         results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
         
-        if self._peak_snr>0.05:
-            # Calculate some additional things
-            d = 0.1*2.*np.pi/results['{}_x_center1'.format(fit_name)]['value']
-            results['{}_d0'.format(fit_name)] = d
-            xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma1'.format(fit_name)]['value']
-            results['{}_grain_size'.format(fit_name)] = xi       
-            
-        else:
-            results['{}_d0'.format(fit_name)] = 0
-            results['{}_grain_size'.format(fit_name)] = 0
-        
+        # Calculate some additional things
+        d = 0.1*2.*np.pi/results['{}_x_center1'.format(fit_name)]['value']
+        results['{}_d0'.format(fit_name)] = d
+        xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma1'.format(fit_name)]['value']
+        results['{}_grain_size'.format(fit_name)] = xi       
+
+        if False:
+            d = 0.1*2.*np.pi/results['{}_x_center2'.format(fit_name)]['value']
+            results['{}_d02'.format(fit_name)] = d
+            xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma2'.format(fit_name)]['value']
+            results['{}_grain_size2'.format(fit_name)] = xi              
         
         # Plot and save data
         class DataLines_current(DataLines):
@@ -493,11 +492,248 @@ class circular_average_q2I_fit(Protocols.circular_average_q2I):
             def _plot_extra(self, **plot_args):
                 
                 xi, xf, yi, yf = self.ax.axis()
-                v_spacing = (yf-yi)*0.10
+                v_spacing = (yf-yi)*0.08
                 
                 yp = yf
+                s = '$a = \, {:.3f}$'.format(self.results['fit_peaks_prefactor1']['value'])
+                self.ax.text(xi, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='left')
+                
+                
+                yp -= v_spacing
                 s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center1']['value'])
-                self.ax.text(xf, yp, s, size=20, color='b', verticlass update_autonomous_data(Protocols.Protocol):
+                self.ax.text(xi, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='left')
+
+                yp -= v_spacing
+                s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0'])
+                self.ax.text(xi, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='left')
+
+                yp -= v_spacing
+                s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma1']['value'])
+                self.ax.text(xi, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='left')
+                
+                yp -= v_spacing
+                s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size'])
+                self.ax.text(xi, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='left')
+
+
+                if False:
+                    yp = yf
+                    s = '$a = \, {:.3f}$'.format(self.results['fit_peaks_prefactor2']['value'])
+                    self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+                    
+                    yp -= v_spacing
+                    s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center2']['value'])
+                    self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+
+                    yp -= v_spacing
+                    s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d02'])
+                    self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+
+                    yp -= v_spacing
+                    s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma2']['value'])
+                    self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+                    
+                    yp -= v_spacing
+                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size2'])
+                    self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+
+
+        
+        lines = DataLines_current([line, fit_line, fit_line_extended])
+        lines.copy_labels(line)
+        lines.results = results
+
+        outfile = self.get_outfile(data.name+'-fit', output_dir, ext='.png')
+        
+        # Tweak the plotting range for the fit-plot
+        run_args_cur = run_args.copy()
+        if run_args['auto_plot_range_fit']:
+            run_args_cur['plot_range'] = [ run_args['plot_range'][0] , run_args['plot_range'][1] , run_args['plot_range'][2] , run_args['plot_range'][3] ]
+            if 'fit_range' in run_args_cur:
+                span = abs(run_args['fit_range'][1]-run_args_cur['fit_range'][0])
+                run_args_cur['plot_range'][0] = run_args['fit_range'][0]-span*0.25
+                run_args_cur['plot_range'][1] = run_args_cur['fit_range'][1]+span*0.25
+            
+            run_args_cur['plot_range'][2] = 0
+            run_args_cur['plot_range'][3] = max(fit_line.y)*1.3
+        
+        
+        try:
+            #lines.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+            lines.plot(save=outfile, **run_args_cur)
+        except ValueError:
+            pass
+
+
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        line.x_err = None
+        line.y_err = None
+        line.save_data(outfile)
+        
+        return results
+                       
+
+    def _fit_peaks(self, line, num_curves=1, **run_args):
+        
+        # Usage: lm_result, fit_line, fit_line_extended = self.fit_peaks(line, **run_args)
+
+        line_full = line
+        if 'fit_range' in run_args:
+            line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
+        
+        import lmfit
+        
+        def model(v, x):
+            
+            # Linear background
+            m = v['m']*x + v['b']
+            # Power-law background
+            m += v['qp']*np.power( np.abs(x), v['qalpha'] )
+            
+            # Gaussian peaks
+            for i in range(num_curves):
+                m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+            
+            return m
+        
+        def func2minimize(params, x, data):
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        params = lmfit.Parameters()
+
+        m = (line.y[-1]-line.y[0])/(line.x[-1]-line.x[0])
+        b = line.y[0] - m*line.x[0]
+
+        xs = np.abs(line.x)
+        ys = line.y
+        qalpha = (np.log(ys[0])-np.log(ys[-1]))/(np.log(xs[0])-np.log(xs[-1]))
+        qp = np.exp( np.log(ys[0]) - qalpha*np.log(xs[0]) )
+
+        if True:
+            # Linear background
+            params.add('m', value=m, min=0, max=abs(m)*+4, vary=False)
+            params.add('b', value=b, min=np.max(line.y)*-100, max=np.max(line.y)*100, vary=False)
+            
+            params.add('qp', value=0, vary=False)
+            params.add('qalpha', value=1.0, vary=False)
+            
+        else:
+            # Power-law background
+            params.add('m', value=0, vary=False)
+            params.add('b', value=0, vary=False)
+            
+            params.add('qp', value=qp, vary=False)
+            params.add('qalpha', value=qalpha, vary=False)
+            
+        
+        xspan = np.max(line.x) - np.min(line.x)
+        xpeak, ypeak = line.target_y(np.max(line.y))
+        
+        # Best guess for peak position
+        if True:
+            # Account for power-law scaling (Kratky-like)
+            xs = np.asarray(line.x)
+            ys = np.asarray(line.y)
+            
+            ys = ys*np.power( np.abs(xs), np.abs(qalpha) ) # Kratky-like
+            
+            # Sort
+            indices = np.argsort(ys)
+            x_sorted = xs[indices]
+            y_sorted = ys[indices]
+            
+            target = np.max(ys)
+
+            # Search through y for the target
+            idx = np.where( y_sorted>=target )[0][0]
+            xpeak = x_sorted[idx]
+            ypeak = y_sorted[idx]
+            
+            xpeak, ypeak = line.target_x(xpeak)
+                                 
+
+        prefactor = ypeak - ( m*xpeak + b )
+        sigma = 0.05*xspan
+        
+        for i in range(num_curves):
+            params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=np.max(line.y)*1.5, vary=False)
+            params.add('x_center{:d}'.format(i+1), value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=False)
+            params.add('sigma{:d}'.format(i+1), value=sigma, min=0, max=xspan*0.75, vary=False)
+
+
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if False:
+            # Fit only the peak positions
+            params['x_center1'].vary = True
+            lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+            params['x_center2'].vary = True
+            lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        
+        if False:
+            # Tweak peak position
+            lm_result.params['sigma1'].vary = False
+            lm_result.params['x_center1'].vary = True
+            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+
+        if False:
+            # Background
+            lm_result.params['m'].vary = True
+            lm_result.params['b'].vary = True
+            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+        
+        #lmfit.report_fit(lm_result.params)
+        #print(lm_result.chisqr)
+        
+        if True:
+            # Relax entire fit
+            lm_result.params['m'].vary = True
+            lm_result.params['b'].vary = True
+            #lm_result.params['qp'].vary = True
+            #lm_result.params['qalpha'].vary = True
+
+            for i in range(num_curves):
+                #lm_result.params['prefactor{:d}'.format(i+1)].value = lm_result.params['prefactor{:d}'.format(i+1)].value*1.0001 + 1e-14
+                
+                lm_result.params['prefactor{:d}'.format(i+1)].vary = True
+                lm_result.params['sigma{:d}'.format(i+1)].vary = True
+                lm_result.params['x_center{:d}'.format(i+1)].vary = True
+            
+            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y), method='nelder')
+            
+            
+            
+        #lmfit.report_fit(lm_result.params)
+        #print(lm_result.chisqr)
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'marker':None, 'linewidth':4.0})
+        
+        #fit_x = np.linspace(np.min(line_full.x), np.max(line_full.x), num=200)
+        #fit_x = np.linspace(np.average( [np.min(line_full.x), np.min(line.x)] ), np.average( [0, np.max(line.x)] ), num=200)
+        fit_x = np.linspace(np.max(line.x)*0.1, np.max(line.x)*1.2, num=200)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'alpha':0.5, 'marker':None, 'linewidth':2.0})        
+
+        return lm_result, fit_line, fit_line_extended
+    
+
+    
+    
+    
+
+    
+class update_autonomous_data(Protocols.Protocol):
     
     def __init__(self, name='autonomous', **kwargs):
         
@@ -536,7 +772,7 @@ class circular_average_q2I_fit(Protocols.circular_average_q2I):
                     #['circular_average_q2I_fit', ['fit_peaks_d0', 'fit_peaks_grain_size', 'fit_peaks_prefactor1'] ],
                     #]
         extractions = [ [ 'metadata_extract', ['x_position','y_position'] ] ,
-                    ['circular_average_q2I_fit', ['fit_peaks_prefactor1'] ],
+                    ['circular_average_q2I_fit', ['population_0', 'population_1', 'population_2'] ],
                     ]
 
         
@@ -564,9 +800,20 @@ class circular_average_q2I_fit(Protocols.circular_average_q2I):
         
         
         # Update the file for SMART to analyze
-        outfile = '../autonomous/data_new/data.npy'
+        #outfile = '../autonomous/data_new/data.npy'
+        outfile = '/GPFS/xf11bm/data/2018_2/MNoack_codes/June2018/smart1/smart/G-SMART/data/new_experiment_result/experiment_result.npy'
+        
+        
         np.save(outfile, data_vector)
         
+        #if os.path.isfile(outfile):
+            ## File exists; append data instead of over-writing
+            #old_data_vector = np.load(outfile)
+            #data_vector = np.append( old_data_vector, [data_vector], axis=0 )
+            #np.save(outfile, data_vector)
+            
+        #else:
+            #np.save(outfile, [data_vector])
         
-        return results    
-    
+        
+        return results

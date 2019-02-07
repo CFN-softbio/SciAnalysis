@@ -120,6 +120,26 @@ class Data2DImage(Data2D):
         
         self.data = self.data[ yi:yf, xi:xf ]
         
+    def crop_edges(self, left=0, right=0, bottom=0, top=0, relative=True):
+        '''Crop the image, relative to the image center.'''
+        
+        height, width = self.data.shape
+        
+        if relative:
+            # Convert from ratio (0 to 1) into pixels
+            left *= width
+            right *= width
+            top *= height
+            bottom *= bottom
+        
+        xi = max( int(left), 0 )
+        xf = min( int(width-right), width )
+        yi = max( int(top), 0 )
+        yf = min( int(height-bottom), height )
+        
+        self.data = self.data[ yi:yf, xi:xf ]
+        
+                
         
     def equalize(self, num_bins=256, max_val=255):
         '''Change the histogram of intensities to be more 'even'.'''
