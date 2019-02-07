@@ -26,9 +26,9 @@
 import re # Regular expressions
 
 import numpy as np
-import pylab as plt
 import matplotlib as mpl
-mpl.rcParams['mathtext.fontset'] = 'cm'
+mpl.use('Agg')
+import pylab as plt
 
 #from scipy.optimize import leastsq
 #import scipy.special
@@ -212,7 +212,7 @@ class Data2DScattering(Data2D):
         self.data[self.data>threshold] = new_value
         
         
-    def crop(self, size, shift_crop_up=0.0, make_square=False):
+    def crop(self, size, shift_crop_up=0.0):
         '''Crop the data, centered about the q-origin. I.e. this throws away 
         some of the high-q information. The size specifies the size of the new
         image (as a fraction of the original full image width).
@@ -226,20 +226,10 @@ class Data2DScattering(Data2D):
         #self.data = self.data[ 0:height, 0:width ] # All the data
         
         x0, y0 = self.get_origin()
-        
-        if make_square:
-            yi = max( int(y0 - size*height*(0.5+0.5*shift_crop_up) ), 0 )
-            yf = min( int(y0 + size*height*(0.5-0.5*shift_crop_up) ), height )
-
-            yspan = abs(yf-yi)
-            xi = max( int(x0 - yspan/2), 0 )
-            xf = min( int(x0 + yspan/2), width )
-            
-        else:
-            xi = max( int(x0 - size*width/2), 0 )
-            xf = min( int(x0 + size*width/2), width )
-            yi = max( int(y0 - size*height*(0.5+0.5*shift_crop_up) ), 0 )
-            yf = min( int(y0 + size*height*(0.5-0.5*shift_crop_up) ), height )
+        xi = max( int(x0 - size*width/2), 0 )
+        xf = min( int(x0 + size*width/2), width )
+        yi = max( int(y0 - size*height*(0.5+0.5*shift_crop_up) ), 0 )
+        yf = min( int(y0 + size*height*(0.5-0.5*shift_crop_up) ), height )
         
         
         self.data = self.data[ yi:yf, xi:xf ]
@@ -360,13 +350,13 @@ class Data2DScattering(Data2D):
             I_vals /= num_per_bin[idx]
             I_err /= num_per_bin[idx]
             
-            line = DataLine( x=x_vals, y=I_vals, x_err=x_err, y_err=I_err, x_label='r', y_label='I', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+            line = DataLine( x=x_vals, y=I_vals, x_err=x_err, y_err=I_err, x_label='r', y_label='I', x_rlabel='$q \, (\AA^{-1})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
             
         else:
             x_vals = np.bincount( Qd[pixel_list], weights=Q[pixel_list] )[idx]/num_per_bin[idx]
             I_vals = np.bincount( Qd[pixel_list], weights=data[pixel_list] )[idx]/num_per_bin[idx]
             
-            line = DataLine( x=x_vals, y=I_vals, x_label='q', y_label='I(q)', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+            line = DataLine( x=x_vals, y=I_vals, x_label='q', y_label='I(q)', x_rlabel='$q \, (\AA^{-1})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
         
         
         return line
@@ -436,22 +426,11 @@ class Data2DScattering(Data2D):
             weights = np.square(data[pixel_list] - mu)
             I_err_std, rbins = np.histogram( Q[pixel_list], bins=bins, range=x_range, weights=weights )
             I_err_std = np.sqrt( I_err_std[idx]/num_per_bin[idx] )
-            
-            
-            y_err = np.sqrt( np.square(I_err_shot) + np.square(I_err_std) )
-            if True:
-                # Student t-test formulation of error
-                import scipy.stats
-                confidence_2 = 0.95 # Two-tailed
-                confidence = 0.5*(1+confidence_2)
-                DF = num_per_bin[idx] - 1
-                z = stats.t.ppf(confidence, DF)
-                y_err = z*I_err_std/np.sqrt(num_per_bin[idx])
                 
-            
+            y_err = np.sqrt( np.square(I_err_shot) + np.square(I_err_std) )
             I_vals = I_vals[idx]/num_per_bin[idx]
             
-            line = DataLine( x=x_vals, y=I_vals, x_err=x_err, y_err=y_err, x_label='q', y_label='I(q)', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+            line = DataLine( x=x_vals, y=I_vals, x_err=x_err, y_err=y_err, x_label='q', y_label='I(q)', x_rlabel='$q \, (\AA^{-1})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
             
             
         else:
@@ -460,7 +439,7 @@ class Data2DScattering(Data2D):
             I_vals, rbins = np.histogram( Q[pixel_list], bins=bins, range=x_range, weights=data[pixel_list] )
             I_vals = I_vals[idx]/num_per_bin[idx]
             
-            line = DataLine( x=x_vals, y=I_vals, x_label='q', y_label='I(q)', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+            line = DataLine( x=x_vals, y=I_vals, x_label='q', y_label='I(q)', x_rlabel='$q \, (\AA^{-1})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
         
         
         
@@ -509,13 +488,13 @@ class Data2DScattering(Data2D):
             I_vals /= num_per_bin[idx]
             I_err /= num_per_bin[idx]
             
-            line = DataLine( x=x_vals, y=I_vals, x_err=x_err, y_err=I_err, x_label='r', y_label='I', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+            line = DataLine( x=x_vals, y=I_vals, x_err=x_err, y_err=I_err, x_label='r', y_label='I', x_rlabel='$q \, (\AA^{-1})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
             
         else:
             x_vals = np.bincount( Qd[pixel_list], weights=Q[pixel_list] )[idx]/num_per_bin[idx]
             I_vals = np.bincount( Qd[pixel_list], weights=data[pixel_list] )[idx]/num_per_bin[idx]
             
-            line = DataLine( x=x_vals, y=I_vals, x_label='q', y_label='I(q)', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+            line = DataLine( x=x_vals, y=I_vals, x_label='q', y_label='I(q)', x_rlabel='$q \, (\AA^{-1})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
         
         
         return line    
@@ -591,7 +570,7 @@ class Data2DScattering(Data2D):
             y_err = np.sqrt( np.square(I_err_shot) + np.square(I_err_std) )
             I_vals = I_vals[idx]/num_per_bin[idx]
             
-            line = DataLine( x=x_vals, y=I_vals, x_err=x_err, y_err=y_err, x_label='q', y_label='I(q)', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+            line = DataLine( x=x_vals, y=I_vals, x_err=x_err, y_err=y_err, x_label='q', y_label='I(q)', x_rlabel='$q \, (\AA^{-1})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
             
             
         else:
@@ -600,7 +579,7 @@ class Data2DScattering(Data2D):
             I_vals, rbins = np.histogram( Q[pixel_list], bins=bins, range=x_range, weights=data[pixel_list] )
             I_vals = I_vals[idx]/num_per_bin[idx]
             
-            line = DataLine( x=x_vals, y=I_vals, x_label='q', y_label='I(q)', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+            line = DataLine( x=x_vals, y=I_vals, x_label='q', y_label='I(q)', x_rlabel='$q \, (\AA^{-1})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
         
         
         
@@ -823,50 +802,6 @@ class Data2DScattering(Data2D):
         return line
     
     
-    def roi_q(self, qx, dqx, qz, dqz, prepend='stats_', **kwargs):
-        '''Returns the intensity integrated in a box around (qx, qz).'''
-
-        if self.mask is None:
-            mask = np.ones(self.data.shape)
-        else:
-            mask = self.mask.data
-
-        data = self.data.ravel()
-        
-        pixel_list = np.where( (abs(self.calibration.qx_map().ravel()-qx)<dqx) & (abs(self.calibration.qz_map().ravel()-qz)<dqz) & (mask.ravel()==1) )
-
-
-        if 'show_region' in kwargs and kwargs['show_region']:
-            
-            map_use = self.calibration.q_map()
-            region = np.ma.masked_where( (abs(self.calibration.qx_map()-qx)>dqx) | (abs(self.calibration.qz_map()-qz)>dqz), self.calibration.q_map())
-            self.regions = [region]
-
-
-        values = data[pixel_list]
-        
-        results = {}
-        results['qx'] = qx
-        results['dqx'] = dqx
-        results['qz'] = qz
-        results['dqz'] = dqz
-        
-        results[prepend+'max'] = np.max(values)
-        results[prepend+'min'] = np.min(values)
-        results[prepend+'average'] = np.average(values)
-        results[prepend+'std'] = np.std(values)
-        results[prepend+'N'] = len(values)
-        results[prepend+'total'] = np.sum(values)
-        
-        results[prepend+'skew'] = stats.skew(values)
-        
-        results[prepend+'spread'] = results[prepend+'max'] - results[prepend+'min']
-        results[prepend+'std_rel'] = results[prepend+'std'] / results[prepend+'average']        
-        
-
-        return results
-    
-    
         
     # Data remeshing
     ########################################
@@ -968,7 +903,8 @@ class Data2DScattering(Data2D):
         q_data.data = remesh_data
         q_data.x_axis = xbins[:-1] + (xbins[1]-xbins[0]) # convert from bin edges to bin centers
         q_data.y_axis = zbins[:-1] + (zbins[1]-zbins[0]) # convert from bin edges to bin centers
-        
+        q_data.x_scale = (xbins[1]-xbins[0])
+        q_data.y_scale = (zbins[1]-zbins[0])
         
         return q_data
         
@@ -1307,20 +1243,6 @@ class Calibration(object):
         self.sample_normal = sample_normal
     
     
-    # Convenience methods
-    ########################################
-    def q_to_angle(self, q):
-        '''Convert from q to angle (full scattering angle, 2theta, in degrees).'''
-        kpre = 2.0*self.get_k()
-        return np.degrees( 2.0*np.arcsin(q/kpre) )
-    
-    def angle_to_q(self, angle):
-        '''Convert from scattering angle (full scattering angle, in degrees)
-        to q-value (in inverse angstroms).'''
-        kpre = 2.0*self.get_k()
-        return kpre*np.sin(np.radians(angle/2))    
-    
-    
     # Maps
     ########################################
     
@@ -1481,9 +1403,9 @@ class Data2DReciprocal(Data2D):
         
         iargs = {
                 'x_label' : 'qx',
-                'x_rlabel' : '$q_x \, (\mathrm{\AA^{-1}})$',
+                'x_rlabel' : '$q_x \, (\AA^{-1})$',
                 'y_label' : 'qz',
-                'y_rlabel' : '$q_z \, (\mathrm{\AA^{-1}})$',
+                'y_rlabel' : '$q_z \, (\AA^{-1})$',
                  }
         iargs.update(kwargs)
         
@@ -1522,7 +1444,7 @@ class Data2DReciprocal(Data2D):
         
     def _plot_extra(self, **plot_args):
         self.ax.get_yaxis().set_tick_params(which='both', direction='out')
-        self.ax.get_xaxis().set_tick_params(which='both', direction='out')       
+        self.ax.get_xaxis().set_tick_params(which='both', direction='out')        
         
     def _format_coord(self, x, y):
         
@@ -1549,6 +1471,9 @@ class Data2DReciprocal(Data2D):
         else:
             return 'x=%g, y=%g'%(x, y)        
         
+    def output(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.25,0.05,0.25,0.05], **kwargs):
+        pass
+        
     # End class Data2DReciprocal(Data2D)
     ########################################
         
@@ -1564,7 +1489,7 @@ class Data2DQPhi(Data2D):
         
         iargs = {
                 'x_label' : 'q',
-                'x_rlabel' : '$q \, (\mathrm{\AA^{-1}})$',
+                'x_rlabel' : '$q \, (\AA^{-1})$',
                 'y_label' : 'phi',
                 'y_rlabel' : '$\phi \, (^{\circ})$',
                  }

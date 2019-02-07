@@ -72,7 +72,6 @@ class thumbnails(Protocol):
         self.run_args = {
                         'crop' : None,
                         'shift_crop_up' : 0.0,
-                        'make_square' : False,
                         'blur' : 2.0,
                         'resize' : 0.2,
                         'ztrim' : [0.05, 0.005]
@@ -86,7 +85,7 @@ class thumbnails(Protocol):
         results = {}
         
         if run_args['crop'] is not None:
-            data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'], make_square=run_args['make_square'])
+            data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'])
         if run_args['blur'] is not None:
             data.blur(run_args['blur'])
         if run_args['resize'] is not None:
@@ -174,7 +173,7 @@ class circular_average_q2I(Protocol):
         
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-        line.plot(save=outfile, **run_args)
+        line.plot(save=outfile, show=False, **run_args)
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
         line.save_data(outfile)        
@@ -230,7 +229,7 @@ class sector_average(Protocol):
         outfile = self.get_outfile(data.name, output_dir)
         
         try:
-            line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+            line.plot(save=outfile, show=False, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
         except ValueError:
             pass
 
@@ -240,37 +239,7 @@ class sector_average(Protocol):
         return results
                                 
                 
-class roi(Protocol):
-
-    def __init__(self, name='roi', **kwargs):
-        
-        self.name = self.__class__.__name__ if name is None else name
-        
-        self.default_ext = '.txt'
-        self.run_args = {}
-        self.run_args.update(kwargs)
-        
-
-    @run_default
-    def run(self, data, output_dir, **run_args):
-        
-        results = {}
-        
-        results.update( data.roi_q(**run_args) )
-        
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
-        
-        if run_args['verbosity']>=3:
-            print('ROI stats:')
-            print(results)
-            
-        outfile = self.get_outfile(data.name, output_dir)
-        with open(outfile, 'w') as fout:
-            for k, v in results.items():
-                fout.write('{} : {}\n'.format(k, v))
-        
-        return results                
+                
                 
                 
 class linecut_angle(Protocol):
@@ -287,7 +256,7 @@ class linecut_angle(Protocol):
     
         
     @run_default
-    def run(self, data, output_dir, **run_args):
+    def run(self, data, output_dir,ztrim=[0.02, 0.01], **run_args):
         
         results = {}
         
@@ -295,7 +264,7 @@ class linecut_angle(Protocol):
         line = data.linecut_angle(**run_args)
         
         if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+            data.plot(show=True, ztrim=ztrim)
         
         
         #line.smooth(2.0, bins=10)
@@ -556,7 +525,7 @@ class linecut_qr_fit(linecut_qr):
         
     def _fit_peaks(self, line, num_curves=1, **run_args):
         
-        # Usage: lm_result, fit_line, fit_line_extended = self._fit_peaks(line, **run_args)
+        # Usage: lm_result, fit_line, fit_line_extended = self.fit_peaks(line, **run_args)
 
         line_full = line
         if 'fit_range' in run_args:
@@ -707,10 +676,6 @@ class calibration_check(Protocol):
     def run(self, data, output_dir, **run_args):
         
         results = {}
-        
-        if 'resize' in run_args and (run_args['resize'] is not None):
-            data.resize(run_args['resize']) # Shrink
-        
         
         outfile = self.get_outfile('{}_full'.format(data.name), output_dir)
         data.plot_image(outfile, **run_args)
@@ -963,12 +928,9 @@ class q_image(Protocol):
                                     'ytick.major.pad': 10,
                                     },
                             } 
+        q_data.plot(outfile, plot_buffers=[0.30,0.05,0.25,0.05], **run_args)
 
 
-        if 'plot_buffers' not in run_args:
-            run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
-        q_data.plot(outfile, **run_args)
-        
         
         return results
     
@@ -989,7 +951,7 @@ class qr_image(Protocol):
         
 
     @run_default
-    def run(self, data, output_dir, **run_args):
+    def run(self, data, output_dir, image_output=False, **run_args):
         
         results = {}
         
@@ -1007,6 +969,9 @@ class qr_image(Protocol):
         else:
             outfile = self.get_outfile(data.name, output_dir)
 
+        image_outfile = self.get_outfile(data.name, output_dir)
+        #matrix_outfile = '/GPFS/xf11bm/data/2018_3/BOcko3/waxs/analysis/qr_image/test'
+
         if 'q_max' in run_args and run_args['q_max'] is not None:
             q_max = run_args['q_max']
             run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
@@ -1020,248 +985,15 @@ class qr_image(Protocol):
                                     },
                             } 
         q_data.x_label = 'qr'
-        q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
+        q_data.x_rlabel = '$q_r \, (\AA^{-1})$'
 
         q_data.plot(outfile, plot_buffers=[0.30,0.05,0.25,0.05], **run_args)
         
+        if image_output==True:
+            q_data.save_image(image_outfile)
         
         return results
         
-        
-class q_image_special(q_image):
-    
-    def __init__(self, name='q_image_special', **kwargs):
-        
-        self.name = self.__class__.__name__ if name is None else name
-        
-        self.default_ext = '.png'
-        self.run_args = {
-                        'blur' : None,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        }
-        self.run_args.update(kwargs)
-        
-
-    @run_default
-    def run(self, data, output_dir, **run_args):
-        
-        results = {}
-        
-        if run_args['blur'] is not None:
-            data.blur(run_args['blur'])
-        
-        q_data = data.remesh_q_bin(**run_args)
-        
-        data_hold = data.data
-        data.data = data.mask.data
-        q_mask = data.remesh_q_bin(**run_args)
-        data.data = data_hold
-        
-        if 'file_extension' in run_args and run_args['file_extension'] is not None:
-            outfile = self.get_outfile(data.name, output_dir, ext=run_args['file_extension'])
-        else:
-            outfile = self.get_outfile(data.name, output_dir)
-
-        if 'q_max' in run_args and run_args['q_max'] is not None:
-            q_max = run_args['q_max']
-            run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
-            
-        
-        # Determine incident angle
-        if 'incident_angle' not in run_args:
-            import re
-            filename_re = re.compile('^.+_th(-?\d+)_.+')
-            m = filename_re.match(data.name)
-            if m:
-                run_args['incident_angle'] = float(m.groups()[0])/100.0
-            else:
-                print("ERROR: Couldn't identify theta from filename: {}".format(data.name))
-                run_args['incident_angle'] = 0
-        
-        # Tweak the plotting methods of our q_data object/instance
-        q_data.incident_angle = run_args['incident_angle']
-        q_data.critical_angle = run_args['critical_angle']
-        
-        
-        def _plot(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.1,0.1,0.1,0.1], **kwargs):
-            
-            # Data2D._plot()
-            
-            plot_args = self.plot_args.copy()
-            plot_args.update(kwargs)
-            self.process_plot_args(**plot_args)
-            
-            
-            self.fig = plt.figure( figsize=(size,size), facecolor='white' )
-            left_buf, right_buf, bottom_buf, top_buf = plot_buffers
-            fig_width = 1.0-right_buf-left_buf
-            fig_height = 1.0-top_buf-bottom_buf
-            self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
-            
-            
-            
-            # Set zmin and zmax. Top priority is given to a kwarg to this plot function.
-            # If that is not set, the value set for this object is used. If neither are
-            # specified, a value is auto-selected using ztrim.
-            
-            values = np.sort( self.data.flatten() )
-            if 'zmin' in plot_args and plot_args['zmin'] is not None:
-                zmin = plot_args['zmin']
-            elif self.z_display[0] is not None:
-                zmin = self.z_display[0]
-            else:
-                zmin = values[ +int( len(values)*ztrim[0] ) ]
-                
-            if 'zmax' in plot_args and plot_args['zmax'] is not None:
-                zmax = plot_args['zmax']
-            elif self.z_display[1] is not None:
-                zmax = self.z_display[1]
-            else:
-                idx = -int( len(values)*ztrim[1] )
-                if idx>=0:
-                    idx = -1
-                zmax = values[idx]
-                
-            if zmax==zmin:
-                zmax = max(values)
-                
-            print( '        data: %.1f to %.1f\n        z-scaling: %.1f to %.1f\n' % (np.min(self.data), np.max(self.data), zmin, zmax) )
-            
-            self.z_display[0] = zmin
-            self.z_display[1] = zmax
-            self._plot_z_transform()
-                
-            
-            shading = 'flat'
-            #shading = 'gouraud'
-            
-            if 'cmap' in plot_args:
-                cmap = plot_args['cmap']
-                
-            else:
-                # http://matplotlib.org/examples/color/colormaps_reference.html
-                #cmap = mpl.cm.RdBu
-                #cmap = mpl.cm.RdBu_r
-                #cmap = mpl.cm.hot
-                #cmap = mpl.cm.gist_heat
-                cmap = mpl.cm.jet
-            
-            x_axis, y_axis = self.xy_axes()
-            extent = [x_axis[0], x_axis[-1], y_axis[0], y_axis[-1]]
-            
-            Zm = np.ma.masked_where(q_mask.data < 0.5, self.Z)
-            self.im = plt.imshow(Zm, vmin=0, vmax=1, cmap=cmap, interpolation='nearest', extent=extent, origin='lower')
-            #plt.pcolormesh( self.x_axis, self.y_axis, self.Z, cmap=cmap, vmin=zmin, vmax=zmax, shading=shading )
-            
-            if self.regions is not None:
-                for region in self.regions:
-                    plt.imshow(region, cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75)
-                    #plt.imshow(np.flipud(region), cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75, origin='lower')
-
-            x_label = self.x_rlabel if self.x_rlabel is not None else self.x_label
-            y_label = self.y_rlabel if self.y_rlabel is not None else self.y_label
-            plt.xlabel(x_label)
-            plt.ylabel(y_label)
-            
-            if 'xticks' in kwargs and kwargs['xticks'] is not None:
-                self.ax.set_xticks(kwargs['xticks'])
-            if 'yticks' in kwargs and kwargs['yticks'] is not None:
-                self.ax.set_yticks(kwargs['yticks'])
-            
-            
-            if 'plot_range' in plot_args:
-                plot_range = plot_args['plot_range']
-                # Axis scaling
-                xi, xf, yi, yf = self.ax.axis()
-                if plot_range[0] != None: xi = plot_range[0]
-                if plot_range[1] != None: xf = plot_range[1]
-                if plot_range[2] != None: yi = plot_range[2]
-                if plot_range[3] != None: yf = plot_range[3]
-                self.ax.axis( [xi, xf, yi, yf] )
-            
-            if 'title' in plot_args:
-                #size = plot_args['rcParams']['axes.labelsize']
-                size = plot_args['rcParams']['xtick.labelsize']
-                plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
-            
-            self._plot_extra(**plot_args)
-            
-            if save:
-                if 'transparent' not in plot_args:
-                    plot_args['transparent'] = True
-                if 'dpi' in plot_args:
-                    plt.savefig(save, dpi=plot_args['dpi'], transparent=plot_args['transparent'])
-                else:
-                    plt.savefig(save, transparent=plot_args['transparent'])
-            
-            if show:
-                self._plot_interact()
-                plt.show()
-                
-            plt.close(self.fig.number)        
-            
-        
-        def _plot_extra(self, **plot_args):
-            '''This internal function can be over-ridden in order to force additional
-            plotting behavior.'''
-            
-            self.ax.get_yaxis().set_tick_params(which='both', direction='out')
-            self.ax.get_xaxis().set_tick_params(which='both', direction='out')       
-            
-            xi, xf, yi, yf = self.ax.axis()
-            
-            xmin, xmax = 0.5, 1.0
-            
-            # Horizon
-            s = '$\mathrm{H}$'
-            qz = data.calibration.angle_to_q(self.incident_angle)
-            self.ax.axhline(qz, xmin=xmin, xmax=xmax, color='0.5', linewidth=4.0, dashes=[15,15])
-            self.ax.text(xf, qz, s, size=30, color='0.5', horizontalalignment='left', verticalalignment='center')
-            # Specular
-            s = '$\mathrm{R}$'
-            qz = data.calibration.angle_to_q(2.0*self.incident_angle)
-            self.ax.axhline(qz, xmin=xmin, xmax=xmax, color='r', linewidth=4.0)
-            self.ax.text(xf, qz, s, size=30, color='r', horizontalalignment='left', verticalalignment='center')
-            # Yoneda
-            s = '$\mathrm{Y}$'
-            qz = data.calibration.angle_to_q(self.incident_angle+self.critical_angle)
-            self.ax.axhline(qz, xmin=xmin, xmax=xmax, color='#bfbf00', linewidth=4.0)
-            self.ax.text(xf, qz, s, size=30, color='#bfbf00', horizontalalignment='left', verticalalignment='center')
-            # Transmitted beam
-            s = '$\mathrm{T}$'
-            if self.incident_angle < self.critical_angle:
-                qz = data.calibration.angle_to_q(self.incident_angle)
-            else:
-                numerator = np.cos(np.radians(self.incident_angle))
-                denominator = np.cos(np.radians(self.critical_angle))
-                alpha_incident = np.degrees(np.arccos(numerator/denominator))
-                qz = data.calibration.angle_to_q(self.incident_angle - alpha_incident)
-            self.ax.axhline(qz, xmin=xmin, xmax=xmax, color='#5555ff', linewidth=4.0)
-            self.ax.text(xf, qz, s, size=30, color='#0000ff', horizontalalignment='left', verticalalignment='center')
-                
-            
-                                 
-            
-        import types
-        q_data._plot = types.MethodType(_plot, q_data)
-        q_data._plot_extra = types.MethodType(_plot_extra, q_data)
-    
-    
-        q_data.set_z_display([None, None, 'gamma', 0.3])
-        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
-                                    'xtick.labelsize': 40,
-                                    'ytick.labelsize': 40,
-                                    'xtick.major.pad': 10,
-                                    'ytick.major.pad': 10,
-                                    },
-                            } 
-
-        q_data.plot(outfile, plot_buffers=[0.30,0.08,0.25,0.05], **run_args)
-        
-        
-        return results
-            
     
     
 class q_phi_image(Protocol):
@@ -1324,131 +1056,6 @@ class q_phi_image(Protocol):
 
 
 
-
-class export_STL(Protocol):
-    
-    def __init__(self, name='export_STL', **kwargs):
-        
-        self.name = self.__class__.__name__ if name is None else name
-        
-        self.default_ext = '.stl'
-        self.run_args = {
-                        'crop' : None ,
-                        'shift_crop_up' : 0.0 ,
-                        'blur' : 0.5 ,
-                        'resize' : 1.0 ,
-                        'ztrim' : [0.05, 0.005] ,
-                        'stl_pedestal' : 75.0 ,
-                        'stl_zscale' : 200.0 ,
-                        'crop_zone' : None ,
-                        'crop_beam' : None , 
-                        }
-        self.run_args.update(kwargs)
-        
-
-    @run_default
-    def run(self, data, output_dir, **run_args):
-        
-        results = {}
-        
-        data.data = data.data.astype(float)
-        
-        if run_args['crop'] is not None:
-            data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'])
-        if run_args['crop_zone'] is not None:
-            xi, xf, yi, yf = run_args['crop_zone']
-        elif run_args['crop_beam'] is not None:
-            xw, yw = run_args['crop_beam']
-            xi = calibration.x0 - xw/2
-            xf = calibration.x0 + xw/2
-            yi = calibration.y0 - yw/2
-            yf = calibration.y0 + yw/2
-            data.data = data.data[ int(yi):int(yf), int(xi):int(xf) ]
-        elif run_args['crop_GI'] is not None:
-            w = run_args['crop_GI']
-            xi = calibration.x0 - w/2
-            xf = calibration.x0 + w/2
-            yi = calibration.y0 - w
-            yf = calibration.y0
-            data.data = data.data[ int(yi):int(yf), int(xi):int(xf) ]
-            
-        if run_args['blur'] is not None:
-            data.blur(run_args['blur'])
-        if run_args['resize'] is not None:
-            data.resize(run_args['resize']) # Shrink
-        
-        
-        
-        
-        # Adjust scaling of data
-        data.set_z_display([None, None, 'gamma', 0.2])
-        
-        if run_args['verbosity']>=3:
-        
-            outfile = self.get_outfile(data.name, output_dir, ext='.jpg')
-            results['files_saved'] = [
-                { 'filename': '{}'.format(outfile) ,
-                'description' : 'quick view (thumbnail) image' ,
-                'type' : 'plot' # 'data', 'plot'
-                } ,
-                ]
-            data.plot_image(outfile, cmap=cmap_vge_hdr, **run_args)
-                
-        
-
-        if run_args['verbosity']>=4:
-            print('        data.data from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(data.data), np.max(data.data), np.average(data.data), np.std(data.data)))
-                                                                                      
-        data._plot_z_transform()
-        
-        if run_args['verbosity']>=4:
-            print('        data.Z from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(data.Z), np.max(data.Z), np.average(data.Z), np.std(data.Z)))
-                                                                                      
-                                                                                      
-        height_map = (data.Z - np.min(data.Z))/(np.max(data.Z)-np.min(data.Z)) # Data now from 0...1
-        
-        
-        if run_args['verbosity']>=4:
-            print('        height_map (normed) from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(height_map), np.max(height_map), np.average(height_map), np.std(height_map)))
-            
-        
-        # Readjust height map output
-        height_map = ( height_map*run_args['stl_zscale'] ) + run_args['stl_pedestal']
-        height_map *= run_args['resize']
-        if run_args['verbosity']>=4:
-            print('        height_map (STL scale) from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(height_map), np.max(height_map), np.average(height_map), np.std(height_map)))
-        
-        
-        
-        if 'file_extension' in run_args and run_args['file_extension'] is not None:
-            outfile = self.get_outfile(data.name, output_dir, ext=run_args['file_extension'])
-        else:
-            outfile = self.get_outfile(data.name, output_dir)
-        
-        #print(data.stats())
-        
-        results['files_saved'] = [
-            { 'filename': '{}'.format(outfile) ,
-             'description' : 'STL version of data (for 3D printing)' ,
-             'type' : 'print' # 'data', 'plot'
-            } ,
-            ]
-        
-        
-        # Kludge: We clip a corner to enforce a definition of the 'bottom' (minimum height)
-        height_map[0,0] = 0
-        
-        if run_args['verbosity']>=4:
-            print('        height_map (STL scale final) from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(height_map), np.max(height_map), np.average(height_map), np.std(height_map)))
-        
-        
-        from stl_tools import numpy2stl
-        numpy2stl( height_map, outfile, scale=1.0, mask_val=0, solid=True)
-
-        
-        
-        return results            
-        
 
 
 
@@ -1829,6 +1436,73 @@ class merge_images_gonio_phi(Protocol):
         
         return results
         
+class test_tiling(Protocol):
+    
+    def __init__(self, name='merge_images', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.tiff'
+        self.run_args = {
+                        #'pattern_re' : '^.+\/([a-zA-Z0-9_]+_)(\d+)(\.+)$',
+                        'file_extension' : 'merged.npy',
+                        'processor' : None,
+                        'normalizations' : None,
+                        'mask1':None,
+                        'mask2':None
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, infiles, output_dir,  mask1=None, mask2=None, **run_args):
+        
+        results = {}
+        print('1st check\n')
+       
+        #outfile = self.preliminary(infiles, output_dir, **run_args)
+        #if outfile is None:
+            #return {}
+
+        print('2st check\n')
+        
+        processor = run_args['processor']
+        load_args = processor.load_args
+        
+        #print('processer = {}\n'.format(processer.name))
+        print(infiles.name)
+        print('=====')
+        # Load first image
+        #data = processor.load(infiles[0], **load_args, mask=mask1)
+        #data = processor.load(infiles)
+        #data = self.transform(data, **run_args)
+        #data = Data2DScattering(infiles, mask=mask1)
+        #data = Data2DScattering(infiles)
+        
+        # Iterate through remaining images
+        #for infile in infiles[1:]:
+            ## Add this new image to the data
+            #newdata = run_args['processor'].load(infile, **load_args, mask=mask_pos2)
+            #newdata = self.transform(newdata, **run_args)
+            #data.data += newdata.data
+        ## Iterate through remaining images
+        #for infile in infiles[1:]:
+            ## Add this new image to the data
+            #newdata = run_args['processor'].load(infile, **load_args)
+            #newdata = self.transform(newdata, **run_args)
+            #data.data += newdata.data
+                
+            
+        
+        #results['files_saved'] = [
+            #{ 'filename': '{}'.format(outfile) ,
+             #'description' : 'sum of multiple images (npy format)' ,
+             #'type' : 'data' # 'data', 'plot'
+            #} ,
+            #]
+            
+        #np.save(outfile, data.data)
         
         
+        return results
         
