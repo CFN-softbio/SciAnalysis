@@ -118,7 +118,10 @@ class circular_average(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {}
+        self.run_args = {
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            }
         self.run_args.update(kwargs)
     
         
@@ -686,9 +689,578 @@ class linecut_qr_fit(linecut_qr):
         return lm_result, fit_line, fit_line_extended         
     
 
+        #End class linecut_qr_fit(linecut_qr)
+        ########################################
+        
 
 
 
+class linecut_qz_fit(linecut_qz):
+
+    def __init__(self, name='linecut_qz_fit', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {'show_region' : False,
+                         'plot_range' : [None, None, 0, None],
+                         'show_guides' : True,
+                         'markersize' : 0,
+                         'linewidth' : 1.5,
+                         }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        # Usage example:
+        # linecut_qz_fit(show_region=False, show=False, qr=0.009, dq=0.0025, q_mode='qr', fit_range=fit_range, q0_expected=q0_expected, plot_range=[0, 0.08, 0, None]) ,
+
+        
+        results = {}
+        
+        line = data.linecut_qz(**run_args)
+        
+        if 'show_region' in run_args and run_args['show_region']:
+            data.plot(show=True)
+        
+        
+        #line.smooth(2.0, bins=10)
+        
+        outfile = self.get_outfile(data.name, output_dir)
+        line.plot(save=outfile, **run_args)
+
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        line.save_data(outfile)
+
+        
+        if 'incident_angle' not in run_args:
+            run_args['incident_angle'] = 0
+            
+            import re
+            filename_re = re.compile('^.+_th(-?\d+\.\d+)_.+$')
+            m = filename_re.match(data.name)
+            if m:
+                run_args['incident_angle'] = float(m.groups()[0])
+                
+                
+        #if 'critical_angle_film' not in run_args:
+            #run_args['critical_angle_film'] = 0
+        #if 'critical_angle_substrate' not in run_args:
+            #run_args['critical_angle_substrate'] = 0
+                
+        
+        
+        
+        # Fit data
+        lm_result, fit_line, fit_line_extended = self._fit_peaks(line, **run_args)
+        
+        
+        # Save fit results
+        fit_name = 'fit_peaks'
+        prefactor_total = 0
+        for param_name, param in lm_result.params.items():
+            results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
+            if 'prefactor' in param_name:
+                prefactor_total += np.abs(param.value)
+            
+        results['{}_prefactor_total'.format(fit_name)] = prefactor_total
+        results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
+        
+        # Calculate some additional things
+        q0 = results['{}_x_center1'.format(fit_name)]['value']
+        d = 0.1*2.*np.pi/q0
+        results['{}_d0'.format(fit_name)] = d
+        xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma1'.format(fit_name)]['value']
+        results['{}_grain_size'.format(fit_name)] = xi       
+        
+
+        
+        if 'critical_angle_film' in run_args:
+            # Account for refraction distortion
+            
+            theta_incident_rad = np.radians(run_args['incident_angle'])
+            theta_c_f_rad = np.radians(run_args['critical_angle_film'])
+            #theta_c_s_rad = np.radians(run_args['critical_angle_substrate'])
+            
+            alpha_i_rad = np.arccos( np.cos(theta_incident_rad)/np.cos(theta_c_f_rad) )
+            
+            def angle_to_q(two_theta_s_rad):
+                k = data.calibration.get_k()
+                qz = 2*k*np.sin(two_theta_s_rad/2.0)
+                return qz      
+            def q_to_angle(q):
+                k = data.calibration.get_k()
+                two_theta_s_rad = 2.0*np.arcsin(q/(2.0*k))
+                return two_theta_s_rad
+            
+            # Scattering from incident (refracted) beam
+            two_theta_s_rad = q_to_angle(q0)
+            theta_f_rad = two_theta_s_rad - theta_incident_rad
+            
+            alpha_f_rad = np.arccos( np.cos(theta_f_rad)/np.cos(theta_c_f_rad) )
+            
+            two_alpha_s_rad = alpha_i_rad + alpha_f_rad
+            qT = angle_to_q(two_alpha_s_rad)
+            results['{}_qT'.format(fit_name)] = qT
+            results['{}_dT'.format(fit_name)] = 0.1*2.*np.pi/qT
+            
+            
+            # Scattering from reflected beam
+            two_alpha_s_rad = abs( alpha_f_rad-alpha_i_rad )
+            qR = angle_to_q(two_alpha_s_rad)
+            results['{}_qR'.format(fit_name)] = qR
+            results['{}_dR'.format(fit_name)] = 0.1*2.*np.pi/qR
+
+            
+        
+        
+        
+        # Plot and save data
+        class DataLines_current(DataLines):
+            
+            def _plot_extra(self, **plot_args):
+                
+                xi, xf, yi, yf = self.ax.axis()
+                y_fit_max = np.max(self.lines[1].y)
+                yf = y_fit_max*2.0
+                v_spacing = (yf-yi)*0.06
+                
+                q0 = self.results['fit_peaks_x_center1']['value']
+                color = 'purple'
+                
+                yp = yf
+                s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(q0)
+                self.ax.text(xf, yp, s, size=15, color=color, verticalalignment='top', horizontalalignment='right')
+
+                yp -= v_spacing
+                s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0'])
+                self.ax.text(xf, yp, s, size=15, color=color, verticalalignment='top', horizontalalignment='right')
+
+                yp -= v_spacing
+                s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma1']['value'])
+                self.ax.text(xf, yp, s, size=15, color=color, verticalalignment='top', horizontalalignment='right')
+                
+                yp -= v_spacing
+                s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size'])
+                self.ax.text(xf, yp, s, size=15, color=color, verticalalignment='top', horizontalalignment='right')
+                
+                
+                self.ax.axvline(q0, color=color, linewidth=0.5)
+                self.ax.text(q0, yf, '$q_0$', size=20, color=color, horizontalalignment='center', verticalalignment='bottom')
+                
+                
+                s = '$q_T = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_T = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qT'], self.results['fit_peaks_dT'])
+                self.ax.text(q0, y_fit_max, s, size=15, color='b', horizontalalignment='left', verticalalignment='bottom')
+                self.ax.plot( [q0-self.results['fit_peaks_qT'], q0], [y_fit_max, y_fit_max], '-', color='b' )
+
+                s = '$q_R = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_R = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qR'], self.results['fit_peaks_dR'])
+                self.ax.text(q0, 0, s, size=15, color='r', horizontalalignment='left', verticalalignment='bottom')
+                self.ax.plot( [q0-self.results['fit_peaks_qR'], q0], [yi, yi], '-', color='r' )
+                
+                
+                
+                if self.run_args['show_guides']:
+                    # Show various guides of scattering features
+                    
+
+                    
+                    theta_incident_rad = np.radians(self.run_args['incident_angle'])
+                    
+                    
+
+                    # Direct
+                    qz = 0
+                    self.ax.axvline( qz, color='0.25' )
+                    self.ax.text(qz, yf, '$\mathrm{D}$', size=20, color='0.25', horizontalalignment='center', verticalalignment='bottom')
+
+                    # Horizon
+                    qz = angle_to_q(theta_incident_rad)
+                    l = self.ax.axvline( qz, color='0.5' )
+                    l.set_dashes([10,6])
+                    self.ax.text(qz, yf, '$\mathrm{H}$', size=20, color='0.5', horizontalalignment='center', verticalalignment='bottom')
+
+                    # Specular beam
+                    qz = angle_to_q(2*theta_incident_rad)
+                    self.ax.axvline( qz, color='r' )
+                    self.ax.text(qz, yf, '$\mathrm{R}$', size=20, color='r', horizontalalignment='center', verticalalignment='bottom')
+
+
+                    if 'critical_angle_film' in self.run_args:
+                        theta_c_f_rad = np.radians(self.run_args['critical_angle_film'])
+                    
+                        # Transmitted (direct beam refracted by film)
+                        if theta_incident_rad<=theta_c_f_rad:
+                            qz = angle_to_q(theta_incident_rad) # Horizon
+                        else:
+                            alpha_i_rad = np.arccos( np.cos(theta_incident_rad)/np.cos(theta_c_f_rad) )
+                            two_theta_s_rad = theta_incident_rad - alpha_i_rad
+                            qz = angle_to_q(two_theta_s_rad)
+                        l = self.ax.axvline( qz, color='b' )
+                        l.set_dashes([4,4])
+
+                        # Yoneda
+                        qz = angle_to_q(theta_incident_rad+theta_c_f_rad)
+                        self.ax.axvline( qz, color='gold' )
+                        self.ax.text(qz, yf, '$\mathrm{Y}_f$', size=20, color='gold', horizontalalignment='center', verticalalignment='bottom')
+                    
+                    if 'critical_angle_substrate' in self.run_args:
+                        theta_c_s_rad = np.radians(self.run_args['critical_angle_substrate'])
+
+                        # Transmitted (direct beam refracted by substrate)
+                        if theta_incident_rad<=theta_c_s_rad:
+                            qz = angle_to_q(theta_incident_rad) # Horizon
+                        else:
+                            alpha_i_rad = np.arccos( np.cos(theta_incident_rad)/np.cos(theta_c_s_rad) )
+                            two_theta_s_rad = theta_incident_rad - alpha_i_rad
+                            qz = angle_to_q(two_theta_s_rad)
+                        self.ax.axvline( qz, color='b' )
+                        self.ax.text(qz, yf, '$\mathrm{T}$', size=20, color='b', horizontalalignment='center', verticalalignment='bottom')
+
+                        # Yoneda
+                        qz = angle_to_q(theta_incident_rad+theta_c_s_rad)
+                        self.ax.axvline( qz, color='gold' )
+                        self.ax.text(qz, yf, '$\mathrm{Y}_s$', size=20, color='gold', horizontalalignment='center', verticalalignment='bottom')
+                        
+
+                
+                self.ax.axis([xi, xf, yi, yf])
+                
+
+        lines = DataLines_current([line, fit_line, fit_line_extended])
+        lines.copy_labels(line)
+        lines.results = results
+        lines.run_args = run_args
+
+        outfile = self.get_outfile(data.name+'-fit', output_dir, ext='.png')
+        
+        try:
+            #lines.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+            lines.plot(save=outfile, **run_args)
+        except ValueError:
+            pass
+
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        line.save_data(outfile)
+        
+        #print(results)
+        
+        return results        
+        
+
+
+                
+    def _fit_peaks(self, line, num_curves=1, **run_args):
+        
+        # Usage: lm_result, fit_line, fit_line_extended = self.fit_peaks(line, **run_args)
+        
+        line_full = line
+        if 'fit_range' in run_args:
+            line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
+        
+            
+        
+        import lmfit
+        
+        def model(v, x):
+            '''Gaussians with constant background.'''
+            m = v['m']*x + v['b']
+            for i in range(num_curves):
+                m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+            return m
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        params = lmfit.Parameters()
+        
+        m = (line.y[-1]-line.y[0])/(line.x[-1]-line.x[0])
+        b = line.y[0] - m*line.x[0]
+        
+        #params.add('m', value=0)
+        #params.add('b', value=np.min(line.y), min=0, max=np.max(line.y))
+        #params.add('m', value=m, min=abs(m)*-10, max=abs(m)*+10)
+        params.add('m', value=m, min=abs(m)*-5, max=0) # Slope must be negative
+        params.add('b', value=b, min=0)
+        
+        
+        xspan = np.max(line.x) - np.min(line.x)
+        xpeak, ypeak = line.target_y(np.max(line.y))
+        
+        if 'q0_expected' in run_args and run_args['q0_expected'] is not None:
+            xpeak, ypeak = line.target_x(run_args['q0_expected'])
+            
+        prefactor = ypeak - (m*xpeak+b)
+        
+        for i in range(num_curves):
+            #xpos = np.min(line.x) + xspan*(1.*i/num_curves)
+            #xpos, ypos = line.target_x(xpeak*(i+1))
+            xpos, ypos = xpeak, ypeak
+            
+            params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=np.max(line.y)*4)
+            params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x))
+            #params.add('x_center{:d}'.format(i+1), value=-0.009, min=np.min(line.x), max=np.max(line.x))
+            params.add('sigma{:d}'.format(i+1), value=0.003, min=0, max=xspan*0.5)
+        
+        
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        # https://lmfit.github.io/lmfit-py/fitting.html
+        #lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y), method='nelder')
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'purple', 'marker':None, 'linewidth':4.0})
+        
+        span = abs( np.max(line.x) - np.min(line.x) )
+        fit_x = np.linspace(np.min(line.x)-0.5*span, np.max(line.x)+0.5*span, num=500)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'purple', 'alpha':0.5, 'marker':None, 'linewidth':2.0})        
+
+        return lm_result, fit_line, fit_line_extended       
+
+
+        #End class linecut_qz_fit(linecut_qz)
+        ########################################
+
+
+
+
+
+class linecut_angle_fit(linecut_angle):
+
+    def __init__(self, name='linecut_angle_fit', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {'show_region' : False,
+                         'plot_range' : [-90, 90, None, None]
+                         }
+        self.run_args.update(kwargs)
+        
+        
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if 'q0' not in run_args or run_args['q0'] is None:
+            # Determine q based on circular_average_q2I_fit
+            
+            head, tail = os.path.split(output_dir)
+            result_file = os.path.join(head, 'results', '{}.xml'.format(data.name))
+            prev_results = tools.get_result_xml(result_file, 'circular_average_q2I')
+            
+            run_args['q0'] = prev_results['fit_peaks_x_center1']
+        
+        # Extract circular average
+        #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
+        line = data.linecut_angle(**run_args)
+        
+        
+        
+        # Remove the data near chi=0 since this is artificially high (specular ridge)
+        line.kill_x(0, 3)
+        
+        if 'show_region' in run_args and run_args['show_region']:
+            data.plot(show=True)
+        
+        # Basic output
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        #line.save_data(outfile)
+        
+        
+        # Fine-tune data
+        line.x = line.x[1:]
+        line.y = line.y[1:]
+        line.smooth(2.0)
+        
+        do_FWHM = True
+        do_fits = False
+        
+        
+        # Fit
+        class DataLines_current(DataLines):
+            
+            def _plot_extra(self, **plot_args):
+                
+                v_spacing = 0.1
+                
+                xi, xf, yi, yf = self.ax.axis()
+
+                #yi = min( self.lines[-1].y )*0.5
+                #yf = max( self.lines[-1].y )*1.5
+                #self.ax.axis( [xi, xf, yi, yf] )
+
+                if do_fits:
+                    yp = yf
+                    s = '$\eta = {:.2f}$'.format(self.results['fit_eta_eta'])
+                    self.ax.text(xi, yp, s, size=30, color='b', verticalalignment='top', horizontalalignment='left')
+
+                    yp = yf
+                    s = '$m = {:.2f}$'.format(self.results['fit_MaierSaupe_m'])
+                    self.ax.text(xf, yp, s, size=30, color='purple', verticalalignment='top', horizontalalignment='right')
+                    
+                    
+                if do_FWHM:
+                    # FWHM
+                    line = self.lines[0]
+                    xt, yt = line.target_y(max(line.y))
+                    hm = yt*0.5
+                    
+                    # Right (+) side
+                    line_temp = line.sub_range(xt, +60)
+                    xtr, ytr = line_temp.target_y(hm)
+                    
+                    
+                    # Left (-) side
+                    line_temp = line.sub_range(-60, xt)
+                    xtl, ytl = line_temp.target_y(hm)
+                    
+                    
+                    self.ax.plot([xtl, xtr], [ytl, ytr], 'o-', color='b', markersize=8, linewidth=1.0)
+                    s = r'$\mathrm{{FWHM}} = {:.1f}^{{\circ}}$'.format( abs(xtr-xtl) )
+                    self.ax.text(xtr, ytr, s, color='b', size=20, verticalalignment='center', horizontalalignment='left')
+
+                
+                #self.ax.set_xticks([-180, -90, 0, +90, +180])
+                
+                
+                
+        lines = DataLines_current([]) # Not sure why the lines=[] argument needs to be specified here...
+        lines.add_line(line)
+        lines.copy_labels(line)
+        lines.results = {}
+            
+            
+        if do_fits:
+            color_list = ['b', 'purple', 'r', 'green', 'orange',]
+            for i, fit_name in enumerate(['fit_eta', 'fit_MaierSaupe']):
+                
+                lm_result, fit_line, fit_line_e = getattr(self, fit_name)(line, **run_args)
+                fit_line_e.plot_args['color'] = color_list[i%len(color_list)]
+                lines.add_line(fit_line_e)
+            
+                #prefactor_total = 0
+                for param_name, param in lm_result.params.items():
+                    results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
+                    lines.results['{}_{}'.format(fit_name, param_name)] = param.value
+                    #if 'prefactor' in param_name:
+                        #prefactor_total += np.abs(param.value)
+                    
+                #results['{}_prefactor_total'.format(fit_name)] = prefactor_total
+                results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
+            
+            
+        # Output
+        if run_args['verbosity']>=1:
+            outfile = self.get_outfile(data.name, output_dir)
+            lines.lines.reverse()
+            lines.plot(save=outfile, **run_args)
+
+        if run_args['verbosity']>=4:
+            outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+            line.plot_polar(save=outfile, **run_args)
+
+        return results
+    
+    
+                        
+
+    def fit_eta(self, line, **run_args):
+        
+        import lmfit
+        
+        def model(v, x):
+            '''Eta orientation function.'''
+            m = v['prefactor']*( 1 - (v['eta']**2) )/( ((1+v['eta'])**2) - 4*v['eta']*( np.square(np.cos(  (v['symmetry']/2.0)*np.radians(x-v['x_center'])  )) ) ) + v['baseline']
+            return m
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        params = lmfit.Parameters()
+        params.add('prefactor', value=np.max(line.y)*0.5, min=0)
+        params.add('x_center', value=0, min=np.min(line.x), max=np.max(line.x), vary=True)
+        params.add('eta', value=0.2, min=0, max=1)
+        params.add('symmetry', value=2, min=0.5, max=20, vary=False)
+        params.add('baseline', value=0, min=0, max=np.max(line.y), vary=False)
+        
+        
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':4.0})
+        
+        fit_x = np.linspace(np.min(line.x), np.max(line.x), num=1000)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':4.0})
+
+        return lm_result, fit_line, fit_line_extended
+                    
+           
+    def fit_MaierSaupe(self, line, **run_args):
+        
+        import lmfit
+        
+        def model(v, x):
+            '''Eta orientation function.'''
+            m = v['prefactor']*np.exp(v['m']*np.square(np.cos(np.radians(x-v['x_center'])))) + v['baseline']
+            return m
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        params = lmfit.Parameters()
+        params.add('prefactor', value=np.max(line.y)*0.1, min=0)
+        params.add('x_center', value=0, min=np.min(line.x), max=np.max(line.x))
+        params.add('m', value=2.0, min=0)
+        params.add('baseline', value=0, min=0, max=np.max(line.y), vary=False)
+        
+        
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':4.0})
+        
+        fit_x = np.linspace(np.min(line.x), np.max(line.x), num=1000)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':4.0})
+
+        return lm_result, fit_line, fit_line_extended
+
+        #End class linecut_angle_fit(linecut_angle)
+        ########################################
 
                 
                 
