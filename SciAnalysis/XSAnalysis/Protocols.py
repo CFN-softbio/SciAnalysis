@@ -969,6 +969,10 @@ class q_image(Protocol):
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
         q_data.plot(outfile, **run_args)
         
+        if 'save_data' in run_args and run_args['save_data']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)
+        
         
         return results
     
@@ -1022,7 +1026,13 @@ class qr_image(Protocol):
         q_data.x_label = 'qr'
         q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
 
-        q_data.plot(outfile, plot_buffers=[0.30,0.05,0.25,0.05], **run_args)
+        if 'plot_buffers' not in run_args:
+            run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
+        q_data.plot(outfile, **run_args)
+        
+        if 'save_data' in run_args and run_args['save_data']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)
         
         
         return results
@@ -1257,7 +1267,14 @@ class q_image_special(q_image):
                                     },
                             } 
 
-        q_data.plot(outfile, plot_buffers=[0.30,0.08,0.25,0.05], **run_args)
+        if 'plot_buffers' not in run_args:
+            run_args['plot_buffers'] = [0.30,0.08,0.25,0.05]
+        q_data.plot(outfile, **run_args)
+        
+        
+        if 'save_data' in run_args and run_args['save_data']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)
         
         
         return results
@@ -1278,6 +1295,7 @@ class q_phi_image(Protocol):
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
                         'yticks' : [-180, -90, 0, 90, 180],
+                        'save_data_pickle': True,
                         }
         self.run_args.update(kwargs)
         
@@ -1308,7 +1326,7 @@ class q_phi_image(Protocol):
                             } 
         q_data.plot(outfile, plot_buffers=[0.20,0.05,0.20,0.05], **run_args)
         
-        if True:
+        if 'save_data_pickle' in run_args and run_args['save_data_pickle']:
             # Save Data2DQPhi() object
             import pickle
             outfile = self.get_outfile(data.name, output_dir, ext='.pkl')
@@ -1316,8 +1334,6 @@ class q_phi_image(Protocol):
                 out_data = q_data.data, q_data.x_axis, q_data.y_axis
                 pickle.dump(out_data, fout)
             
-        
-        
         
         return results
 
