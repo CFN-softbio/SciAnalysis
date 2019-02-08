@@ -1930,6 +1930,9 @@ class export_STL(Protocol):
                         'stl_zscale' : 200.0 ,
                         'crop_zone' : None ,
                         'crop_beam' : None , 
+                        'crop_GI' : None ,
+                        'logo_file' : None ,
+                        'logo_resize' : 1.0 ,
                         }
         self.run_args.update(kwargs)
         
@@ -1937,9 +1940,13 @@ class export_STL(Protocol):
     @run_default
     def run(self, data, output_dir, **run_args):
         
+        # Usage:
+        #Protocols.export_STL( stl_zscale=150, stl_pedestal=8, blur=1.5, resize=1.0, crop_GI=700)
+        
         results = {}
         
         data.data = data.data.astype(float)
+        calibration = data.calibration
         
         if run_args['crop'] is not None:
             data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'])
@@ -2021,7 +2028,24 @@ class export_STL(Protocol):
              'type' : 'print' # 'data', 'plot'
             } ,
             ]
-        
+
+
+        if run_args['logo_file'] is not None:
+            
+            # Load a logo file
+            import scipy.ndimage as ndimage
+            logo_im = ndimage.imread(run_args['logo_file'])[:,:,0] # 1st channel
+            logo_im = logo_im.astype(float)/255.0
+            logo_im = ndimage.interpolation.zoom(logo_im, zoom=run_args['logo_resize'])
+            
+            # Expand size to match the height map
+            hp, wp = logo_im.shape
+            hi, wi = height_map.shape
+            logo_im = np.pad(logo_im, ((0, hi-hp), (0, wi-wp)), mode='edge')
+            
+            # Adjust height map
+            height_map = height_map*logo_im + (1 - logo_im)*0.5*run_args['stl_pedestal']
+            
         
         # Kludge: We clip a corner to enforce a definition of the 'bottom' (minimum height)
         height_map[0,0] = 0
