@@ -13,12 +13,10 @@ import glob
 from scipy import ndimage
 import numpy as np
 import matplotlib.pyplot as plt
-import random, math
+import random
 import PIL.Image as Image
 from skimage import color
 from skimage import io
-from functools import partial
-import ipywidgets as widgets
 
 # =============================================================================
 # Load data from .dat 
@@ -56,13 +54,21 @@ def get_filematch(feature_args):
     ext = kwargs['ext']
 
     pattern = filename+'*'+ext
+    print(pattern)
     infiles = glob.glob(os.path.join(source_dir, pattern))
     infiles.sort()
     #infiles.sort(key=lambda name: int(name[-15:-9]))  #key=lambda x:float(re.findall("(\d+)",x)[0])
     
     #parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_SAXS{}$'.format(ext)
-    #parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_(\w+){}$'.format(ext)
-    parse_re = '^.+_x(-?\d+\.\d+)_.+_(\d+)_(\w+){}$'.format(ext)
+    if feature_args['map_type']=='xy':
+        parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_\w+{}$'.format(ext)
+    elif feature_args['map_type']=='xT':
+        parse_re = '^.+_x(-?\d+\.\d+)_T(-?\d+\.\d+)_.+_(\d+)_\w+{}$'.format(ext)
+    else:
+        print('Specify map type (eg. xy, T)!')
+        match_re = [];
+        return infilles, match_re
+        
     match_re = re.compile(parse_re)    
     if verbose>0:
         print(pattern)
@@ -75,8 +81,8 @@ def get_filematch(feature_args):
 def get_filematch_s(pattern):
     infiles = glob.glob(pattern)
     infiles.sort()  
-    # parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_(\w+)$'
-    #match_re = re.compile(parse_re)      
+    parse_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)$'
+    match_re = re.compile(parse_re)      
     return infiles
 
 # =============================================================================
@@ -95,9 +101,8 @@ def find_file(xf, yf, feature_args):
     
     n = filename.find('*') # assume before this is the sample name
     
-    # temp = '*x{:.3f}*_y{:.3f}*'.format(xf, yf) 
-    temp = '*x{:.3f}*'.format(xf) 
-    temp = filename[0:n-1]+temp  # ignore char filename[n]
+    temp = '*x{:.3f}*_y{:.3f}*'.format(xf, yf) 
+    temp = filename[0:n-1]+temp # ignore char filename[n]
     pattern = os.path.join(source_dir, temp) 
     infiles = get_filematch_s(pattern)
     return infiles
@@ -217,14 +222,8 @@ def get_map(infiles, match_re, feature_args):
         
         if m!=None:
             x = float(m.groups()[0]) 
-            temp =  float(m.groups()[1])
-            if temp < 1000: # BAD
-                y = temp # note: y is sometimes off by 0.5um because filename has only 3 decimal
-                scan = int(m.groups()[2]) # scan number
-            else:
-                y = 0.0
-                scan = temp
-
+            y = float(m.groups()[1]) # note: y is sometimes off by 0.5um because filename has only 3 decimal
+            scan = int(m.groups()[2]) # scan number
             x_pos.append(x)
             y_pos.append(y)
             scans.append(scan)
@@ -272,7 +271,7 @@ def plot_data(infile, feature_args):
         I = np.log10(I)
         plt.plot(q, I)     
         for idx, q_target in enumerate(q_targets):
-            plt.plot([q_target, q_target], [np.min(I), np.max(I)])
+            plt.plot([q_target, q_target], [-1, 4])
             plt.text(q_target,-1+idx*0.2, '('+str(q_target)+')')
         plt.ylabel('log10(I)')
         plt.xlabel('q ($\AA$^-1)')
@@ -297,8 +296,7 @@ def plot_data(infile, feature_args):
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         
     plt.title(infile)
-
-    
+ 
 # =============================================================================
 # Plot map based on feature
 # =============================================================================       
@@ -325,51 +323,6 @@ def plot_map(x_pos, y_pos, feature, feature_args):
     plt.axis('equal')
     plt.xlabel('x (mm)')
     #plt.ylabel('y (mm)')
-    
-    
-# =============================================================================
-# Interavtive plot 
-# =============================================================================     
-
-from traitlets import CInt, link
-class Counter(widgets.DOMWidget):
-    value = CInt(0, sync=True)
-    
-#    def __init__(self, initial=0):
-#        self.value = initial
-
-    def increment(self, amount=1):
-        self.value += amount
-        return self.value
-
-    def decrease(self, amount=1):
-        self.value -= amount
-        return self.value
-    
-    def __iter__(self, sentinal=False):
-        return iter(self.increment, sentinal)                  
-                  
-def button_callback_decr(counter, feature_args, w):
-    counter.decrease()   
-    plot_scan(counter.value, feature_args)
-
-def button_callback_incr(counter, feature_args, w):
-    counter.increment()   
-    plot_scan(counter.value, feature_args)
-    
-
-def plot_scan(scan, feature_args):
-    N = feature_args['Nf_plot']
-    fdim = [N, 1]
-    for idx in np.arange(1,N+1,1):
-        feature_args.update(feature_id=idx); 
-        infiles, match_re = get_filematch(feature_args) 
-        ax = plt.subplot2grid((fdim[0], fdim[1]), (idx-1, 0), colspan=1); ax.cla() 
-        if infiles!=[]:
-            plot_data(infiles[scan], feature_args)  
-            
-        if idx==1: plt.title("Scan "+str(scan))
-    plt.show()     
     
     
     
