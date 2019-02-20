@@ -11,6 +11,7 @@ import os, sys
 import re
 import glob
 from scipy import ndimage
+from scipy import interpolate
 import numpy as np
 import matplotlib.pyplot as plt
 import random
@@ -182,12 +183,14 @@ def get_feature(infile, feature_args):
         angle_targets = kwargs['angle_targets']
         angle, I = extract_data(infile, data_col)
         val = 0
+        i0 = get_idx_q(angle, -5)
+        i1 = get_idx_q(angle, 180)
+        I_crop = I[i0:i1+1]
         if angle_targets =='max':
-            i0 = get_idx_q(angle, 5)
-            i1 = get_idx_q(angle, 65)
-            I_crop = I[i0:i1+1]
             if np.var(I_crop) > 0:
                 val = angle[i0+np.nanargmax(I_crop)]
+        elif angle_targets =='var':
+            val = np.var(I_crop)
         else: 
             val_list = []
             for idx, angle_target in enumerate(angle_targets):
@@ -279,16 +282,18 @@ def plot_data(infile, feature_args):
     elif feature_id == 3:  
         data_col = kwargs['data_col']
         angle_targets = kwargs['angle_targets']
-        angle, I = extract_data(infile, data_col)
-        I = np.log10(I)
+        angle, I0 = extract_data(infile, data_col)
+        I = np.log10(I0)
         plt.plot(angle, I)     
         if angle_targets =='max':
-            i0 = get_idx_q(angle, 5)
-            i1 = get_idx_q(angle, 65)
+            i0 = get_idx_q(angle, -5)
+            i1 = get_idx_q(angle, 120)
             plt.plot([angle[i0], angle[i1]], [0, 0])
             I_crop = I[i0:i1+1]
             val = angle[i0+np.argmax(I_crop)]
             plt.plot([val, val], [0, 3])
+        elif angle_targets =='var':
+            val = np.var(I0)
         else: 
             for idx, angle_target in enumerate(angle_targets):
                 plt.plot([angle_target, angle_target], [0, 0])
@@ -304,11 +309,14 @@ def plot_map(x_pos, y_pos, feature, feature_args):
     filename = feature_args['filename']
     val_stat = feature_args['val_stat']
     feature_id = feature_args['feature_id']
+    if 'plot_interp' in feature_args:
+        plot_interp = feature_args['plot_interp']
+    else:
+        plot_interp = 1
     if 'cmap' in feature_args and feature_args['cmap']:
         cmap = feature_args['cmap'];
     else:
         cmap = plt.get_cmap('viridis')
-
     if feature_id == 1:
         kwargs = feature_args['feature_1_args']
     elif feature_id == 2:
@@ -316,13 +324,22 @@ def plot_map(x_pos, y_pos, feature, feature_args):
     elif feature_id == 3:
         kwargs = feature_args['feature_3_args']
     source_dir = kwargs['source_dir']
-    plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+    
+    if plot_interp:
+        f = interpolate.interp2d(x_pos, y_pos, feature, kind='cubic')
+        x_pos_fine = np.arange(f.x_min, f.x_max, 0.001) 
+        y_pos_fine = np.arange(f.y_min, f.y_max, 0.001)
+        feature_fine = f(x_pos_fine, y_pos_fine)
+        X, Y = np.meshgrid(x_pos_fine, y_pos_fine)
+        plt.pcolormesh(X, Y, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+    else:
+        plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
     plt.colorbar(shrink=1, pad=0.02, aspect=24);
     plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
-    plt.title(source_dir+filename)
+    #plt.title(source_dir+filename)
     plt.axis('equal')
     plt.xlabel('x (mm)')
-    #plt.ylabel('y (mm)')
+    plt.ylabel('y (mm)')
     
     
     
