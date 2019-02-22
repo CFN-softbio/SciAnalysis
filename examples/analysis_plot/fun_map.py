@@ -145,11 +145,12 @@ def get_feature(infile, feature_args):
     if feature_id == 1:
         pixels = kwargs['pixels']
         pixels_stat = kwargs['pixels_stat']
+        n = kwargs['n']
         im = color.rgb2gray(io.imread(infile))
         imarray = np.array(im)
         val_list = []
         for idx, pixel in enumerate(pixels):
-            temp_roi = imarray[pixel[1]-1:pixel[1]+1,pixel[0]-1:pixel[0]+1] #TEMP
+            temp_roi = imarray[pixel[1]-n:pixel[1]+n+1,pixel[0]-n:pixel[0]+n+1] #TEMP
             temp = np.max(temp_roi)
             if log10: temp = np.log10(temp)
             val_list.extend([temp]) 
@@ -182,10 +183,11 @@ def get_feature(infile, feature_args):
     elif feature_id == 3:  
         data_col = kwargs['data_col']
         angle_targets = kwargs['angle_targets']
+        angle_roi = kwargs['angle_roi']
         angle, I = extract_data(infile, data_col)
         val = 0
-        i0 = get_idx_q(angle, -5)
-        i1 = get_idx_q(angle, 180)
+        i0 = get_idx_q(angle, angle_roi[0])
+        i1 = get_idx_q(angle, angle_roi[1])
         I_crop = I[i0:i1+1]
         if angle_targets =='max':
             if np.var(I_crop) > 0:
@@ -288,16 +290,18 @@ def plot_data(infile, feature_args):
     elif feature_id == 3:  
         data_col = kwargs['data_col']
         angle_targets = kwargs['angle_targets']
+        angle_roi = kwargs['angle_roi']
         angle, I0 = extract_data(infile, data_col)
         I = np.log10(I0)
         plt.plot(angle, I)     
         if angle_targets =='max':
-            i0 = get_idx_q(angle, -5)
-            i1 = get_idx_q(angle, 120)
+            i0 = get_idx_q(angle, angle_roi[0])
+            i1 = get_idx_q(angle, angle_roi[1])
             plt.plot([angle[i0], angle[i1]], [0, 0])
             I_crop = I[i0:i1+1]
             val = angle[i0+np.argmax(I_crop)]
             plt.plot([val, val], [0, 3])
+            plt.text(val, 0.1, str(np.round(val,3)))
         elif angle_targets =='var':
             val = np.var(I0)
         else: 
@@ -305,6 +309,7 @@ def plot_data(infile, feature_args):
                 plt.plot([angle_target, angle_target], [0, 0])
                 plt.plot([angle_target, angle_target], [0, 3])
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
+        plt.xlabel('$\chi$ (degree)')
         
     plt.title(infile)
  
