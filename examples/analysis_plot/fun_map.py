@@ -12,6 +12,7 @@ import re
 import glob
 from scipy import ndimage
 from scipy import interpolate
+from scipy.interpolate import griddata
 import numpy as np
 import matplotlib.pyplot as plt
 import random
@@ -312,7 +313,7 @@ def plot_map(x_pos, y_pos, feature, feature_args):
     if 'plot_interp' in feature_args:
         plot_interp = feature_args['plot_interp']
     else:
-        plot_interp = 1
+        plot_interp = ['none', 1]
     if 'cmap' in feature_args and feature_args['cmap']:
         cmap = feature_args['cmap'];
     else:
@@ -325,15 +326,23 @@ def plot_map(x_pos, y_pos, feature, feature_args):
         kwargs = feature_args['feature_3_args']
     source_dir = kwargs['source_dir']
     
-    if plot_interp:
-        f = interpolate.interp2d(x_pos, y_pos, feature, kind='cubic')
-        x_pos_fine = np.arange(f.x_min, f.x_max, 0.001) 
-        y_pos_fine = np.arange(f.y_min, f.y_max, 0.001)
-        feature_fine = f(x_pos_fine, y_pos_fine)
-        X, Y = np.meshgrid(x_pos_fine, y_pos_fine)
-        plt.pcolormesh(X, Y, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+    if plot_interp[0]!='none':
+        #f = interpolate.interp2d(x_pos, y_pos, feature, kind='cubic') 
+        #x_pos_fine = np.arange(f.x_min, f.x_max, 0.0005) 
+        #y_pos_fine = np.arange(f.y_min, f.y_max, 0.0005)
+        #feature_fine = f(x_pos_fine, y_pos_fine)
+        #X, Y = np.meshgrid(x_pos_fine, y_pos_fine)        
+        
+        ## The following interp works better
+        x_ax_fine = np.arange(np.min(x_pos), np.max(x_pos), plot_interp[1]) 
+        y_ax_fine = np.arange(np.min(y_pos), np.max(y_pos), plot_interp[1])
+        x_pos_fine, y_pos_fine = np.meshgrid(x_ax_fine, y_ax_fine)
+        feature_fine = griddata((x_pos, y_pos), feature, (x_pos_fine, y_pos_fine), method=plot_interp[0])
+        
+        plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
     else:
         plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+        
     plt.colorbar(shrink=1, pad=0.02, aspect=24);
     plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
     #plt.title(source_dir+filename)
