@@ -271,12 +271,17 @@ def plot_data(infile, feature_args):
     elif feature_id == 2: 
         q_targets = kwargs['q_targets']
         data_col = kwargs['data_col']
-        q, I = extract_data(infile, data_col)
+        n = kwargs['n']
+        q, I = extract_data(infile, data_col)        
         I = np.log10(I)
         plt.plot(q, I)     
         for idx, q_target in enumerate(q_targets):
+            # plot q_target 
             plt.plot([q_target, q_target], [-1, 4])
-            plt.text(q_target,-1+idx*0.2, '('+str(q_target)+')')
+            plt.text(q_target, -0.9+idx*0.5, '('+str(q_target)+')')
+            # plot integration region
+            cen = get_idx_q(q, q_target)
+            plt.plot([q[cen-n], q[cen+n]], [-1, -1]) 
         plt.ylabel('log10(I)')
         plt.xlabel('q ($\AA$^-1)')
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)      

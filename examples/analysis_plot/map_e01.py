@@ -27,7 +27,7 @@ feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
                 'map_type': 'xy',
                 'log10'  : 1,
                 'verbose': 1,
-                'plot_interp':  ['none', 0.005], #'none', 'linear'(recommended), 'cubic', 'nearest', pixel in mm
+                'plot_interp':  ['none', 0.001], #'none', 'linear'(recommended), 'cubic', 'nearest', pixel in mm
                } 
 
 feature_1_args = {'source_dir' : dir_path+'thumbnails/',
@@ -40,8 +40,8 @@ feature_1_args = {'source_dir' : dir_path+'thumbnails/',
 feature_2_args = {'source_dir' : dir_path+'circular_average/', #'../circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
-             'q_targets' : [0.038], #0.053  # [*] Choose q0 or q0,q1
-             'n' : 20     # [*] Choose the half-width (data points) of the peak q
+             'q_targets' : [0.0365], #0.053  # [*] Choose q0 or q0,q1
+             'n' : 5     # [*] Choose the half-width (data points) of the peak q
              }
 
 feature_3_args = {'source_dir' : dir_path+'linecut_angle/',
@@ -64,11 +64,11 @@ for idx in [2]:
     
     
     ## Plot one data 
-    fig = plt.figure(100+feature_args['feature_id'], figsize=[10,4]); plt.clf()
+    fig = plt.figure(100+feature_args['feature_id'], figsize=[11,4]); plt.clf()
     ax2 = plt.subplot2grid((1, 5), (0, 0), colspan=2); ax2.cla()
     cmap = plt.get_cmap('magma');  feature_args.update(cmap=cmap)    
-    #feature_args.update(filename='*425754') # Sample 1 70526
-    #infiles, match_re = get_filematch(feature_args)
+    feature_args.update(filename='*74852') # Sample 1 70526
+    infiles, match_re = get_filematch(feature_args)
     plot_data(infiles[0], feature_args)
 
     ## Plot map
