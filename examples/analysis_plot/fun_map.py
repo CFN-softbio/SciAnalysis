@@ -377,37 +377,30 @@ def plot_overlay(x_pos, y_pos, feature_array, feature_args):
     #ax.set_facecolor((0, 0, 0))
     ax.set_facecolor((1, 1, 1))
     
-    val_stat = feature_args['val_stat']
     if 'plot_interp' in feature_args:
         plot_interp = feature_args['plot_interp']
     else:
-        plot_interp = ['none', 1]
-        
+        plot_interp = ['none', 1]    
+    overlay = []
     for idx, feature in enumerate(feature_array):
-        if plot_interp[0]!='none':
-            x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature[0], plot_interp) 
-            feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine))
-            feature_fine[np.isnan(feature_fine)] = 1 #np.nanmean(feature_fine)
-            colorTuple = feature_fine.transpose((0,1)).reshape(feature_fine.shape[0]*feature_fine.shape[1])
-            if idx==0:
-                colorTuple = [colorTuple, np.zeros(colorTuple.shape), np.zeros(colorTuple.shape)]
-            elif idx==1:
-                colorTuple = [np.zeros(colorTuple.shape), colorTuple, np.zeros(colorTuple.shape)]
-            elif idx==2:
-                colorTuple = [np.zeros(colorTuple.shape), np.zeros(colorTuple.shape), colorTuple]
-            colorTuple = np.asanyarray(colorTuple).T
-            #colorTuple = ListedColormap(colorTuple)
-            #colorTuple = mesh_rgb.reshape((mesh_rgb.shape[0] * mesh_rgb.shape[1]), 3)
-            #colorTuple = np.insert(mesh_rgb, 3, 1.0, axis=1)
-            #print(feature_fine)
-            #plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=0, vmax=1, edgecolors='none', alpha=0.8, color=colorTuple)
-            #plt.pcolormesh(x_pos_fine.T, y_pos_fine.T, feature_fine.T, vmin=0, vmax=1, edgecolors='none', linewidths=0, alpha=0.5)
-            plt.pcolormesh(feature_fine*0.0, linewidths=5, alpha=0.1, color=colorTuple)
+        x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature[0], plot_interp) 
+        feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine))
+        feature_fine[np.isnan(feature_fine)] = 1 #np.nanmean(feature_fine)
+        if idx<=2:
+            overlay.append(feature_fine)
         else:
-            plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+            print('More then 3 features, only use the first three for RGB')
+ 
+    while idx<2:
+        overlay.append(feature_fine)
+        idx = idx+1
+    overlay = np.asarray(overlay)
+    overlay = np.transpose(overlay, (1,2,0))
+    extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
+    plt.imshow(overlay, extent=extent,origin='lower')
     
     #plt.colorbar(shrink=1, pad=0.02, aspect=24);
-    #plt.grid(b=True, which='major', color='w', linestyle='-', alpha=0.1)
+    plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
     plt.axis('equal')
     plt.xlabel('x (mm)')
     plt.ylabel('y (mm)')

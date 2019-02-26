@@ -48,10 +48,10 @@ feature_2_args = {'source_dir' : dir_path+'circular_average/', #'../circular_ave
 feature_3_args = {'source_dir' : dir_path+'linecut_angle059/',
              'ext' : '.dat',
              'data_col' : [0, 1],
-             'angle_targets': [32], #'max', #[21] # 'max', 'var', or specify angle 
+             'angle_targets': [8.7], #'max', #[21] # 'max', 'var', or specify angle 
              'angle_roi': [5,  65], # range to consider for max or var 
              }
-    
+
 feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args)
 
 ########## Feature map
@@ -59,8 +59,9 @@ feature_array = []
 for idx in [1,2,3]:
     feature_args['feature_id'] = idx; 
     
-    ## Find matching files
+    ## Find matching files   
     infiles, match_re = get_filematch(feature_args)  
+
     
     ## Get map
     scans, x_pos, y_pos, feature = get_map(infiles, match_re, feature_args) 
