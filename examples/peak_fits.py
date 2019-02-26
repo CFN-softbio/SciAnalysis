@@ -499,6 +499,10 @@ class linecut_qz_fit(Protocols.linecut_qz):
     @tools.run_default
     def run(self, data, output_dir, **run_args):
         
+        # Usage example:
+        # linecut_qz_fit(show_region=False, show=False, qr=0.009, dq=0.0025, q_mode='qr', fit_range=fit_range, q0_expected=q0_expected, plot_range=[0, 0.08, 0, None]) ,
+
+        
         results = {}
         
         line = data.linecut_qz(**run_args)
@@ -809,6 +813,8 @@ class linecut_qz_fit(Protocols.linecut_qz):
         return lm_result, fit_line, fit_line_extended       
 
 
+        #End class linecut_qz_fit(linecut_qz)
+        ########################################
 
 
 
