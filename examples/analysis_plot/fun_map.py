@@ -142,7 +142,8 @@ def get_feature(infile, feature_args):
         kwargs = feature_args['feature_2_args']
     elif feature_id == 3:
         kwargs = feature_args['feature_3_args']
-        
+    
+    val = []    
     if feature_id == 1:
         pixels = kwargs['pixels']
         pixels_stat = kwargs['pixels_stat']
@@ -154,17 +155,16 @@ def get_feature(infile, feature_args):
             temp_roi = imarray[pixel[1]-n:pixel[1]+n+1,pixel[0]-n:pixel[0]+n+1] #TEMP
             temp = np.max(temp_roi)
             if log10: temp = np.log10(temp)
-            val_list.extend([temp]) 
+            val.append(temp) 
+            val_list.append(temp)
         if pixels_stat=='mean':
-            val = np.mean(val_list)
+            val.append(np.mean(val_list))
         elif pixels_stat=='max':
-            val = np.max(val_list)
+            val.append(np.max(val_list))
         elif pixels_stat=='var':
-            val = np.var(val_list)
+            val.append(np.var(val_list))
         elif pixels_stat=='diff':
-            val = (val_list[1]-val_list[0])
-        else:
-            val = val_list[pixels_stat]
+            val.append((val_list[1]-val_list[0]))
         
     elif feature_id == 2:  
         data_col = kwargs['data_col']
@@ -176,10 +176,11 @@ def get_feature(infile, feature_args):
             cen = get_idx_q(q, q_target)
             temp = np.mean(I[cen-n:cen+n+1])  
             if log10: temp = np.log10(temp)
+            val_list.append(temp)
             if idx==0:
-                val = temp      # ring intensity I(q0)
+                val.append(temp)      # ring intensity I(q0)
             else:
-                val = val/(temp+1e-5)  # I(q0)/I(q1)
+                val.append((val_list[1]/(val_list[0])+1e-5))  # I(q0)/I(q1)
 
     elif feature_id == 3:  
         data_col = kwargs['data_col']
@@ -196,13 +197,13 @@ def get_feature(infile, feature_args):
         elif angle_targets =='var':
             val = np.var(I_crop)
         else: 
-            val_list = []
+            val = []
             for idx, angle_target in enumerate(angle_targets):
                 temp = I[get_idx_q(angle, angle_target)]
-                if idx==0:
-                    val = temp      # I(chi0)
-                else:
-                    val = val/(temp+1e-5)  # I(chi0)/I(chi1)
+                #if idx==0:
+                val.append(temp)      # I(chi0)
+                #else:
+                #    val = val/(temp+1e-5)  # I(chi0)/I(chi1)
 
     return val
 
@@ -237,8 +238,9 @@ def get_map(infiles, match_re, feature_args):
     
             val = get_feature(infile, feature_args)
             feature.append(val)
-    #print('Done mapping')
+
     feature_args.update(val_stat=[np.min(feature), np.max(feature)])
+    feature = np.asarray(feature)
     
     return scans, x_pos, y_pos, feature
     
@@ -309,7 +311,7 @@ def plot_data(infile, feature_args):
             for idx, angle_target in enumerate(angle_targets):
                 plt.plot([angle_target, angle_target], [0, 0])
                 plt.plot([angle_target, angle_target], [0, 3])
-                plt.text(angle_target, 0.1, str(angle_target))
+                plt.text(angle_target, 0.1+idx*0.1, '('+str(angle_target)+')')
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         plt.xlabel('$\chi$ (degree)')
         
@@ -356,12 +358,7 @@ def plot_map(x_pos, y_pos, feature, feature_args):
 # Give interpolated map with finer discretization
 # note - griddata works better than interpolate.interp2d
 # =============================================================================          
-def interp_map(x_pos, y_pos, feature, plot_interp):
-    #f = interpolate.interp2d(x_pos, y_pos, feature, kind='cubic') 
-    #x_pos_fine = np.arange(f.x_min, f.x_max, 0.0005) 
-    #y_pos_fine = np.arange(f.y_min, f.y_max, 0.0005)
-    #feature_fine = f(x_pos_fine, y_pos_fine)
-    #X, Y = np.meshgrid(x_pos_fine, y_pos_fine)    
+def interp_map(x_pos, y_pos, feature, plot_interp): 
     x_ax_fine = np.arange(np.min(x_pos), np.max(x_pos), plot_interp[1]) 
     y_ax_fine = np.arange(np.min(y_pos), np.max(y_pos), plot_interp[1])
     x_pos_fine, y_pos_fine = np.meshgrid(x_ax_fine, y_ax_fine)
@@ -369,7 +366,7 @@ def interp_map(x_pos, y_pos, feature, plot_interp):
     return x_pos_fine, y_pos_fine, feature_fine
 
 # =============================================================================
-# Overlay two+ features
+# Overlay three features
 # =============================================================================       
 def plot_overlay(x_pos, y_pos, feature_array, feature_args):
     fig = plt.figure(200, figsize=[8,8]); plt.clf()
@@ -392,7 +389,7 @@ def plot_overlay(x_pos, y_pos, feature_array, feature_args):
             print('More then 3 features, only use the first three for RGB')
  
     while idx<2:
-        overlay.append(feature_fine)
+        overlay.append(feature_fine*0.0)
         idx = idx+1
     overlay = np.asarray(overlay)
     overlay = np.transpose(overlay, (1,2,0))
