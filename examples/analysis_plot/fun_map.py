@@ -125,9 +125,13 @@ def get_closest(pos, post_list):# pos_list is 2 by N
             #idxf = int(idx)
     return xf, yf
 
+# =============================================================================
+# Calculate distance between 2 Cartersian points
+# =============================================================================
 def calc_distance(p0, p1):
     r =  math.hypot(p0[0]-p1[0], p0[1]-p1[1])
     return r
+
 # =============================================================================
 #
 # Define features! 
@@ -145,16 +149,16 @@ def get_feature(infile, feature_args):
     
     val = []    
     if feature_id == 1:
-        pixels = kwargs['pixels']
+        pixels = kwargs['targets']
         n = roi[0]
         im = color.rgb2gray(io.imread(infile))
         imarray = np.array(im)
         for pixel in pixels:
             temp_roi = imarray[pixel[1]-n:pixel[1]+n+1,pixel[0]-n:pixel[0]+n+1] #TEMP
             if roi[1]=='mean':
-                temp = np.mean(temp_roi)
+                temp = np.nanmean(temp_roi)
             elif roi[1]=='max':
-                temp = np.max(temp_roi) 
+                temp = np.nanmax(temp_roi) 
             else:
                 temp = imarray[pixel[1], pixel[0]]
             if log10: temp = np.log10(temp)
@@ -162,43 +166,48 @@ def get_feature(infile, feature_args):
         
     elif feature_id == 2:  
         data_col = kwargs['data_col']
-        q_targets = kwargs['q_targets']
+        q_targets = kwargs['targets']
         roi = kwargs['roi']
         n = roi[0]
         q, I = extract_data(infile, data_col)
         for q_target in q_targets:
             cen = get_target_idx(q, q_target)
             if roi[1]=='mean':
-                temp = np.mean(I[cen-n:cen+n+1]) 
+                temp = np.nanmean(I[cen-n:cen+n+1]) 
             elif roi[1]=='max':
-                temp = np.max(I[cen-n:cen+n+1]) 
+                temp = np.nanmax(I[cen-n:cen+n+1]) 
             else:
                 temp = I[cen]                
             if log10: temp = np.log10(temp)
+            val.append(temp) 
 
     elif feature_id == 3:  
         data_col = kwargs['data_col']
-        angle_targets = kwargs['angle_targets']
+        angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
         angle, I = extract_data(infile, data_col)
-        temp = np.nan
         i0 = get_target_idx(angle, angle_roi[0])
         i1 = get_target_idx(angle, angle_roi[1])
         I_crop = I[i0:i1+1]
-        for angle_target in angle_targets:            
+        for angle_target in angle_targets:  
+            temp = np.nan
             if angle_target =='max':
-                if np.var(I_crop) > 0:
-                    val.append(angle[i0+np.nanargmax(I_crop)])
+                if np.var(I_crop) > 0: # TEMP 
+                    temp = angle[i0+np.nanargmax(I_crop)]
             elif angle_target =='var':
-                val.append(np.nanvar(I_crop))
+                temp = np.nanvar(I_crop)
             else: 
                 try:
                     temp = I[get_target_idx(angle, angle_target)]
+                    if log10: temp = np.log10(temp)
                 except:
-                    temp = np.nan
-                val.append(temp)      # I(chi0)
+                    print('Cannot find I[get_target_idx(angle, angle_target)] \n')
+            val.append(temp)   
 
-    return val
+    info = [feature_id, kwargs['targets']]
+                
+    return val, info
+
 
 # =============================================================================
 # Get the index (for array q) closest to q_target
@@ -208,8 +217,22 @@ def get_target_idx(q, target):
     idx = np.argmin(np.abs(q-target))
     return idx
 
+
 # =============================================================================
-# Fill the map: coordinates x, y, and the feature
+# get_map(infiles, match_re, feature_args)
+#
+# Fill the map on coordinates x, y, with the feature
+# Calls "get_feature" for each file
+#
+# Inputs: 
+#   infiles: file list
+#   match_re: extract positions x, y, and scan ID
+#   feature_args: which feature, what specifics
+# Outputs:
+#   scans: list of scans (not sure how useful yet)
+#   x_pos
+#   y_pos
+#   feature
 # =============================================================================
 def get_map(infiles, match_re, feature_args):
     scans = []
@@ -229,13 +252,13 @@ def get_map(infiles, match_re, feature_args):
             y_pos.append(y)
             scans.append(scan)
     
-            val = get_feature(infile, feature_args)
+            val, info = get_feature(infile, feature_args) # val can be an array
             feature.append(val)
 
-    feature_args.update(val_stat=[np.min(feature), np.max(feature)])
     feature = np.asarray(feature)
+    feature_map = {'scans': scans, 'x_pos':x_pos, 'y_pos':y_pos, 'feature':feature, 'info':info}
     
-    return scans, x_pos, y_pos, feature
+    return feature_map
     
     
 # =============================================================================
@@ -256,7 +279,7 @@ def plot_data(infile, feature_args):
         cmap = 'viridis'
     
     if feature_id == 1:
-        pixels = kwargs['pixels']
+        pixels = kwargs['targets']
         im = color.rgb2gray(io.imread(infile))
         if log10:
             im = np.log10(im)
@@ -267,41 +290,40 @@ def plot_data(infile, feature_args):
         plt.title(infile)
         return im
     elif feature_id == 2: 
-        q_targets = kwargs['q_targets']
+        q_targets = kwargs['targets']
         data_col = kwargs['data_col']
-        n = kwargs['n']
+        roi = kwargs['roi']
+        n = roi[0]
         q, I = extract_data(infile, data_col)        
         I = np.log10(I)
         plt.plot(q, I)     
         for idx, q_target in enumerate(q_targets):
-            # plot q_target 
-            plt.plot([q_target, q_target], [-1, 4])
-            plt.text(q_target, -0.9+idx*0.5, '('+str(q_target)+')')
-            # plot integration region
-            cen = get_target_idx(q, q_target)
+            if type(q_target) is not str:
+                plt.plot([q_target, q_target], [-1, 4])
+                plt.text(q_target, -0.9+idx*0.5, '('+str(q_target)+')')
+                # plot integration region
+                cen = get_target_idx(q, q_target)
             plt.plot([q[cen-n], q[cen+n]], [-1, -1]) 
         plt.ylabel('log10(I)')
         plt.xlabel('q ($\AA$^-1)')
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)      
     elif feature_id == 3:  
         data_col = kwargs['data_col']
-        angle_targets = kwargs['angle_targets']
+        angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
         angle, I0 = extract_data(infile, data_col)
         I = np.log10(I0)
-        plt.plot(angle, I)     
-        if angle_targets =='max':
-            i0 = get_target_idx(angle, angle_roi[0])
-            i1 = get_target_idx(angle, angle_roi[1])
-            plt.plot([angle[i0], angle[i1]], [0, 0])
-            I_crop = I[i0:i1+1]
-            val = angle[i0+np.argmax(I_crop)]
-            plt.plot([val, val], [0, 3])
-            plt.text(val, 0.1, str(np.round(val,3)))
-        elif angle_targets =='var':
-            val = np.var(I0)
-        else: 
-            for idx, angle_target in enumerate(angle_targets):
+        plt.plot(angle, I)  
+        for idx, angle_target in enumerate(angle_targets):
+            if angle_target =='max':
+                i0 = get_target_idx(angle, angle_roi[0])
+                i1 = get_target_idx(angle, angle_roi[1])
+                plt.plot([angle[i0], angle[i1]], [0, 0])
+                I_crop = I[i0:i1+1]
+                val = angle[i0+np.argmax(I_crop)]
+                plt.plot([val, val], [0, 3])
+                plt.text(val, 3-idx*0.1, 'argmax='+str(np.round(val,2)))
+            elif type(angle_target) is not str:
                 plt.plot([angle_target, angle_target], [0, 0])
                 plt.plot([angle_target, angle_target], [0, 3])
                 plt.text(angle_target, 0.1+idx*0.1, '('+str(angle_target)+')')
@@ -313,10 +335,13 @@ def plot_data(infile, feature_args):
 # =============================================================================
 # Plot map based on feature
 # =============================================================================       
-def plot_map(x_pos, y_pos, feature, feature_args):
+def plot_map(x_pos, y_pos, feature, info, feature_args):
     filename = feature_args['filename']
-    val_stat = feature_args['val_stat']
     feature_id = feature_args['feature_id']
+    if 'val_stat' in feature_args:
+        val_stat = feature_args['val_stat']
+    else:
+        val_stat = [np.nanmin(feature), np.nanmax(feature)]
     if 'plot_interp' in feature_args:
         plot_interp = feature_args['plot_interp']
     else:
@@ -344,7 +369,7 @@ def plot_map(x_pos, y_pos, feature, feature_args):
     plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
     #plt.title(source_dir+filename)
     plt.axis('equal')
-    plt.xlabel('x (mm)')
+    plt.xlabel('x (mm)  [feature_id '+ str(info[0]) + ',  ' + str(info[1][0])+']')
     plt.ylabel('y (mm)')
     
 # =============================================================================
@@ -362,39 +387,42 @@ def interp_map(x_pos, y_pos, feature, plot_interp):
 # Overlay three features
 # =============================================================================       
 def plot_overlay(x_pos, y_pos, feature_array, feature_args):
-    fig = plt.figure(200, figsize=[8,8]); plt.clf()
-    ax = fig.add_subplot(1, 1, 1)
-    #ax.set_facecolor((0, 0, 0))
-    ax.set_facecolor((1, 1, 1))
-    
-    if 'plot_interp' in feature_args:
-        plot_interp = feature_args['plot_interp']
-    else:
-        plot_interp = ['none', 1]    
-    overlay = []
-    for idx, feature in enumerate(feature_array):
-        x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature[0], plot_interp) 
-        feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine))
-        feature_fine[np.isnan(feature_fine)] = 1 #np.nanmean(feature_fine)
-        if idx<=2:
-            overlay.append(feature_fine)
+    if feature_array!=[]:
+        fig = plt.figure(200, figsize=[8,8]); plt.clf()
+        ax = fig.add_subplot(1, 1, 1)
+        #ax.set_facecolor((0, 0, 0))
+        ax.set_facecolor((1, 1, 1))
+        
+        if 'plot_interp' in feature_args:
+            plot_interp = feature_args['plot_interp']
         else:
-            print('More then 3 features, only use the first three for RGB')
- 
-    while idx<2:
-        overlay.append(feature_fine*0.0)
-        idx = idx+1
-    overlay = np.asarray(overlay)
-    overlay = np.transpose(overlay, (1,2,0))
-    extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
-    plt.imshow(overlay, extent=extent,origin='lower')
-    
-    #plt.colorbar(shrink=1, pad=0.02, aspect=24);
-    plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
-    plt.axis('equal')
-    #plt.axis('tight')
-    plt.xlabel('x (mm)')
-    plt.ylabel('y (mm)')
+            plot_interp = ['none', 1]    
+        overlay = []
+        for idx, feature in enumerate(feature_array):
+            x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature[0], plot_interp) 
+            feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine))
+            feature_fine[np.isnan(feature_fine)] = 1 #np.nanmean(feature_fine)
+            if idx<=2:
+                overlay.append(feature_fine)
+            else:
+                print('More then 3 features, only use the first three for RGB')
+     
+        while idx<2:
+            overlay.append(feature_fine*0.0)
+            idx = idx+1
+        overlay = np.asarray(overlay)
+        overlay = np.transpose(overlay, (1,2,0))
+        extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
+        plt.imshow(overlay, extent=extent,origin='lower')
+        
+        #plt.colorbar(shrink=1, pad=0.02, aspect=24);
+        plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
+        plt.axis('equal')
+        #plt.axis('tight')
+        plt.xlabel('x (mm)')
+        plt.ylabel('y (mm)')
+    else:
+        print('feature_array is empty!\n')
 
     
     
