@@ -15,6 +15,7 @@ from scipy import interpolate
 from scipy.interpolate import griddata
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 import random
 import PIL.Image as Image
 from skimage import color
@@ -185,7 +186,7 @@ def get_feature(infile, feature_args):
         angle_targets = kwargs['angle_targets']
         angle_roi = kwargs['angle_roi']
         angle, I = extract_data(infile, data_col)
-        val = 0
+        val = np.nan
         i0 = get_idx_q(angle, angle_roi[0])
         i1 = get_idx_q(angle, angle_roi[1])
         I_crop = I[i0:i1+1]
@@ -308,6 +309,7 @@ def plot_data(infile, feature_args):
             for idx, angle_target in enumerate(angle_targets):
                 plt.plot([angle_target, angle_target], [0, 0])
                 plt.plot([angle_target, angle_target], [0, 3])
+                plt.text(angle_target, 0.1, str(angle_target))
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         plt.xlabel('$\chi$ (degree)')
         
@@ -337,19 +339,9 @@ def plot_map(x_pos, y_pos, feature, feature_args):
     source_dir = kwargs['source_dir']
     
     if plot_interp[0]!='none':
-        #f = interpolate.interp2d(x_pos, y_pos, feature, kind='cubic') 
-        #x_pos_fine = np.arange(f.x_min, f.x_max, 0.0005) 
-        #y_pos_fine = np.arange(f.y_min, f.y_max, 0.0005)
-        #feature_fine = f(x_pos_fine, y_pos_fine)
-        #X, Y = np.meshgrid(x_pos_fine, y_pos_fine)        
-        
-        ## The following interp works better
-        x_ax_fine = np.arange(np.min(x_pos), np.max(x_pos), plot_interp[1]) 
-        y_ax_fine = np.arange(np.min(y_pos), np.max(y_pos), plot_interp[1])
-        x_pos_fine, y_pos_fine = np.meshgrid(x_ax_fine, y_ax_fine)
-        feature_fine = griddata((x_pos, y_pos), feature, (x_pos_fine, y_pos_fine), method=plot_interp[0])
-        
+        x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp)      
         plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+        #plt.pcolormesh(x_pos, y_pos, feature) 
     else:
         plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
         
@@ -360,6 +352,65 @@ def plot_map(x_pos, y_pos, feature, feature_args):
     plt.xlabel('x (mm)')
     plt.ylabel('y (mm)')
     
+# =============================================================================
+# Give interpolated map with finer discretization
+# note - griddata works better than interpolate.interp2d
+# =============================================================================          
+def interp_map(x_pos, y_pos, feature, plot_interp):
+    #f = interpolate.interp2d(x_pos, y_pos, feature, kind='cubic') 
+    #x_pos_fine = np.arange(f.x_min, f.x_max, 0.0005) 
+    #y_pos_fine = np.arange(f.y_min, f.y_max, 0.0005)
+    #feature_fine = f(x_pos_fine, y_pos_fine)
+    #X, Y = np.meshgrid(x_pos_fine, y_pos_fine)    
+    x_ax_fine = np.arange(np.min(x_pos), np.max(x_pos), plot_interp[1]) 
+    y_ax_fine = np.arange(np.min(y_pos), np.max(y_pos), plot_interp[1])
+    x_pos_fine, y_pos_fine = np.meshgrid(x_ax_fine, y_ax_fine)
+    feature_fine = griddata((x_pos, y_pos), feature, (x_pos_fine, y_pos_fine), method=plot_interp[0])
+    return x_pos_fine, y_pos_fine, feature_fine
+
+# =============================================================================
+# Overlay two+ features
+# =============================================================================       
+def plot_overlay(x_pos, y_pos, feature_array, feature_args):
+    fig = plt.figure(200, figsize=[8,8]); plt.clf()
+    ax = fig.add_subplot(1, 1, 1)
+    #ax.set_facecolor((0, 0, 0))
+    ax.set_facecolor((1, 1, 1))
     
+    val_stat = feature_args['val_stat']
+    if 'plot_interp' in feature_args:
+        plot_interp = feature_args['plot_interp']
+    else:
+        plot_interp = ['none', 1]
+        
+    for idx, feature in enumerate(feature_array):
+        if plot_interp[0]!='none':
+            x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature[0], plot_interp) 
+            feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine))
+            feature_fine[np.isnan(feature_fine)] = 1 #np.nanmean(feature_fine)
+            colorTuple = feature_fine.transpose((0,1)).reshape(feature_fine.shape[0]*feature_fine.shape[1])
+            if idx==0:
+                colorTuple = [colorTuple, np.zeros(colorTuple.shape), np.zeros(colorTuple.shape)]
+            elif idx==1:
+                colorTuple = [np.zeros(colorTuple.shape), colorTuple, np.zeros(colorTuple.shape)]
+            elif idx==2:
+                colorTuple = [np.zeros(colorTuple.shape), np.zeros(colorTuple.shape), colorTuple]
+            colorTuple = np.asanyarray(colorTuple).T
+            #colorTuple = ListedColormap(colorTuple)
+            #colorTuple = mesh_rgb.reshape((mesh_rgb.shape[0] * mesh_rgb.shape[1]), 3)
+            #colorTuple = np.insert(mesh_rgb, 3, 1.0, axis=1)
+            #print(feature_fine)
+            #plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=0, vmax=1, edgecolors='none', alpha=0.8, color=colorTuple)
+            #plt.pcolormesh(x_pos_fine.T, y_pos_fine.T, feature_fine.T, vmin=0, vmax=1, edgecolors='none', linewidths=0, alpha=0.5)
+            plt.pcolormesh(feature_fine*0.0, linewidths=5, alpha=0.1, color=colorTuple)
+        else:
+            plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+    
+    #plt.colorbar(shrink=1, pad=0.02, aspect=24);
+    #plt.grid(b=True, which='major', color='w', linestyle='-', alpha=0.1)
+    plt.axis('equal')
+    plt.xlabel('x (mm)')
+    plt.ylabel('y (mm)')
+
     
     

@@ -27,7 +27,7 @@ feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
                 'map_type': 'xy',
                 'log10'  : 0,
                 'verbose': 1,
-                'plot_interp':  ['none', 0.001], #'none', 'linear'(recommended), 'cubic', 'nearest', pixel in mm
+                'plot_interp':  ['linear', 0.001], #'none', 'linear'(recommended), 'cubic', 'nearest', pixel in mm
                } 
 
 feature_1_args = {'source_dir' : dir_path+'thumbnails2/', #thumbnails2/
@@ -41,21 +41,22 @@ feature_1_args = {'source_dir' : dir_path+'thumbnails2/', #thumbnails2/
 feature_2_args = {'source_dir' : dir_path+'circular_average/', #'../circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
-             'q_targets' : [0.0365], #0.053  # [*] Choose q0 or q0,q1
+             'q_targets' : [0.059], #0.053  # [*] Choose q0 or q0,q1
              'n' : 5     # [*] Choose the half-width (data points) of the peak q
              }
                    
-feature_3_args = {'source_dir' : dir_path+'linecut_angle058/',
+feature_3_args = {'source_dir' : dir_path+'linecut_angle059/',
              'ext' : '.dat',
              'data_col' : [0, 1],
-             'angle_targets': 'max', #[21] # 'max', 'var', or specify angle 
-             'angle_roi': [-5,  70], # range to consider for max or var 
+             'angle_targets': [32], #'max', #[21] # 'max', 'var', or specify angle 
+             'angle_roi': [5,  65], # range to consider for max or var 
              }
     
 feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args)
 
 ########## Feature map
-for idx in [3]:
+feature_array = []
+for idx in [1,2,3]:
     feature_args['feature_id'] = idx; 
     
     ## Find matching files
@@ -63,12 +64,13 @@ for idx in [3]:
     
     ## Get map
     scans, x_pos, y_pos, feature = get_map(infiles, match_re, feature_args) 
+    feature_array.append([feature])
     
     ## Plot map
     fig = plt.figure(100+feature_args['feature_id'], figsize=[11,4]); plt.clf()
     ax1 = plt.subplot2grid((1, 5), (0, 3), colspan=2); ax1.cla()
     cmap = plt.get_cmap('viridis');    feature_args.update(cmap=cmap)
-    #feature_args.update(val_stat = [0, 0.1])    
+    #feature_args.update(val_stat = [200, 1750])    
     plot_map(x_pos, y_pos, feature, feature_args)
     
     #ax2 = plt.subplot2grid((1, 5), (0, 0), colspan=2); ax2.cla()
@@ -80,5 +82,17 @@ for idx in [3]:
     #feature_args.update(filename='*74852') # Sample 1 70526
     #infiles, match_re = get_filematch(feature_args)
     img = plot_data(infiles[0], feature_args)
+
+
+plot_overlay(x_pos,y_pos, feature_array, feature_args) 
+
+
+
+
+
+
+
+
+
 
 
