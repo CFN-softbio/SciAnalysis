@@ -34,21 +34,20 @@ feature_1_args = {'source_dir' : dir_path+'thumbnails2/', #thumbnails2/
              'ext' : '.jpg',
              #'pixels' : [[89, 122], [102, 201], [152, 73]],  # [*] Choose pixels
              'pixels' : [[228, 61], [181, 39]],  # [190, 43], [*] Choose pixels
-             'n': 1, # [*] Choose +/- n pixels to include
-             'pixels_stat' : 0,     # [*] 'mean', 'max', 'var', or idx
+             'roi': [1, 'mean'],    # [*] Choose +/- n pixels to include
              }
 
 feature_2_args = {'source_dir' : dir_path+'circular_average/', #'../circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
              'q_targets' : [0.038, 0.059], #0.053  # [*] Choose q0 or q0,q1
-             'n' : 4     # [*] Choose the half-width (data points) of the peak q
+             'roi': [1, 'mean'],    # [*] Choose the half-width (data points) of the peak q
              }
                    
 feature_3_args = {'source_dir' : dir_path+'linecut_angle059/',
              'ext' : '.dat',
              'data_col' : [0, 1],
-             'angle_targets': [8.7, 32, 65], #'max', #[21] # 'max', 'var', or specify angle 
+             'angle_targets': [8.7, 'max', 'var'], #'max', #[21] # 'max', 'var', or specify angle 
              'angle_roi': [5,  65], # range to consider for max or var 
              }
 
@@ -56,7 +55,7 @@ feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args
 
 ########## Feature map
 feature_array = []
-for idx in [2]:
+for idx in [3]:
     feature_args['feature_id'] = idx; 
     
     ## Find matching files   
@@ -65,21 +64,22 @@ for idx in [2]:
     
     ## Get map
     scans, x_pos, y_pos, feature = get_map(infiles, match_re, feature_args)
-    for idx in np.arange(0,feature.shape[1]):
+    for idx in np.arange(0, feature.shape[1]):
         feature_array.append([feature[:,idx]])
     
     ## Plot map
-    fig = plt.figure(100+feature_args['feature_id'], figsize=[11,4]); plt.clf()
-    ax1 = plt.subplot2grid((1, 5), (0, 3), colspan=2); ax1.cla()
+    fig = plt.figure(100+feature_args['feature_id'], figsize=[16,4]); plt.clf()
     cmap = plt.get_cmap('viridis');    feature_args.update(cmap=cmap)
-    #feature_args.update(val_stat = [200, 1750])    
-    plot_map(x_pos, y_pos, feature[:,0], feature_args)
+    for idx in np.arange(0, feature.shape[1]):
+        ax1 = plt.subplot2grid((1, 4), (0, idx+1), colspan=1); 
+        feature_args.update(val_stat = [np.nanmin(feature[:,idx]), np.nanmax(feature[:,idx])])    
+        plot_map(x_pos, y_pos, feature[:,idx], feature_args)
     
     #ax2 = plt.subplot2grid((1, 5), (0, 0), colspan=2); ax2.cla()
     #plot_map(x_pos, y_pos, feature, feature_args)
     
     ## Plot one data 
-    ax2 = plt.subplot2grid((1, 5), (0, 0), colspan=2); ax2.cla()
+    ax2 = plt.subplot2grid((1, 4), (0, 0), colspan=1); ax2.cla()
     cmap = plt.get_cmap('magma');  feature_args.update(cmap=cmap)    
     #feature_args.update(filename='*74852') # Sample 1 70526
     #infiles, match_re = get_filematch(feature_args)

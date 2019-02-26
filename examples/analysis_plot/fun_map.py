@@ -146,71 +146,64 @@ def get_feature(infile, feature_args):
     val = []    
     if feature_id == 1:
         pixels = kwargs['pixels']
-        pixels_stat = kwargs['pixels_stat']
-        n = kwargs['n']
+        n = roi[0]
         im = color.rgb2gray(io.imread(infile))
         imarray = np.array(im)
-        val_list = []
-        for idx, pixel in enumerate(pixels):
+        for pixel in pixels:
             temp_roi = imarray[pixel[1]-n:pixel[1]+n+1,pixel[0]-n:pixel[0]+n+1] #TEMP
-            temp = np.max(temp_roi)
+            if roi[1]=='mean':
+                temp = np.mean(temp_roi)
+            elif roi[1]=='max':
+                temp = np.max(temp_roi) 
+            else:
+                temp = imarray[pixel[1], pixel[0]]
             if log10: temp = np.log10(temp)
             val.append(temp) 
-            val_list.append(temp)
-        if pixels_stat=='mean':
-            val.append(np.mean(val_list))
-        elif pixels_stat=='max':
-            val.append(np.max(val_list))
-        elif pixels_stat=='var':
-            val.append(np.var(val_list))
-        elif pixels_stat=='diff':
-            val.append((val_list[1]-val_list[0]))
         
     elif feature_id == 2:  
         data_col = kwargs['data_col']
         q_targets = kwargs['q_targets']
-        n = kwargs['n']
+        roi = kwargs['roi']
+        n = roi[0]
         q, I = extract_data(infile, data_col)
-        val_list = []
-        for idx, q_target in enumerate(q_targets):
-            cen = get_idx_q(q, q_target)
-            temp = np.mean(I[cen-n:cen+n+1])  
-            if log10: temp = np.log10(temp)
-            val_list.append(temp)
-            if idx==0:
-                val.append(temp)      # ring intensity I(q0)
+        for q_target in q_targets:
+            cen = get_target_idx(q, q_target)
+            if roi[1]=='mean':
+                temp = np.mean(I[cen-n:cen+n+1]) 
+            elif roi[1]=='max':
+                temp = np.max(I[cen-n:cen+n+1]) 
             else:
-                val.append((val_list[1]/(val_list[0])+1e-5))  # I(q0)/I(q1)
+                temp = I[cen]                
+            if log10: temp = np.log10(temp)
 
     elif feature_id == 3:  
         data_col = kwargs['data_col']
         angle_targets = kwargs['angle_targets']
         angle_roi = kwargs['angle_roi']
         angle, I = extract_data(infile, data_col)
-        val = np.nan
-        i0 = get_idx_q(angle, angle_roi[0])
-        i1 = get_idx_q(angle, angle_roi[1])
+        temp = np.nan
+        i0 = get_target_idx(angle, angle_roi[0])
+        i1 = get_target_idx(angle, angle_roi[1])
         I_crop = I[i0:i1+1]
-        if angle_targets =='max':
-            if np.var(I_crop) > 0:
-                val = angle[i0+np.nanargmax(I_crop)]
-        elif angle_targets =='var':
-            val = np.var(I_crop)
-        else: 
-            val = []
-            for idx, angle_target in enumerate(angle_targets):
-                temp = I[get_idx_q(angle, angle_target)]
-                #if idx==0:
+        for angle_target in angle_targets:            
+            if angle_target =='max':
+                if np.var(I_crop) > 0:
+                    val.append(angle[i0+np.nanargmax(I_crop)])
+            elif angle_target =='var':
+                val.append(np.nanvar(I_crop))
+            else: 
+                try:
+                    temp = I[get_target_idx(angle, angle_target)]
+                except:
+                    temp = np.nan
                 val.append(temp)      # I(chi0)
-                #else:
-                #    val = val/(temp+1e-5)  # I(chi0)/I(chi1)
 
     return val
 
 # =============================================================================
 # Get the index (for array q) closest to q_target
 # =============================================================================  
-def get_idx_q(q, target):
+def get_target_idx(q, target):
     q = np.array(q)
     idx = np.argmin(np.abs(q-target))
     return idx
@@ -285,7 +278,7 @@ def plot_data(infile, feature_args):
             plt.plot([q_target, q_target], [-1, 4])
             plt.text(q_target, -0.9+idx*0.5, '('+str(q_target)+')')
             # plot integration region
-            cen = get_idx_q(q, q_target)
+            cen = get_target_idx(q, q_target)
             plt.plot([q[cen-n], q[cen+n]], [-1, -1]) 
         plt.ylabel('log10(I)')
         plt.xlabel('q ($\AA$^-1)')
@@ -298,8 +291,8 @@ def plot_data(infile, feature_args):
         I = np.log10(I0)
         plt.plot(angle, I)     
         if angle_targets =='max':
-            i0 = get_idx_q(angle, angle_roi[0])
-            i1 = get_idx_q(angle, angle_roi[1])
+            i0 = get_target_idx(angle, angle_roi[0])
+            i1 = get_target_idx(angle, angle_roi[1])
             plt.plot([angle[i0], angle[i1]], [0, 0])
             I_crop = I[i0:i1+1]
             val = angle[i0+np.argmax(I_crop)]
@@ -399,6 +392,7 @@ def plot_overlay(x_pos, y_pos, feature_array, feature_args):
     #plt.colorbar(shrink=1, pad=0.02, aspect=24);
     plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
     plt.axis('equal')
+    #plt.axis('tight')
     plt.xlabel('x (mm)')
     plt.ylabel('y (mm)')
 
