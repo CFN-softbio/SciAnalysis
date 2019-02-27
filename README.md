@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# SciAnalysis_pr
-SciAnalysis private
-=======
-# SciAnalysis
+# SciAnalysis private
 
 ## Author : Kevin G. Yager
 ## Ported to git by : Julien Lhermitte
@@ -18,4 +14,3 @@ INSTALL:
 
  * python setup.py develop
 
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527

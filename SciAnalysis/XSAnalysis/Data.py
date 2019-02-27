@@ -26,16 +26,10 @@
 import re # Regular expressions
 
 import numpy as np
-<<<<<<< HEAD
-import pylab as plt
-import matplotlib as mpl
-mpl.rcParams['mathtext.fontset'] = 'cm'
-=======
 import matplotlib as mpl
 #mpl.use('Agg') # For 'headless' plotting (e.g. over an SSH connection)
 mpl.rcParams['mathtext.fontset'] = 'cm'
 import pylab as plt
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
 
 #from scipy.optimize import leastsq
 #import scipy.special
@@ -937,12 +931,9 @@ class Data2DScattering(Data2D):
         
         q_data = Data2DReciprocal()
         q_data.data = remesh_data
-<<<<<<< HEAD
-=======
         
         q_data.x_scale = (xbins[1]-xbins[0])
         q_data.y_scale = (zbins[1]-zbins[0])
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         q_data.x_axis = xbins[:-1] + (xbins[1]-xbins[0]) # convert from bin edges to bin centers
         q_data.y_axis = zbins[:-1] + (zbins[1]-zbins[0]) # convert from bin edges to bin centers
         
@@ -979,12 +970,10 @@ class Data2DScattering(Data2D):
         
         q_data = Data2DReciprocal()
         q_data.data = remesh_data
-<<<<<<< HEAD
-=======
         
         q_data.x_scale = (xbins[1]-xbins[0])
         q_data.y_scale = (zbins[1]-zbins[0])
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
+
         q_data.x_axis = xbins[:-1] + (xbins[1]-xbins[0]) # convert from bin edges to bin centers
         q_data.y_axis = zbins[:-1] + (zbins[1]-zbins[0]) # convert from bin edges to bin centers
         
@@ -1033,12 +1022,10 @@ class Data2DScattering(Data2D):
         
         q_phi_data = Data2DQPhi()
         q_phi_data.data = remesh_data
-<<<<<<< HEAD
-=======
         
         q_phi_data.x_scale = (xbins[1]-xbins[0])
         q_phi_data.y_scale = (zbins[1]-zbins[0])
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
+
         q_phi_data.x_axis = xbins[:-1] + (xbins[1]-xbins[0]) # convert from bin edges to bin centers
         q_phi_data.y_axis = zbins[:-1] + (zbins[1]-zbins[0]) # convert from bin edges to bin centers
                 
