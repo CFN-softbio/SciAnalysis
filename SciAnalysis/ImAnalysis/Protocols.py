@@ -400,7 +400,11 @@ class fft(Protocol):
         
         params = lmfit.Parameters()
         params.add('prefactor', value=np.max(line.y), min=0)
+<<<<<<< HEAD
         params.add('x_center', value=np.average(line.x))
+=======
+        params.add('x_center', value=np.average(line.x), min=0)
+>>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         params.add('sigma', value=np.std(line.x), min=0)
         params.add('m', value=0)
         params.add('b', value=0)

@@ -26,9 +26,15 @@
 import os
 import time
 
+<<<<<<< HEAD
 SUPPRESS_EXCEPTIONS = True # Set to 'True' to suppress Python exceptions (errors). This allows the script to keep running even if there is an error processing one particular file.
 
 USE_LXML = False # Set to 'False' if lxml is not installed
+=======
+SUPPRESS_EXCEPTIONS = False # Set to 'True' to suppress Python exceptions (errors). This allows the script to keep running even if there is an error processing one particular file.
+
+USE_LXML = True # Set to 'False' if lxml is not installed
+>>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
 if USE_LXML:
     # 'Fancy' xml library
     from lxml import etree

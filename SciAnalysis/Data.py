@@ -379,7 +379,11 @@ class DataLine(object):
         self._plot(save=save, show=show, plot_range=plot_range, plot_buffers=plot_buffers, **kwargs)
         
         
+<<<<<<< HEAD
     def _plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.2,0.05,0.2,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, **kwargs):
+=======
+    def _plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.2,0.05,0.2,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, transparent=False, **kwargs):
+>>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         
         # DataLine._plot()
         
@@ -387,6 +391,11 @@ class DataLine(object):
         plot_args.update(kwargs)
         self.process_plot_args(**plot_args)
         
+<<<<<<< HEAD
+=======
+        
+        
+>>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         self.fig = plt.figure( figsize=(10,7), facecolor='white' )
         left_buf, right_buf, bottom_buf, top_buf = plot_buffers
         fig_width = 1.0-right_buf-left_buf
@@ -425,9 +434,15 @@ class DataLine(object):
         
         if save:
             if 'dpi' in plot_args:
+<<<<<<< HEAD
                 plt.savefig(save, dpi=plot_args['dpi'])
             else:
                 plt.savefig(save)
+=======
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=transparent)
+            else:
+                plt.savefig(save, transparent=transparent)
+>>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         
         if show:
             self._plot_interact()
@@ -1055,6 +1070,28 @@ class Data2D(object):
             self.data = self.data[:-kwargs['crop_bottom'],:]
             
         
+<<<<<<< HEAD
+=======
+    # Data export
+    ########################################
+    def save_data(self, outfile):
+        '''
+        Save image (2D matrix data) as .npz 
+        including:
+            ['image'] : array, image
+            ['x_axis'] : list, x-axis in q
+            ['y_axis'] : list, y-axis in q
+            ['x_scale'] : float, q on each pixel in x-axis
+            ['y_scale'] : float, q on each pixel in y-axis
+        Parameters
+        ----------
+        image_outfile : str
+            save the data as image_outfile.npz
+        '''
+
+        np.savez(outfile, image=self.data, x_axis=self.x_axis, y_axis=self.y_axis, x_scale=self.x_scale, y_scale=self.y_scale)
+        
+>>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         
     # Coordinate methods
     ########################################

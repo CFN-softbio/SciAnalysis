@@ -1,0 +1,31 @@
+{% set version = "1.0.0" %}
+
+package:
+    name: scianalysis
+    version: {{ version }}
+
+source:
+    git_url: https://github.com/CFN-SoftBio/SciAnalysis
+    git_rev: {{ version }}
+
+build:
+  number: 0
+  script:
+    - python setup.py install --single-version-externally-managed --record=record.txt
+
+requirements:
+    build:
+        - python
+        - numpy
+    run:
+        - python
+        - numpy
+        - matplotlib
+        - h5py
+        - scipy
+        - lxml
+        - pillow
+        - lmfit
+
+about:
+    home: https://github.com/CFN-SoftBio/SciAnalysis
