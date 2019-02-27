@@ -40,57 +40,46 @@ feature_1_args = {'source_dir' : dir_path+'thumbnails2/', #thumbnails2/
 feature_2_args = {'source_dir' : dir_path+'circular_average/', #'../circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
-             'targets' : [0.038, 0.059], #0.053  # [*] Choose q0 or q0,q1
+             'targets' : [0.038], #, 0.059], #0.053  # [*] Choose q0 or q0,q1
              'roi': [1, 'mean'],    # [*] Choose the half-width (data points) of the peak q
              }
                    
 feature_3_args = {'source_dir' : dir_path+'linecut_angle059/',
              'ext' : '.dat',
              'data_col' : [0, 1],
-             'targets': [8.7, 'max', 'var'], #'max', #[21] # 'max', 'var', or specify angle 
+             'targets': ['max'], #'max', #[21] # 'max', 'var', or specify angle 
              'angle_roi': [5,  65], # range to consider for max or var 
              }
 
 feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args)
 
 ########## Feature map
-feature_array = []
-for idx in [2]:
+features_map_list = []
+for idx in [2,3]:
     feature_args['feature_id'] = idx; 
     
     ## Find matching files   
     infiles, match_re = get_filematch(feature_args)  
-
     
     ## Get map
     #scans, x_pos, y_pos, feature = get_map(infiles, match_re, feature_args)
-    feature_map = get_map(infiles, match_re, feature_args)
-    
-    x_pos = feature_map['x_pos']
-    y_pos = feature_map['y_pos']
-    feature = feature_map['feature']
-    info = feature_map['info']
-    N_maps = feature.shape[1];
-    for idx in np.arange(0, N_maps):
-        feature_array.append([feature[:,idx]])
+    features_map = get_map(infiles, match_re, feature_args)
+    features_map_list.append(features_map)
+    N_maps = len(feature_map['info'][1])
     
     ## Plot map
-    fig = plt.figure(100+feature_args['feature_id'], figsize=[20,4]); plt.clf()
-    cmap = plt.get_cmap('viridis');    feature_args.update(cmap=cmap)
-    for idx in np.arange(0, N_maps):
-        ax1 = plt.subplot2grid((1, N_maps+1), (0, idx+1), colspan=1); 
-        #feature_args.update(val_stat = [0, 1])    
-        plot_map(x_pos, y_pos, feature[:,idx], info, feature_args)
+    fig = plt.figure(100+feature_args['feature_id'], figsize=[16,4]); plt.clf()  
+    plot_map(features_map, **feature_args)
     
     ## Plot one data 
     ax2 = plt.subplot2grid((1, N_maps+1), (0, 0), colspan=1); ax2.cla()
     cmap = plt.get_cmap('magma');  feature_args.update(cmap=cmap)    
     #feature_args.update(filename='*74852') # Sample 1 70526
     #infiles, match_re = get_filematch(feature_args)
-    img = plot_data(infiles[5], feature_args)
+    img = plot_data(infiles[0], **feature_args)
 
 
-plot_overlay(x_pos,y_pos, feature_array, feature_args) 
+overlay = plot_overlay(features_map_list, **feature_args) 
 
 
 

@@ -150,6 +150,7 @@ def get_feature(infile, feature_args):
     val = []    
     if feature_id == 1:
         pixels = kwargs['targets']
+        roi = kwargs['roi']
         n = roi[0]
         im = color.rgb2gray(io.imread(infile))
         imarray = np.array(im)
@@ -229,16 +230,17 @@ def get_target_idx(q, target):
 #   match_re: extract positions x, y, and scan ID
 #   feature_args: which feature, what specifics
 # Outputs:
-#   scans: list of scans (not sure how useful yet)
-#   x_pos
-#   y_pos
-#   feature
+#   features_map, including:
+#       scans: list of scans (not sure how useful yet)
+#       x_pos
+#       y_pos
+#       feature
 # =============================================================================
 def get_map(infiles, match_re, feature_args):
     scans = []
     x_pos = []
     y_pos = []
-    feature = []
+    features = []
     for idx, infile in enumerate(infiles):
            
         filebase, filename = os.path.split(infile)
@@ -253,26 +255,36 @@ def get_map(infiles, match_re, feature_args):
             scans.append(scan)
     
             val, info = get_feature(infile, feature_args) # val can be an array
-            feature.append(val)
+            features.append(val)
 
-    feature = np.asarray(feature)
-    feature_map = {'scans': scans, 'x_pos':x_pos, 'y_pos':y_pos, 'feature':feature, 'info':info}
+    features = np.asarray(features)
+    features = (features.T).tolist()
+    features_map = {'scans': scans, 'x_pos':x_pos, 'y_pos':y_pos, 'features':features, 
+                   'info':info, 'filename': filename}
     
-    return feature_map
+    return features_map
     
     
 # =============================================================================
 # Plot one data
 # =============================================================================        
-def plot_data(infile, feature_args):
-    log10 = feature_args['log10']
-    feature_id = feature_args['feature_id']
+def plot_data(infile, **feature_args):
+    if 'log10' in feature_args:
+        log10 = feature_args['log10']
+    else:
+        log10 = 0
+    if 'feature_id' in feature_args:
+        feature_id = feature_args['feature_id']
+    else:
+        feature_id = 1
+        
     if feature_id == 1:
         kwargs = feature_args['feature_1_args']
     elif feature_id == 2:
         kwargs = feature_args['feature_2_args']
     elif feature_id == 3:
         kwargs = feature_args['feature_3_args']
+
     if 'cmap' in feature_args and feature_args['cmap']:
         cmap = feature_args['cmap']
     else:
@@ -335,42 +347,44 @@ def plot_data(infile, feature_args):
 # =============================================================================
 # Plot map based on feature
 # =============================================================================       
-def plot_map(x_pos, y_pos, feature, info, feature_args):
-    filename = feature_args['filename']
-    feature_id = feature_args['feature_id']
-    if 'val_stat' in feature_args:
-        val_stat = feature_args['val_stat']
-    else:
-        val_stat = [np.nanmin(feature), np.nanmax(feature)]
-    if 'plot_interp' in feature_args:
-        plot_interp = feature_args['plot_interp']
-    else:
-        plot_interp = ['none', 1]
-    if 'cmap' in feature_args and feature_args['cmap']:
-        cmap = feature_args['cmap'];
+def plot_map(feature_map, **kwargs):
+    filename = feature_map['filename']
+    feature_id = feature_map['info'][0]
+    targets = feature_map['info'][1]
+    x_pos = feature_map['x_pos']
+    y_pos = feature_map['y_pos']
+    features = feature_map['features']
+    if 'val_stat' in kwargs:
+        val_stat = kwargs['val_stat']
+    if 'cmap' in kwargs and kwargs['cmap']:
+        cmap = kwargs['cmap'];
     else:
         cmap = plt.get_cmap('viridis')
-    if feature_id == 1:
-        kwargs = feature_args['feature_1_args']
-    elif feature_id == 2:
-        kwargs = feature_args['feature_2_args']
-    elif feature_id == 3:
-        kwargs = feature_args['feature_3_args']
-    source_dir = kwargs['source_dir']
-    
-    if plot_interp[0]!='none':
-        x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp)      
-        plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
-        #plt.pcolormesh(x_pos, y_pos, feature) 
+    if 'plot_interp' in kwargs:
+        plot_interp = kwargs['plot_interp']
     else:
-        plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
-        
-    plt.colorbar(shrink=1, pad=0.02, aspect=24);
-    plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
-    #plt.title(source_dir+filename)
-    plt.axis('equal')
-    plt.xlabel('x (mm)  [feature_id '+ str(info[0]) + ',  ' + str(info[1][0])+']')
-    plt.ylabel('y (mm)')
+        plot_interp = ['none', 1]
+    
+    N_maps = len(features)
+#    fig = plt.figure(100+feature_id, figsize=[20,4]); plt.clf()
+    for idx, feature in enumerate(features):
+        ax = plt.subplot2grid((1, N_maps+1), (0, idx+1), colspan=1); 
+        feature = np.asarray(feature)
+        val_stat = [np.nanmin(feature), np.nanmax(feature)]
+        if plot_interp[0]!='none':
+            x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
+            #plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+            extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
+            plt.imshow(feature_fine, vmin=val_stat[0], vmax=val_stat[1], extent=extent, origin='lower')
+        else:
+            plt.scatter(x_pos, y_pos, c=features[:,idx], marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+            
+        plt.colorbar(shrink=1, pad=0.02, aspect=24);
+        plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
+        #plt.title(source_dir+filename)
+        plt.axis('equal')
+        plt.xlabel('x (mm)  [feature_id '+ str(feature_id) + ',  ' + str(targets[idx])+']')
+        plt.ylabel('y (mm)')
     
 # =============================================================================
 # Give interpolated map with finer discretization
@@ -386,20 +400,31 @@ def interp_map(x_pos, y_pos, feature, plot_interp):
 # =============================================================================
 # Overlay three features
 # =============================================================================       
-def plot_overlay(x_pos, y_pos, feature_array, feature_args):
+def plot_overlay(feature_map_list, **kwargs):
+    feature_array = []
+    for ii, feature_map in enumerate(feature_map_list):
+        if ii==0:
+            x_pos = feature_map['x_pos']
+            y_pos = feature_map['y_pos']
+        features = feature_map['features']
+        for feature in features:
+            feature_array.append(feature)
+        
+    if 'plot_interp' in kwargs:
+        plot_interp = kwargs['plot_interp']
+    else:
+        plot_interp = ['linear', 1] 
+    
+    overlay = []        
     if feature_array!=[]:
         fig = plt.figure(200, figsize=[8,8]); plt.clf()
         ax = fig.add_subplot(1, 1, 1)
         #ax.set_facecolor((0, 0, 0))
         ax.set_facecolor((1, 1, 1))
-        
-        if 'plot_interp' in feature_args:
-            plot_interp = feature_args['plot_interp']
-        else:
-            plot_interp = ['none', 1]    
-        overlay = []
+          
         for idx, feature in enumerate(feature_array):
-            x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature[0], plot_interp) 
+            feature = np.asarray(feature)
+            x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
             feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine))
             feature_fine[np.isnan(feature_fine)] = 1 #np.nanmean(feature_fine)
             if idx<=2:
@@ -417,12 +442,13 @@ def plot_overlay(x_pos, y_pos, feature_array, feature_args):
         
         #plt.colorbar(shrink=1, pad=0.02, aspect=24);
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
+        plt.axis('tight')
         plt.axis('equal')
-        #plt.axis('tight')
         plt.xlabel('x (mm)')
         plt.ylabel('y (mm)')
     else:
         print('feature_array is empty!\n')
+    return overlay
 
     
     
