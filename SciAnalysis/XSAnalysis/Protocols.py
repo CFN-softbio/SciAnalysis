@@ -118,14 +118,10 @@ class circular_average(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-<<<<<<< HEAD
-        self.run_args = {}
-=======
         self.run_args = {
             'markersize' : 0,
             'linewidth' : 1.5,
             }
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         self.run_args.update(kwargs)
     
         
@@ -144,11 +140,7 @@ class circular_average(Protocol):
         outfile = self.get_outfile(data.name, output_dir)
         
         try:
-<<<<<<< HEAD
-            line.plot(save=outfile, show=False, **run_args)
-=======
             line.plot(save=outfile, **run_args)
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         except ValueError:
             pass
 
@@ -185,11 +177,7 @@ class circular_average_q2I(Protocol):
         
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-<<<<<<< HEAD
-        line.plot(save=outfile, show=False, **run_args)
-=======
         line.plot(save=outfile, **run_args)
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
         line.save_data(outfile)        
@@ -245,11 +233,7 @@ class sector_average(Protocol):
         outfile = self.get_outfile(data.name, output_dir)
         
         try:
-<<<<<<< HEAD
-            line.plot(save=outfile, show=False, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
-=======
             line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         except ValueError:
             pass
 
@@ -1868,9 +1852,6 @@ class q_image_special(q_image):
                                     },
                             } 
 
-<<<<<<< HEAD
-        q_data.plot(outfile, plot_buffers=[0.30,0.08,0.25,0.05], **run_args)
-=======
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.30,0.08,0.25,0.05]
         q_data.plot(outfile, **run_args)
@@ -1879,7 +1860,6 @@ class q_image_special(q_image):
         if 'save_data' in run_args and run_args['save_data']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         
         
         return results
@@ -1900,10 +1880,7 @@ class q_phi_image(Protocol):
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
                         'yticks' : [-180, -90, 0, 90, 180],
-<<<<<<< HEAD
-=======
                         'save_data_pickle': True,
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
                         }
         self.run_args.update(kwargs)
         
@@ -1934,11 +1911,7 @@ class q_phi_image(Protocol):
                             } 
         q_data.plot(outfile, plot_buffers=[0.20,0.05,0.20,0.05], **run_args)
         
-<<<<<<< HEAD
-        if True:
-=======
         if 'save_data_pickle' in run_args and run_args['save_data_pickle']:
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
             # Save Data2DQPhi() object
             import pickle
             outfile = self.get_outfile(data.name, output_dir, ext='.pkl')
@@ -1946,16 +1919,6 @@ class q_phi_image(Protocol):
                 out_data = q_data.data, q_data.x_axis, q_data.y_axis
                 pickle.dump(out_data, fout)
             
-        
-<<<<<<< HEAD
-        
-        
-        return results
-
-
-
-
-=======
         return results
 
 
@@ -2109,10 +2072,6 @@ class export_STL(Protocol):
         
         
         return results            
-        
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
-
-
 
 
 
