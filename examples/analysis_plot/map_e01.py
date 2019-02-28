@@ -17,18 +17,18 @@ from fun_map import *
 dir_path = '/home/etsai/BNL/Research/KY_platelets/saxs/analysis/'
 dir_path = '/home/etsai/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/analysis/'
 feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
-                'filename'  : 'medium_G1_13mgml_x-1.6*y-7.4*5.00s', # m*y-7*5
+                'filename'  : 'medium_G1_13mgml_x*5.00s', # m*y-7*5
                 #'filename'  : 'medium_G2-3G1_20mgml_*x-2*5.00s', 
                 #'filename'  : 'medium_as-synth_highC_fine*10.00s', Round 2 Sample1
                 #'filename'  : 'medium_G2-2G1_highC_med*10.00s', 
                 #'filename'  : dir_path+'large_G2-2G1_2_med*10.00s',
                 #'filename'  : '14_As-synthesized_DEG_Grid',  #x-0.350_y0.20 #14_As-synthesized_DEG_Grid',
+                'exclude': ['072641'], 
                 'feature_id': 1,
                 'map_type': 'xy',
-                'log10'  : 0,
-                'log10_plot': 1, 
+                'log10'  : [0, 1], # [data, plot]
                 'verbose': 1,
-                'plot_interp':  [None, 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
+                'plot_interp':  ['linear', 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
                } 
 
 feature_1_args = {'source_dir' : dir_path+'thumbnails2/', #thumbnails2/
@@ -41,7 +41,7 @@ feature_1_args = {'source_dir' : dir_path+'thumbnails2/', #thumbnails2/
 feature_2_args = {'source_dir' : dir_path+'circular_average/', #'../circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
-             'targets' : [0.038], #, 0.059], #0.053  # [*] Choose q0 or q0,q1
+             'targets' : [0.038, 0.059], #0.053  # [*] Choose q0 or q0,q1
              'roi': [1, 'mean'],    # [*] Choose the half-width (data points) of the peak q
              }
                    
@@ -85,9 +85,10 @@ for idx in [1]:
     cmap = plt.get_cmap('magma');  feature_args.update(cmap=cmap)    
     #feature_args.update(filename='*74852') # Sample 1 70526
     #infiles, match_re = get_filematch(feature_args)
-    img = plot_data(infiles[1], **feature_args)
+    img = plot_data(infiles[0], **feature_args)
     
-    print('Time = {:.1f} s'.format(time.time()-t0))
+    t1 = time.time()-t0
+    print('Time = {:.1f} s = {:.1f} min'.format(t1, t1/60))
 
 try:
     overlay = plot_overlay(features_map_list, **feature_args) 

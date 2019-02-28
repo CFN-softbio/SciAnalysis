@@ -42,7 +42,8 @@ def extract_data(filename, col):
 # - sort: scan number (better implementation?)
 # ============================================================================= 
 def get_filematch(feature_args):
-    filename = feature_args['filename']    
+    filename = feature_args['filename']  
+    exclude = feature_args['exclude']
     feature_id = feature_args['feature_id']
     verbose = feature_args['verbose']
     kwargs = feature_args['feature_{}_args'.format(feature_id)]        
@@ -70,7 +71,14 @@ def get_filematch(feature_args):
         print(pattern)
         print('Considering {} files...'.format(len(infiles)))   
     
-
+    # Exclude some files
+    for idx, infile in enumerate(infiles):
+        for file in exclude:
+            if infile.find(file)>-1:
+                infiles.pop(idx)
+    if verbose>0:
+        print('  - Now considering {} files...'.format(len(infiles)))   
+            
     return infiles, match_re
 
 # =============================================================================
@@ -128,7 +136,7 @@ def calc_distance(p0, p1):
 #
 # =============================================================================
 def get_feature(infile, feature_args):
-    log10 = feature_args['log10']
+    log10 = feature_args['log10'][0]
     feature_id = feature_args['feature_id']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
     info = [feature_id]
@@ -141,6 +149,7 @@ def get_feature(infile, feature_args):
         n = roi[0]
         im = color.rgb2gray(io.imread(infile))
         imarray = np.array(im)
+        if log10: imarray = np.log10(imarray)
         for pixel in pixels:
             temp_roi = imarray[pixel[1]-n:pixel[1]+n+1,pixel[0]-n:pixel[0]+n+1] #TEMP
             if roi[1]=='mean':
@@ -149,7 +158,6 @@ def get_feature(infile, feature_args):
                 temp = np.nanmax(temp_roi) 
             else:
                 temp = imarray[pixel[1], pixel[0]]
-            if log10: temp = np.log10(temp)
             val.append(temp)
         
     elif feature_id == 2:  
@@ -159,6 +167,7 @@ def get_feature(infile, feature_args):
         n = roi[0]
         #t1 = time.time()
         q, I = extract_data(infile, data_col)
+        if log10: I = np.log10(I)
         #print('time.f2 = {}'.format(time.time()-t1))
         for q_target in q_targets:
             cen = get_target_idx(q, q_target)
@@ -168,7 +177,6 @@ def get_feature(infile, feature_args):
                 temp = np.nanmax(I[cen-n:cen+n+1]) 
             else:
                 temp = I[cen] 
-            if log10: temp = np.log10(temp)
             val.append(temp)
         
     elif feature_id == 3:  
@@ -176,6 +184,7 @@ def get_feature(infile, feature_args):
         angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
         angle, I = extract_data(infile, data_col)
+        if log10: I = np.log10(I)
         i0 = get_target_idx(angle, angle_roi[0])
         i1 = get_target_idx(angle, angle_roi[1])
         I_crop = I[i0:i1+1]
@@ -191,7 +200,6 @@ def get_feature(infile, feature_args):
                     temp = I[get_target_idx(angle, angle_target)]
                 except:
                     print('Cannot find I[get_target_idx(angle, angle_target)] \n')
-            if log10: temp = np.log10(temp)
             val.append(temp)
 
     elif feature_id == 4:  
@@ -200,7 +208,8 @@ def get_feature(infile, feature_args):
         #val.append(result['fit_peaks_grain_size'])
         data_col = kwargs['data_col']
         feats = kwargs['targets']
-        q, I = extract_data(infile, data_col)        
+        q, I = extract_data(infile, data_col) 
+        if log10: I = np.log10(I)
         line = DataLine(x=q, y=I)
         run_args = {'fit_range': [0.02, 0.06],
                   'sigma': 0.001,
@@ -215,7 +224,6 @@ def get_feature(infile, feature_args):
                 temp = lm_result.chisqr/lm_result.nfree
             else:
                 temp = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/lm_result.params[feats]  
-            if log10: temp = np.log10(temp)
             val.append(temp)
             info.append(lm_result)
             
@@ -282,7 +290,7 @@ def get_map(infiles, match_re, feature_args):
 # =============================================================================        
 def plot_data(infile, **feature_args):
     if 'log10' in feature_args:
-        log10 = feature_args['log10']
+        log10 = feature_args['log10'][1]
     else:
         log10 = 0
     if 'feature_id' in feature_args:
@@ -361,7 +369,7 @@ def plot_map(feature_map, **kwargs):
     x_pos = feature_map['x_pos']
     y_pos = feature_map['y_pos']
     features = feature_map['features']
-    log10 = kwargs['log10_plot']
+    log10 = kwargs['log10'][1]
     if 'val_stat' in kwargs:
         val_stat = kwargs['val_stat']
     if 'cmap' in kwargs and kwargs['cmap']:
@@ -374,7 +382,7 @@ def plot_map(feature_map, **kwargs):
         plot_interp = ['none', 1]
     
     N_maps = len(features)
-    print('N_maps = {}'.format(N_maps))
+    print('\nN_maps = {}'.format(N_maps))
 #    fig = plt.figure(100+feature_id, figsize=[20,4]); plt.clf()
     for idx, feature in enumerate(features):
         ax = plt.subplot2grid((1, N_maps+1), (0, idx+1), colspan=1); 
@@ -421,7 +429,7 @@ def plot_overlay(feature_map_list, **kwargs):
         features = feature_map['features']
         for feature in features:
             feature_array.append(feature)
-    log10 = kwargs['log10_plot']    
+    log10 = kwargs['log10'][1]    
     if 'plot_interp' in kwargs:
         plot_interp = kwargs['plot_interp']
         if plot_interp[0] is None:
