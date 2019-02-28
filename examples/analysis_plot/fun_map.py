@@ -139,10 +139,8 @@ def get_feature(infile, feature_args):
     log10 = feature_args['log10'][0]
     feature_id = feature_args['feature_id']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
-    info = [feature_id]
-    info.append(kwargs['targets'])
     
-    val = []  
+    val = []; info = [] # additional infor to store 
     if feature_id == 1:
         pixels = kwargs['targets']
         roi = kwargs['roi']
@@ -203,18 +201,13 @@ def get_feature(infile, feature_args):
             val.append(temp)
 
     elif feature_id == 4:  
-        #xml_file = '{}{}{}'.format(kwargs['source_dir'], infile[len(kwargs['source_dir']):-4], '.xml' )
-        #result = fit_result(xml_file)
-        #val.append(result['fit_peaks_grain_size'])
         data_col = kwargs['data_col']
         feats = kwargs['targets']
         q, I = extract_data(infile, data_col) 
         if log10: I = np.log10(I)
         line = DataLine(x=q, y=I)
-        run_args = {'fit_range': [0.02, 0.06],
-                  'sigma': 0.001,
-                  'verbosity': 0}
-        lm_result, _, _ = Protocols.circular_average_q2I_fit()._fit_peaks(line=line, q0=None, vary=True, **run_args)
+        run_args = {'fit_range': [0.02, 0.06], 'sigma': 0.001, 'verbosity': 0}
+        lm_result, fit_line, fit_line_extended = Protocols.circular_average_q2I_fit()._fit_peaks(line=line, q0=None, vary=True, **run_args)
         for feat in feats:
             if feat == 'd_spacing_nm':
                 temp = 0.1*2.*np.pi/lm_result.params['x_center1'] #d in nm
@@ -223,9 +216,10 @@ def get_feature(infile, feature_args):
             elif feat == 'chi2':
                 temp = lm_result.chisqr/lm_result.nfree
             else:
-                temp = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/lm_result.params[feats]  
+                temp = lm_result.params[feat]  
             val.append(temp)
-            info.append(lm_result)
+        info.append(line)
+        info.append(fit_line)
             
     return val, info
 
@@ -254,13 +248,18 @@ def get_target_idx(q, target):
 #       scans: list of scans (not sure how useful yet)
 #       x_pos
 #       y_pos
-#       feature
+#       features: for each feature_id, there can be several features
 # =============================================================================
 def get_map(infiles, match_re, feature_args):
+    feature_id = feature_args['feature_id']
+    kwargs = feature_args['feature_{}_args'.format(feature_id)] 
+    tag = [feature_id]
+    tag.append(kwargs['targets'])
     scans = []
     x_pos = []
     y_pos = []
-    features = []
+    features = [] 
+    info_map = []
     for idx, infile in enumerate(infiles):
            
         filebase, filename = os.path.split(infile)
@@ -276,11 +275,12 @@ def get_map(infiles, match_re, feature_args):
     
             val, info = get_feature(infile, feature_args) # val can be an array
             features.append(val)
+            info_map.append(info)
 
     features = np.asarray(features)
     features = (features.T).tolist()
-    features_map = {'scans': scans, 'x_pos':x_pos, 'y_pos':y_pos, 'features':features, 
-                   'info':info, 'filename': filename}
+    features_map = {'tag': tag, 'scans': scans, 'x_pos':x_pos, 'y_pos':y_pos, 'features':features, 
+                   'info_map':info_map, 'filename': filename}
     
     return features_map
     
@@ -319,8 +319,10 @@ def plot_data(infile, **feature_args):
     elif feature_id == 2: 
         q_targets = kwargs['targets']
         data_col = kwargs['data_col']
-        roi = kwargs['roi']
-        n = roi[0]
+        if 'roi' in kwargs:
+            n = kwargs['roi'][0]
+        else:
+            n = 0
         q, I = extract_data(infile, data_col)        
         if log10: I = np.log10(I)
         plt.plot(q, I)     
@@ -356,6 +358,12 @@ def plot_data(infile, **feature_args):
                 plt.text(angle_target, 0.1+idx*0.1, '('+str(angle_target)+')')
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         plt.xlabel('$\chi$ (degree)')
+    elif feature_id == 4:
+        val, info = get_feature(infile, feature_args)
+        for line in info:
+            plt.plot(line.x, np.log10(line.y)) 
+        plt.xlabel('q ($\AA$^-1)')
+        plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         
     plt.title(infile)
  
@@ -364,8 +372,8 @@ def plot_data(infile, **feature_args):
 # =============================================================================       
 def plot_map(feature_map, **kwargs):
     filename = feature_map['filename']
-    feature_id = feature_map['info'][0]
-    targets = feature_map['info'][1]
+    feature_id = feature_map['tag'][0]
+    targets = feature_map['tag'][1]
     x_pos = feature_map['x_pos']
     y_pos = feature_map['y_pos']
     features = feature_map['features']
@@ -382,8 +390,6 @@ def plot_map(feature_map, **kwargs):
         plot_interp = ['none', 1]
     
     N_maps = len(features)
-    print('\nN_maps = {}'.format(N_maps))
-#    fig = plt.figure(100+feature_id, figsize=[20,4]); plt.clf()
     for idx, feature in enumerate(features):
         ax = plt.subplot2grid((1, N_maps+1), (0, idx+1), colspan=1); 
         feature = np.asarray(feature)

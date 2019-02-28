@@ -17,7 +17,7 @@ from fun_map import *
 dir_path = '/home/etsai/BNL/Research/KY_platelets/saxs/analysis/'
 dir_path = '/home/etsai/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/analysis/'
 feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
-                'filename'  : 'medium_G1_13mgml_x*5.00s', # m*y-7*5
+                'filename'  : 'medium_G1_13mgml_x-3*5.00s', # m*y-7*5
                 #'filename'  : 'medium_G2-3G1_20mgml_*x-2*5.00s', 
                 #'filename'  : 'medium_as-synth_highC_fine*10.00s', Round 2 Sample1
                 #'filename'  : 'medium_G2-2G1_highC_med*10.00s', 
@@ -26,7 +26,7 @@ feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
                 'exclude': ['072641'], 
                 'feature_id': 1,
                 'map_type': 'xy',
-                'log10'  : [0, 1], # [data, plot]
+                'log10'  : [0, 0], # [data, plot]
                 'verbose': 1,
                 'plot_interp':  ['linear', 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
                } 
@@ -55,7 +55,7 @@ feature_3_args = {'source_dir' : dir_path+'linecut_angle059/',
 feature_4_args = {'source_dir' : dir_path+'circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
-             'targets': ['grain_size_nm', 'd_spacing_nm', 'chi2'] #b, prefactor1, x_center1, sigma1, chi2
+             'targets': ['b', 'prefactor1', 'x_center1', 'd_spacing_nm', 'grain_size_nm', 'chi2'] #b, prefactor1, x_center1, sigma1, chi2
              }
 
 feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args, feature_4_args=feature_4_args)
@@ -63,7 +63,7 @@ feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args
 ########## Feature map
 features_map_list = []
 t0 = time.time()
-for idx in [1]:
+for idx in [4]:
     feature_args['feature_id'] = idx; 
     
     ## Find matching files   
@@ -73,11 +73,11 @@ for idx in [1]:
     #scans, x_pos, y_pos, feature = get_map(infiles, match_re, feature_args)
     features_map = get_map(infiles, match_re, feature_args)
     features_map_list.append(features_map)
-    N_maps = len(features_map['info'][1])
+    N_maps = len(features_map['tag'][1])
     
     ## Plot map
     fig = plt.figure(100+feature_args['feature_id'], figsize=[16,4]); plt.clf()  
-    #feature_args.update(log10_plot=1)
+    feature_args.update(log10=[0, 0])
     plot_map(features_map, **feature_args)
     
     ## Plot one data 
