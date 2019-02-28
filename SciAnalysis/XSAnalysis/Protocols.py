@@ -149,7 +149,7 @@ class circular_average(Protocol):
         
         # TODO: Fit 1D data
         
-        return results
+        return line
                 
                 
                 
@@ -312,7 +312,7 @@ class linecut_angle(Protocol):
         outfile = self.get_outfile(data.name, output_dir, ext='.dat')
         line.save_data(outfile)
         
-        return results
+        return line
                                 
                 
                 
@@ -689,12 +689,6 @@ class linecut_qr_fit(linecut_qr):
         return lm_result, fit_line, fit_line_extended         
     
 
-<<<<<<< HEAD
-
-
-
-=======
-        #End class linecut_qr_fit(linecut_qr)
         ########################################
         
 
@@ -1266,7 +1260,6 @@ class linecut_angle_fit(linecut_angle):
 
         #End class linecut_angle_fit(linecut_angle)
         ########################################
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
 
                 
                 
@@ -1546,14 +1539,11 @@ class q_image(Protocol):
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
         q_data.plot(outfile, **run_args)
-        
-<<<<<<< HEAD
-=======
+
         if 'save_data' in run_args and run_args['save_data']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
         
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
         
         return results
     
@@ -1607,9 +1597,6 @@ class qr_image(Protocol):
         q_data.x_label = 'qr'
         q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
 
-<<<<<<< HEAD
-        q_data.plot(outfile, plot_buffers=[0.30,0.05,0.25,0.05], **run_args)
-=======
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
         q_data.plot(outfile, **run_args)
@@ -1617,8 +1604,7 @@ class qr_image(Protocol):
         if 'save_data' in run_args and run_args['save_data']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
->>>>>>> a6e28c62902e7fd6344d4cc1643d4d19a3817527
-        
+       
         
         return results
         

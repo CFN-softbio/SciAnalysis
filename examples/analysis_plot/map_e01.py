@@ -25,7 +25,7 @@ feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
                 #'filename'  : '14_As-synthesized_DEG_Grid',  #x-0.350_y0.20 #14_As-synthesized_DEG_Grid',
                 'feature_id': 1,
                 'map_type': 'xy',
-                'log10'  : 1,
+                'log10'  : 0,
                 'verbose': 1,
                 'plot_interp':  ['linear', 0.001], #'none', 'linear'(recommended), 'cubic', 'nearest', pixel in mm
                } 
@@ -51,11 +51,16 @@ feature_3_args = {'source_dir' : dir_path+'linecut_angle059/',
              'angle_roi': [5,  65], # range to consider for max or var 
              }
 
-feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args)
+feature_4_args = {'source_dir' : dir_path+'results/',
+             'ext' : '.xml',
+             'targets': 'fit_peaks_grain_size'
+             }
+
+feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args, feature_4_args=feature_4_args)
 
 ########## Feature map
 features_map_list = []
-for idx in [2,3]:
+for idx in [4]:
     feature_args['feature_id'] = idx; 
     
     ## Find matching files   
@@ -65,7 +70,7 @@ for idx in [2,3]:
     #scans, x_pos, y_pos, feature = get_map(infiles, match_re, feature_args)
     features_map = get_map(infiles, match_re, feature_args)
     features_map_list.append(features_map)
-    N_maps = len(feature_map['info'][1])
+    N_maps = len(features_map['info'][1])
     
     ## Plot map
     fig = plt.figure(100+feature_args['feature_id'], figsize=[16,4]); plt.clf()  

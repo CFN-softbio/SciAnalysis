@@ -179,7 +179,7 @@ class Processor(object):
             
             try:
                 data = self.load(infile, **l_args)
-            
+                results_list= []
                 for protocol in protocols:
                     
                     output_dir_current = self.access_dir(output_dir, protocol.name)
@@ -192,12 +192,15 @@ class Processor(object):
                         print('Running {} for {}'.format(protocol.name, data.name))
                         
                         results = protocol.run(data, output_dir_current, **r_args)
-                        
+                        results_list.append(results)
                         md = {}
                         md['infile'] = data.infile
                         if 'full_name' in l_args:
                             md['full_name'] = l_args['full_name']
-                        self.store_results(results, output_dir, infile, protocol, **md)
+                        try:
+                            self.store_results(results, output_dir, infile, protocol, **md)
+                        except:
+                            print('store_results did not work.')
                         
 
             except Exception as exception:
@@ -206,7 +209,8 @@ class Processor(object):
                     print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
                 else:
                     raise
-
+                    
+            return results_list
 
     def load(self, infile, **kwargs):
         

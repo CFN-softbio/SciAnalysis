@@ -21,6 +21,8 @@ import PIL.Image as Image
 from skimage import color
 from skimage import io
 
+from fun_ky import *
+
 # =============================================================================
 # Load data from .dat 
 # - Extract columns col[0] and col[1]
@@ -46,13 +48,7 @@ def get_filematch(feature_args):
     filename = feature_args['filename']    
     feature_id = feature_args['feature_id']
     verbose = feature_args['verbose']
-    if feature_id == 1:
-        kwargs = feature_args['feature_1_args']
-    elif feature_id == 2:
-        kwargs = feature_args['feature_2_args']
-    elif feature_id == 3:
-        kwargs = feature_args['feature_3_args']
-         
+    kwargs = feature_args['feature_{}_args'.format(feature_id)]        
     source_dir = kwargs['source_dir']
     ext = kwargs['ext']
 
@@ -94,12 +90,7 @@ def get_filematch_s(pattern):
 def find_file(xf, yf, feature_args):
     filename = feature_args['filename']
     feature_id = feature_args['feature_id']
-    if feature_id == 1:
-        kwargs = feature_args['feature_1_args']
-    elif feature_id == 2:
-        kwargs = feature_args['feature_2_args']
-    elif feature_id == 3:
-        kwargs = feature_args['feature_3_args']
+    kwargs = feature_args['feature_{}_args'.format(feature_id)] 
     source_dir = kwargs['source_dir']
     
     n = filename.find('*') # assume before this is the sample name
@@ -140,12 +131,7 @@ def calc_distance(p0, p1):
 def get_feature(infile, feature_args):
     log10 = feature_args['log10']
     feature_id = feature_args['feature_id']
-    if feature_id == 1:
-        kwargs = feature_args['feature_1_args']
-    elif feature_id == 2:
-        kwargs = feature_args['feature_2_args']
-    elif feature_id == 3:
-        kwargs = feature_args['feature_3_args']
+    kwargs = feature_args['feature_{}_args'.format(feature_id)] 
     
     val = []    
     if feature_id == 1:
@@ -204,6 +190,15 @@ def get_feature(infile, feature_args):
                 except:
                     print('Cannot find I[get_target_idx(angle, angle_target)] \n')
             val.append(temp)   
+
+    elif feature_id == 4:  
+        xml_file = '{}{}{}'.format(kwargs['source_dir'], infile[len(kwargs['source_dir']):-4], '.xml' )
+        try:
+            result = fit_result(xml_file)
+            print(result)
+            val.append(result['fit_peaks_grain_size'])
+        except:
+            val.append(np.nan)
 
     info = [feature_id, kwargs['targets']]
                 
@@ -278,12 +273,7 @@ def plot_data(infile, **feature_args):
     else:
         feature_id = 1
         
-    if feature_id == 1:
-        kwargs = feature_args['feature_1_args']
-    elif feature_id == 2:
-        kwargs = feature_args['feature_2_args']
-    elif feature_id == 3:
-        kwargs = feature_args['feature_3_args']
+    kwargs = feature_args['feature_{}_args'.format(feature_id)] 
 
     if 'cmap' in feature_args and feature_args['cmap']:
         cmap = feature_args['cmap']
@@ -307,7 +297,7 @@ def plot_data(infile, **feature_args):
         roi = kwargs['roi']
         n = roi[0]
         q, I = extract_data(infile, data_col)        
-        I = np.log10(I)
+        if log10: I = np.log10(I)
         plt.plot(q, I)     
         for idx, q_target in enumerate(q_targets):
             if type(q_target) is not str:
@@ -323,8 +313,8 @@ def plot_data(infile, **feature_args):
         data_col = kwargs['data_col']
         angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
-        angle, I0 = extract_data(infile, data_col)
-        I = np.log10(I0)
+        angle, I = extract_data(infile, data_col)
+        if log10: I = np.log10(I)
         plt.plot(angle, I)  
         for idx, angle_target in enumerate(angle_targets):
             if angle_target =='max':
