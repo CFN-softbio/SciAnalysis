@@ -99,11 +99,12 @@ def find_file(xf, yf, feature_args):
     feature_id = feature_args['feature_id']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
     source_dir = kwargs['source_dir']
+    ext = kwargs['ext']
     
     n = filename.find('*') # assume before this is the sample name
     
     temp = '*x{:.3f}*_y{:.3f}*'.format(xf, yf) 
-    temp = filename[0:n-1]+temp # ignore char filename[n]
+    temp = filename[0:n-3]+temp+ext  # ignore some char
     pattern = os.path.join(source_dir, temp) 
     infiles = get_filematch_s(pattern)
     return infiles
@@ -289,6 +290,10 @@ def get_map(infiles, match_re, feature_args):
 # Plot one data
 # =============================================================================        
 def plot_data(infile, **feature_args):
+    font = {'family' : 'normal',
+        'weight' : 'bold',
+        'size'   : 12}
+    
     if 'log10' in feature_args:
         log10 = feature_args['log10'][1]
     else:
@@ -297,14 +302,15 @@ def plot_data(infile, **feature_args):
         feature_id = feature_args['feature_id']
     else:
         feature_id = 1
-        
+    verbose = feature_args['verbose']        
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
 
     if 'cmap' in feature_args and feature_args['cmap']:
         cmap = feature_args['cmap']
     else:
         cmap = 'viridis'
-    
+       
+    result = []
     if feature_id == 1:
         pixels = kwargs['targets']
         im = color.rgb2gray(io.imread(infile))
@@ -314,8 +320,8 @@ def plot_data(infile, **feature_args):
         plt.colorbar(shrink=0.8, aspect=24)
         for pixel in pixels:
             plt.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
-        plt.title(infile)
-        return im
+        result = im
+        
     elif feature_id == 2: 
         q_targets = kwargs['targets']
         data_col = kwargs['data_col']
@@ -333,9 +339,13 @@ def plot_data(infile, **feature_args):
                 # plot integration region
                 cen = get_target_idx(q, q_target)
             plt.plot([q[cen-n], q[cen+n]], [-1, -1]) 
-        plt.ylabel('log10(I)')
         plt.xlabel('q ($\AA$^-1)')
-        plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)      
+        plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)  
+        if log10: 
+            plt.ylabel('log10(I)')
+        else:
+            plt.ylabel('Intensity (a.u.)')
+   
     elif feature_id == 3:  
         data_col = kwargs['data_col']
         angle_targets = kwargs['targets']
@@ -343,29 +353,49 @@ def plot_data(infile, **feature_args):
         angle, I = extract_data(infile, data_col)
         if log10: I = np.log10(I)
         plt.plot(angle, I)  
+        y_lim = [np.nanmin(I), np.nanmax(I)]
         for idx, angle_target in enumerate(angle_targets):
             if angle_target =='max':
                 i0 = get_target_idx(angle, angle_roi[0])
                 i1 = get_target_idx(angle, angle_roi[1])
-                plt.plot([angle[i0], angle[i1]], [0, 0])
+                plt.plot([angle[i0], angle[i1]], [y_lim[0], y_lim[0]])
                 I_crop = I[i0:i1+1]
                 val = angle[i0+np.argmax(I_crop)]
-                plt.plot([val, val], [0, 3])
-                plt.text(val, 3-idx*0.1, 'argmax='+str(np.round(val,2)))
+                plt.plot([val, val], y_lim)
+                plt.text(val, np.max(I_crop)*0.95, 'argmax='+str(np.round(val,2)))
             elif type(angle_target) is not str:
-                plt.plot([angle_target, angle_target], [0, 0])
-                plt.plot([angle_target, angle_target], [0, 3])
-                plt.text(angle_target, 0.1+idx*0.1, '('+str(angle_target)+')')
+                plt.plot([angle_target, angle_target], [y_lim[0], y_lim[0]])
+                plt.plot([angle_target, angle_target], y_lim)
+                plt.text(angle_target, y_lim[0]+idx*0.1, '('+str(angle_target)+')')
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         plt.xlabel('$\chi$ (degree)')
+        if log10: 
+            plt.ylabel('log10(I)')
+        else:
+            plt.ylabel('Intensity (a.u.)')
+            
     elif feature_id == 4:
+        feats = kwargs['targets']
         val, info = get_feature(infile, feature_args)
         for line in info:
-            plt.plot(line.x, np.log10(line.y)) 
+            I = np.log10(line.y)
+            plt.plot(line.x, I) 
+        
+        ys = 0.5 #np.nanmin(I)
+        yf = 3 #np.nanmax(I)
+        space = yf*0.11
+        xs = np.min(line.x)
+        xf = np.max(line.x)*0.9
+        for idx, feat in enumerate(feats):
+            temp = np.asarray(val[idx]) #Note - type(val[0])=lmfit.parameter.Parameter; val[idx].value
+            plt.text(xf, yf-space*idx, feat+'={:.2f}'.format(temp), **font)
+        plt.ylim([ys*0.3, yf*1.2])
+        plt.xlim([xs*0.5, xf*1.5])
         plt.xlabel('q ($\AA$^-1)')
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         
-    plt.title(infile)
+    if verbose: plt.title(infile)
+    return result
  
 # =============================================================================
 # Plot map based on feature
@@ -387,7 +417,7 @@ def plot_map(feature_map, **kwargs):
     if 'plot_interp' in kwargs:
         plot_interp = kwargs['plot_interp']
     else:
-        plot_interp = ['none', 1]
+        plot_interp = [None, 1]
     
     N_maps = len(features)
     for idx, feature in enumerate(features):
@@ -398,11 +428,13 @@ def plot_map(feature_map, **kwargs):
         if 'val_stat' not in kwargs:
             val_stat = [np.nanmin(feature), np.mean([np.nanmedian(feature), np.nanmax(feature)]) ]
         if plot_interp[0] is not None:
+            #print('Plotting map using imshow')
             x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
             #plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
             extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
             plt.imshow(feature_fine, vmin=val_stat[0], vmax=val_stat[1], extent=extent, origin='lower')
         else:
+            #print('Plotting map using scatter')
             plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
             
         plt.colorbar(shrink=1, pad=0.02, aspect=24);

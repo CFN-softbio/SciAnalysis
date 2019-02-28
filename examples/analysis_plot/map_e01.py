@@ -48,7 +48,7 @@ feature_2_args = {'source_dir' : dir_path+'circular_average/', #'../circular_ave
 feature_3_args = {'source_dir' : dir_path+'linecut_angle059/',
              'ext' : '.dat',
              'data_col' : [0, 1],
-             'targets': ['max'], #'max', #[21] # 'max', 'var', or specify angle 
+             'targets': [8, 'max'], #'max', #[21] # 'max', 'var', or specify angle 
              'angle_roi': [5,  65], # range to consider for max or var 
              }
 
@@ -85,7 +85,7 @@ for idx in [4]:
     cmap = plt.get_cmap('magma');  feature_args.update(cmap=cmap)    
     #feature_args.update(filename='*74852') # Sample 1 70526
     #infiles, match_re = get_filematch(feature_args)
-    img = plot_data(infiles[0], **feature_args)
+    plot_data(infiles[0], **feature_args)
     
     t1 = time.time()-t0
     print('Time = {:.1f} s = {:.1f} min'.format(t1, t1/60))
