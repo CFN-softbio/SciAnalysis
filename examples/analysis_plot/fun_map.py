@@ -6,23 +6,20 @@ Created on Tue Jan 15 13:51:10 2019
 @author: etsai
 """
 
-import time
-import os, sys
-import re
-import glob
+import time, os, sys, re, glob, random
+import numpy as np
+import matplotlib.pyplot as plt
 from scipy import ndimage
 from scipy import interpolate
 from scipy.interpolate import griddata
-import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
-import random
 import PIL.Image as Image
 from skimage import color
 from skimage import io
 
 from fun_ky import *
-
+import lmfit
+        
 # =============================================================================
 # Load data from .dat 
 # - Extract columns col[0] and col[1]
@@ -71,7 +68,9 @@ def get_filematch(feature_args):
     match_re = re.compile(parse_re)    
     if verbose>0:
         print(pattern)
-        print('Considering {} files...'.format(len(infiles)))    
+        print('Considering {} files...'.format(len(infiles)))   
+    
+
     return infiles, match_re
 
 # =============================================================================
@@ -132,8 +131,10 @@ def get_feature(infile, feature_args):
     log10 = feature_args['log10']
     feature_id = feature_args['feature_id']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
+    info = [feature_id]
+    info.append(kwargs['targets'])
     
-    val = []    
+    val = []  
     if feature_id == 1:
         pixels = kwargs['targets']
         roi = kwargs['roi']
@@ -149,14 +150,16 @@ def get_feature(infile, feature_args):
             else:
                 temp = imarray[pixel[1], pixel[0]]
             if log10: temp = np.log10(temp)
-            val.append(temp) 
+            val.append(temp)
         
     elif feature_id == 2:  
         data_col = kwargs['data_col']
         q_targets = kwargs['targets']
         roi = kwargs['roi']
         n = roi[0]
+        #t1 = time.time()
         q, I = extract_data(infile, data_col)
+        #print('time.f2 = {}'.format(time.time()-t1))
         for q_target in q_targets:
             cen = get_target_idx(q, q_target)
             if roi[1]=='mean':
@@ -164,10 +167,10 @@ def get_feature(infile, feature_args):
             elif roi[1]=='max':
                 temp = np.nanmax(I[cen-n:cen+n+1]) 
             else:
-                temp = I[cen]                
+                temp = I[cen] 
             if log10: temp = np.log10(temp)
-            val.append(temp) 
-
+            val.append(temp)
+        
     elif feature_id == 3:  
         data_col = kwargs['data_col']
         angle_targets = kwargs['targets']
@@ -186,22 +189,36 @@ def get_feature(infile, feature_args):
             else: 
                 try:
                     temp = I[get_target_idx(angle, angle_target)]
-                    if log10: temp = np.log10(temp)
                 except:
                     print('Cannot find I[get_target_idx(angle, angle_target)] \n')
-            val.append(temp)   
+            if log10: temp = np.log10(temp)
+            val.append(temp)
 
     elif feature_id == 4:  
-        xml_file = '{}{}{}'.format(kwargs['source_dir'], infile[len(kwargs['source_dir']):-4], '.xml' )
-        try:
-            result = fit_result(xml_file)
-            print(result)
-            val.append(result['fit_peaks_grain_size'])
-        except:
-            val.append(np.nan)
-
-    info = [feature_id, kwargs['targets']]
-                
+        #xml_file = '{}{}{}'.format(kwargs['source_dir'], infile[len(kwargs['source_dir']):-4], '.xml' )
+        #result = fit_result(xml_file)
+        #val.append(result['fit_peaks_grain_size'])
+        data_col = kwargs['data_col']
+        feats = kwargs['targets']
+        q, I = extract_data(infile, data_col)        
+        line = DataLine(x=q, y=I)
+        run_args = {'fit_range': [0.02, 0.06],
+                  'sigma': 0.001,
+                  'verbosity': 0}
+        lm_result, _, _ = Protocols.circular_average_q2I_fit()._fit_peaks(line=line, q0=None, vary=True, **run_args)
+        for feat in feats:
+            if feat == 'd_spacing_nm':
+                temp = 0.1*2.*np.pi/lm_result.params['x_center1'] #d in nm
+            elif feat == 'grain_size_nm':
+                temp = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/lm_result.params['sigma1'] #nm
+            elif feat == 'chi2':
+                temp = lm_result.chisqr/lm_result.nfree
+            else:
+                temp = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/lm_result.params[feats]  
+            if log10: temp = np.log10(temp)
+            val.append(temp)
+            info.append(lm_result)
+            
     return val, info
 
 
@@ -344,6 +361,7 @@ def plot_map(feature_map, **kwargs):
     x_pos = feature_map['x_pos']
     y_pos = feature_map['y_pos']
     features = feature_map['features']
+    log10 = kwargs['log10_plot']
     if 'val_stat' in kwargs:
         val_stat = kwargs['val_stat']
     if 'cmap' in kwargs and kwargs['cmap']:
@@ -356,18 +374,22 @@ def plot_map(feature_map, **kwargs):
         plot_interp = ['none', 1]
     
     N_maps = len(features)
+    print('N_maps = {}'.format(N_maps))
 #    fig = plt.figure(100+feature_id, figsize=[20,4]); plt.clf()
     for idx, feature in enumerate(features):
         ax = plt.subplot2grid((1, N_maps+1), (0, idx+1), colspan=1); 
         feature = np.asarray(feature)
-        val_stat = [np.nanmin(feature), np.nanmax(feature)]
-        if plot_interp[0]!='none':
+        if log10:
+            feature = np.log10(feature)
+        if 'val_stat' not in kwargs:
+            val_stat = [np.nanmin(feature), np.mean([np.nanmedian(feature), np.nanmax(feature)]) ]
+        if plot_interp[0] is not None:
             x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
             #plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
             extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
             plt.imshow(feature_fine, vmin=val_stat[0], vmax=val_stat[1], extent=extent, origin='lower')
         else:
-            plt.scatter(x_pos, y_pos, c=features[:,idx], marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+            plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
             
         plt.colorbar(shrink=1, pad=0.02, aspect=24);
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
@@ -399,9 +421,11 @@ def plot_overlay(feature_map_list, **kwargs):
         features = feature_map['features']
         for feature in features:
             feature_array.append(feature)
-        
+    log10 = kwargs['log10_plot']    
     if 'plot_interp' in kwargs:
         plot_interp = kwargs['plot_interp']
+        if plot_interp[0] is None:
+            plot_interp[0] = 'linear' 
     else:
         plot_interp = ['linear', 1] 
     
@@ -414,6 +438,7 @@ def plot_overlay(feature_map_list, **kwargs):
           
         for idx, feature in enumerate(feature_array):
             feature = np.asarray(feature)
+            if log10: feature = np.log10(feature)
             x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
             feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine))
             feature_fine[np.isnan(feature_fine)] = 1 #np.nanmean(feature_fine)

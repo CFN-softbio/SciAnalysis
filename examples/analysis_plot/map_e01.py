@@ -17,7 +17,7 @@ from fun_map import *
 dir_path = '/home/etsai/BNL/Research/KY_platelets/saxs/analysis/'
 dir_path = '/home/etsai/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/analysis/'
 feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
-                'filename'  : 'medium_G1_13mgml_f*5.00s', # m*y-7*5
+                'filename'  : 'medium_G1_13mgml_x-1.6*y-7.4*5.00s', # m*y-7*5
                 #'filename'  : 'medium_G2-3G1_20mgml_*x-2*5.00s', 
                 #'filename'  : 'medium_as-synth_highC_fine*10.00s', Round 2 Sample1
                 #'filename'  : 'medium_G2-2G1_highC_med*10.00s', 
@@ -26,8 +26,9 @@ feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
                 'feature_id': 1,
                 'map_type': 'xy',
                 'log10'  : 0,
+                'log10_plot': 1, 
                 'verbose': 1,
-                'plot_interp':  ['linear', 0.001], #'none', 'linear'(recommended), 'cubic', 'nearest', pixel in mm
+                'plot_interp':  [None, 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
                } 
 
 feature_1_args = {'source_dir' : dir_path+'thumbnails2/', #thumbnails2/
@@ -51,16 +52,18 @@ feature_3_args = {'source_dir' : dir_path+'linecut_angle059/',
              'angle_roi': [5,  65], # range to consider for max or var 
              }
 
-feature_4_args = {'source_dir' : dir_path+'results/',
-             'ext' : '.xml',
-             'targets': 'fit_peaks_grain_size'
+feature_4_args = {'source_dir' : dir_path+'circular_average/',
+             'ext' : '.dat',
+             'data_col' : [0, 2],
+             'targets': ['grain_size_nm', 'd_spacing_nm', 'chi2'] #b, prefactor1, x_center1, sigma1, chi2
              }
 
 feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args, feature_4_args=feature_4_args)
 
 ########## Feature map
 features_map_list = []
-for idx in [4]:
+t0 = time.time()
+for idx in [1]:
     feature_args['feature_id'] = idx; 
     
     ## Find matching files   
@@ -74,6 +77,7 @@ for idx in [4]:
     
     ## Plot map
     fig = plt.figure(100+feature_args['feature_id'], figsize=[16,4]); plt.clf()  
+    #feature_args.update(log10_plot=1)
     plot_map(features_map, **feature_args)
     
     ## Plot one data 
@@ -81,10 +85,14 @@ for idx in [4]:
     cmap = plt.get_cmap('magma');  feature_args.update(cmap=cmap)    
     #feature_args.update(filename='*74852') # Sample 1 70526
     #infiles, match_re = get_filematch(feature_args)
-    img = plot_data(infiles[0], **feature_args)
+    img = plot_data(infiles[1], **feature_args)
+    
+    print('Time = {:.1f} s'.format(time.time()-t0))
 
-
-overlay = plot_overlay(features_map_list, **feature_args) 
+try:
+    overlay = plot_overlay(features_map_list, **feature_args) 
+except:
+    print('Overlay failed.')
 
 
 

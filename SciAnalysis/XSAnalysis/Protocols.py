@@ -1261,7 +1261,173 @@ class linecut_angle_fit(linecut_angle):
         #End class linecut_angle_fit(linecut_angle)
         ########################################
 
+
+# =============================================================================
+#  circular_average_q2I_fit
+# =============================================================================
+class circular_average_q2I_fit(circular_average_q2I):
+
+    def __init__(self, name='circular_average_q2I', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {}
+        self.run_args.update(kwargs)                        
+    
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        line = data.circular_average_q_bin(error=True)
+        
+        # Convert to q2I
+        
+        #line.y *= np.abs(line.x)
+        #line.y *= np.square(line.x)
+        #line.y *= np.power(np.abs(line.x), 2.5)
+        n = 0
+        line.y *= np.power(np.abs(line.x), n)
+        
+        line.y_label = 'q^n*I(q)'
+        line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'+'n{}'.format(n)
+
+        outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
+        line.save_data(outfile)        
+
+        if True:
+            # Fit
+            lm_result, fit_line, fit_line_extended = self._fit_peaks(line, **run_args)
+            #print(lm_result.params)
+            
+            fit_name = 'fit_peaks'
+            prefactor_total = 0
+            for param_name, param in lm_result.params.items():
+                results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
+                if 'prefactor' in param_name:
+                    print(param.value)
+                    prefactor_total += np.abs(param.value)
                 
+            results['{}_prefactor_total'.format(fit_name)] = prefactor_total
+            results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
+            
+            # Calculate some additional things
+            d = 0.1*2.*np.pi/results['{}_x_center1'.format(fit_name)]['value']
+            results['{}_d0'.format(fit_name)] = d
+            xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma1'.format(fit_name)]['value']
+            results['{}_grain_size'.format(fit_name)] = xi                 
+            
+            lines = DataLines_current([line, fit_line, fit_line_extended])
+            lines.results = results
+            lines._run_args = run_args
+            lines.copy_labels(line)
+            
+        else:
+            lines = DataLines([line])          
+            
+           
+        
+        outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
+        lines.plot(save=outfile, **run_args)
+        
+        return results
+    
+    
+        
+    def _fit_peaks(self, line, q0, vary=True, **run_args):
+        
+        # Usage: lm_result, fit_line, fit_line_extended = self.fit_peaks(line, **run_args)
+        
+        line_full = line
+        if 'fit_range' in run_args:
+            line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
+
+        import lmfit
+        
+        def model(v, x):
+            '''Gaussians with constant background.'''
+            m = v['b']
+
+            #m += v['slope']*x
+            
+            i = 0
+            q0 = v['x_center{:d}'.format(i+1)]
+            m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-q0)/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+
+            #i = 1
+            #q0 = v['x_center{:d}'.format(i+1)]
+            #m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-q0)/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+
+            #i = 2
+            #q0 = v['x_center1']*2.0
+            #m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-q0)/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+            
+            return m
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        params = lmfit.Parameters()
+        b = np.min(line.y)
+        params.add('b', value=b, min=b*0.98, max=b*1.02, vary=vary)
+        #params.add('slope', value=-50, min=-b/q_range*2, max=b/q_range*2, vary=vary)        
+        
+        if 'sigma' in run_args:
+            sigma = run_args['sigma']
+        else:
+            sigma = 0.001
+            
+        xspan = np.max(line.x) - np.min(line.x)
+           
+        
+        i = 0
+        if q0 is None:
+            xpeak, ypeak = line.target_y(np.max(line.y))
+            q0_init = xpeak
+        else:
+            q0_init = q0[i]
+            xpeak, ypeak = line.target_x(q0[i])
+        params.add('prefactor{:d}'.format(i+1), value=(ypeak-b), min=0, max=np.max(line.y), vary=vary)
+        params.add('x_center{:d}'.format(i+1), value=q0_init, min=q0_init*0.5, max=q0_init*1.5, vary=vary)
+        params.add('sigma{:d}'.format(i+1), value=sigma, min=0, vary=vary)
+
+        if False:
+            i = 1
+            if q0 is None:
+                xpeak, ypeak = line.target_y(np.max(line.y))
+                q0_init = xpeak
+            else:
+                q0_init = q0[i]
+                xpeak, ypeak = line.target_x(q0[i])
+            params.add('x_center{:d}'.format(i+1), value=q0_init, min=q0_init*0.2, max=q0_init*2, vary=vary)
+            params.add('prefactor{:d}'.format(i+1), value=ypeak-b, min=0, max=np.max(line.y), vary=vary)
+            params.add('sigma{:d}'.format(i+1), value=sigma, min=0, vary=vary)
+
+            #i = 2
+            #xpeak, ypeak = line.target_x(q0*2)
+            #params.add('prefactor{:d}'.format(i+1), value=ypeak-b, min=0, max=np.max(line.y), vary=vary)
+            #params.add('sigma{:d}'.format(i+1), value=sigma, min=0, vary=vary)
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'marker':None, 'linewidth':4.0})
+        
+        fit_x = np.linspace(np.min(line_full.x), np.max(line_full.x), num=2000)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'marker':None, 'linewidth':1.0})        
+
+        return lm_result, fit_line, fit_line_extended                
                 
 class calibration_check(Protocol):
 
