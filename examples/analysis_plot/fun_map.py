@@ -245,18 +245,20 @@ def get_target_idx(q, target):
 #   match_re: extract positions x, y, and scan ID
 #   feature_args: which feature, what specifics
 # Outputs:
-#   features_map, including:
+#   features_map:
 #       scans: list of scans (not sure how useful yet)
 #       x_pos
 #       y_pos
+#       tag: [id, feature_names]
 #       features: for each feature_id, there can be several features
 # =============================================================================
 def get_map(infiles, match_re, feature_args):
     filename = feature_args['filename']
     feature_id = feature_args['feature_id']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
-    tag = [feature_id]
-    tag.append(kwargs['targets'])
+    targets = kwargs['targets']
+    ids = []
+    tags = []
     scans = []
     x_pos = []
     y_pos = []
@@ -274,6 +276,8 @@ def get_map(infiles, match_re, feature_args):
             x_pos.append(x)
             y_pos.append(y)
             scans.append(scan)
+            ids.append(feature_id)
+            tags.append(targets)
     
             val, info = get_feature(infile, feature_args) # val can be an array
             features.append(val)
@@ -281,7 +285,7 @@ def get_map(infiles, match_re, feature_args):
 
     features = np.asarray(features)
     features = (features.T).tolist()
-    features_map = {'tag': tag, 'scans': scans, 'x_pos':x_pos, 'y_pos':y_pos, 'features':features, 
+    features_map = {'ids': ids, 'tags': tags, 'scans': scans, 'x_pos':x_pos, 'y_pos':y_pos, 'features':features, 
                    'info_map':info_map, 'filename': filename}
     
     return features_map
@@ -401,13 +405,24 @@ def plot_data(infile, **feature_args):
 # =============================================================================
 # Plot map based on feature
 # =============================================================================       
-def plot_map(feature_map, **kwargs):
-    filename = feature_map['filename']
-    feature_id = feature_map['tag'][0]
-    targets = feature_map['tag'][1]
-    x_pos = feature_map['x_pos']
-    y_pos = feature_map['y_pos']
-    features = feature_map['features']
+def plot_map(features_map, **kwargs):
+    if 'filename' in features_map:
+        filename = features_map['filename']
+    else:
+        filename = ''
+    if 'ids' in features_map:
+        ids = features_map['ids']
+    else:
+        print('WHY no ids?')
+        return
+    if 'tags' in features_map:
+        tags = features_map['tags']
+    else:
+        print('WHY no tags?')
+        return
+    x_pos = features_map['x_pos']
+    y_pos = features_map['y_pos']
+    features = features_map['features']
     if 'log10' in kwargs:
         log10 = kwargs['log10'][1]
     else:
@@ -445,8 +460,9 @@ def plot_map(feature_map, **kwargs):
         plt.colorbar(shrink=1, pad=0.02, aspect=24);
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         #plt.title(source_dir+filename)
+        plt.title('Map {}'.format(idx))
         plt.axis('equal')
-        plt.xlabel('x (mm)  [feature_id '+ str(feature_id) + ',  ' + str(targets[idx])+']')
+        plt.xlabel('x (mm)  [feature_id '+ str(ids[idx]) + ',  ' + str(tags[idx])+']')
         plt.ylabel('y (mm)')
     
 # =============================================================================
@@ -471,7 +487,6 @@ def interp_map(x_pos, y_pos, feature, plot_interp):
 #       [4, ['b', 'prefactor1', 'd_spacing_nm', 'grain_size_nm', 'chi2']]
 # =============================================================================       
 def plot_overlay(features_map_list, **kwargs):
-    feature_array = []; legends = []
     if 'overlay_rgb' in kwargs:
         overlay_rgb = kwargs['overlay_rgb']
     else:
@@ -487,22 +502,16 @@ def plot_overlay(features_map_list, **kwargs):
     else:
         plot_interp = ['linear', 1] 
          
-    ## Get all the maps into one array, feature_array
-    for ii, feature_map in enumerate(features_map_list):
-        if ii==0:
-            x_pos = feature_map['x_pos']
-            y_pos = feature_map['y_pos']
-        features = feature_map['features']  # 2D map
-        for jj, feature in enumerate(features):
-            feature_array.append(feature)
-            print(features_map_list[ii]['tag'][0])
-            print(features_map_list[ii]['tag'][1][jj])
-            legends.append('id={}, {}'.format(features_map_list[ii]['tag'][0], features_map_list[ii]['tag'][1][jj]))
-
+    ## Get all the maps into one 2D array, feature_array
+    features_map, legends = extract_maps(features_map_list)
+    x_pos = features_map['x_pos']
+    y_pos = features_map['y_pos']
+    feature_array = features_map['features']
+    
     ## Take three channels for plotting
     overlay = []; overlay_legend = []    
     if feature_array!=[]:
-        fig = plt.figure(200, figsize=[10, 8]); plt.clf()
+        fig = plt.figure(500, figsize=[10, 8]); plt.clf()
         ax = plt.subplot2grid((1, 5), (0, 0), colspan=4); ax.cla()
         ax.set_facecolor('k')
           
@@ -522,7 +531,7 @@ def plot_overlay(features_map_list, **kwargs):
         ## Fill empty channels
         nc = len(overlay) # number of channels (RGB)
         while nc<3:
-            print('Less than 3 features, filling other channel with 0')
+            print('Less than 3 features, filling channel with 0')
             overlay.append(feature_fine*0.0)
             overlay_legend.append('empty')
             nc = nc+1
@@ -548,11 +557,59 @@ def plot_overlay(features_map_list, **kwargs):
         print('feature_array is empty!\n')
     return overlay
 
-    
+
 # =============================================================================
-#     
+# Extract maps from all feature_ids
+# Example:
+#    features_map, legends = extract_maps(features_map_list)
+# Input:
+#   features_map_list: list of feautres_maps, with len = # of feature ids
+#       features = feature_map['features']: 1D or 2D array, axes are [postision, feature]
+#       feature in features: 1D array, axis is [position]
+# Output: 
+#   features_map (see output of get_map)
+#       x_pos, x_pos, tag
+#       feature_array: list of 1D or 2D arrays, from all the feature_ids, [postision, feature]
+#   legends: id, tag (e.g. grain_size_nm)
+# =============================================================================
+def extract_maps(features_map_list):
+    feature_array = []; 
+    ids = []       # feature_id
+    tags = [] # feature name
+    legends = []
+    for ii, feature_map in enumerate(features_map_list): # ii the index for feature_ids
+        if ii==0:
+            x_pos = feature_map['x_pos']
+            y_pos = feature_map['y_pos']
+        features = feature_map['features']  # 2D map
+        for jj, feature in enumerate(features):  # jj the index for each features within each feature_id
+            feature_array.append(feature)
+            id_here = features_map_list[ii]['ids'][jj]
+            ids.append(id_here)
+            for tag in features_map_list[ii]['tags'][jj]:
+                tags.append(tag)
+                legends.append('id={}, {}'.format(id_here, tag))
+    
+   
+    # Repack into features_map (good/bad?)
+    features_map = {}
+    features_map.update(x_pos=x_pos, y_pos=y_pos, features=feature_array)
+    features_map.update(ids=ids, tags=tags)
+    
+    return features_map, legends
+
+
+# =============================================================================
+# Do math on two selected features
+# Example (feature_c = feature_a/feature_b):
+#   feature_args['math_ab'] = [0, 1, 'divide'] 
+#   feature_c = math_features(features_map_list, **feature_args)
+# Output:
+#   feature_c: new feature map
+#   features_map_list: updated (appended) with a new feature_id (100+ii) contianing the new feature_c map
 # =============================================================================
 def math_features(features_map_list, **kwargs):
+    print('Current features_map_list len = {}'.format(len(features_map_list)))
     feature_array = []; legends = []
     if 'math_ab' in kwargs:
         math_ab = kwargs['math_ab']
@@ -569,11 +626,9 @@ def math_features(features_map_list, **kwargs):
     else:
         plot_interp = ['linear', 1] 
          
-    ## Get all the maps into one array, feature_array
-    for ii, feature_map in enumerate(features_map_list):
-        features = feature_map['features']  # 2D map
-        for jj, feature in enumerate(features):
-            feature_array.append(feature)
+    ## Get all the maps into one 2D array, feature_array
+    features_map, legends = extract_maps(features_map_list)
+    feature_array = features_map['features']
 
     feature_a = np.asarray(feature_array[math_ab[0]])
     feature_b = np.asarray(feature_array[math_ab[1]])
@@ -586,17 +641,38 @@ def math_features(features_map_list, **kwargs):
     elif math_ab[2] == 'correlation':
         feature_c = np.corrcoef(feature_a, feature_b)  
 
-    current_id = int(np.asarray(features_map_list[ii]['tag'][0]))
+    idx = len(features_map_list)-1
+    current_id = int(np.asarray(features_map_list[idx]['ids'][0]))
     if current_id<100:
         math_id = 100
     else:
         math_id = current_id+1
-    original_list = copy.deepcopy(features_map_list[ii])
+    original_list = copy.deepcopy(features_map_list[idx])
     features_map_list.append(original_list)
-    features_map_list[ii+1]['features'] = [feature_c] # see def get_map for features_map structure
-    features_map_list[ii+1]['tag'] = [math_id, ['('+str(math_ab[0])+')('+str(math_ab[1])+')'+math_ab[2]]]
+    features_map_list[idx+1]['features'] = [feature_c] # see def get_map for features_map structure
+    features_map_list[idx+1]['ids'].append(math_id)
+    features_map_list[idx+1]['tags'].append(math_ab[2])
+    
+    print('Current features_map_list len = {}'.format(len(features_map_list)))
     
     return feature_c
+
+
+# =============================================================================
+# Count # of feature maps
+# =============================================================================
+def count_maps(features_map_list):
+    N_maps = 0
+    for ii, feature_map in enumerate(features_map_list): 
+        N_maps += len(feature_map['features'])
+        
+    return N_maps
+
+
+
+
+
+
 
 
 
