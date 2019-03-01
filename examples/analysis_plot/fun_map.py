@@ -426,7 +426,8 @@ def plot_map(feature_map, **kwargs):
         if log10:
             feature = np.log10(feature)
         if 'val_stat' not in kwargs:
-            val_stat = [np.nanmin(feature), np.mean([np.nanmedian(feature), np.nanmax(feature)]) ]
+            #val_stat = [np.nanmin(feature), np.mean([np.nanmedian(feature), np.nanmax(feature)]) ]
+            val_stat = [np.nanmin(feature), np.nanmax(feature)]
         if plot_interp[0] is not None:
             #print('Plotting map using imshow')
             x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
@@ -456,17 +457,23 @@ def interp_map(x_pos, y_pos, feature, plot_interp):
     return x_pos_fine, y_pos_fine, feature_fine
 
 # =============================================================================
-# Overlay three features
+# Overlay three features (RGB)
+#   features_map_list: list of feautres_maps
+#   features = feature_map['features']: 1D or 2D array, [postision, feature]
+#   feature in features: 1D array, axis is [position]
+#   feature_array: list of 1D or 2D arrays, from all the feature_ids, [postision, feature]
 # =============================================================================       
-def plot_overlay(feature_map_list, **kwargs):
-    feature_array = []
-    for ii, feature_map in enumerate(feature_map_list):
+def plot_overlay(features_map_list, **kwargs):
+    feature_array = []; legends = []
+    for ii, feature_map in enumerate(features_map_list):
         if ii==0:
             x_pos = feature_map['x_pos']
             y_pos = feature_map['y_pos']
-        features = feature_map['features']
-        for feature in features:
+        features = feature_map['features']  # 2D map
+        for jj, feature in enumerate(features):
             feature_array.append(feature)
+            # Example of features_map_list[0]['tag']:  [4, ['b', 'prefactor1', 'd_spacing_nm', 'grain_size_nm', 'chi2']]
+            legends.append('id={}, {}'.format(features_map_list[ii]['tag'][0], features_map_list[ii]['tag'][1][jj]))
     log10 = kwargs['log10'][1]    
     if 'plot_interp' in kwargs:
         plot_interp = kwargs['plot_interp']
@@ -474,39 +481,49 @@ def plot_overlay(feature_map_list, **kwargs):
             plot_interp[0] = 'linear' 
     else:
         plot_interp = ['linear', 1] 
-    
-    overlay = []        
+
+    overlay = []; overlay_legend = []    
     if feature_array!=[]:
-        fig = plt.figure(200, figsize=[8,8]); plt.clf()
-        ax = fig.add_subplot(1, 1, 1)
-        #ax.set_facecolor((0, 0, 0))
-        ax.set_facecolor((1, 1, 1))
+        fig = plt.figure(200, figsize=[10, 8]); plt.clf()
+        ax = plt.subplot2grid((1, 5), (0, 0), colspan=4); ax.cla()
+        ax.set_facecolor('k')
           
-        for idx, feature in enumerate(feature_array):
+        col = [1, 3, 4] # for an id, take these features for RGB map
+        if len(feature_array)>3: 
+            print('More then 3 features, using only {} for RGB'.format(col))
+        for ii, feature in enumerate(feature_array):
             feature = np.asarray(feature)
             if log10: feature = np.log10(feature)
             x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
             feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine))
-            feature_fine[np.isnan(feature_fine)] = 1 #np.nanmean(feature_fine)
-            if idx<=2:
+            feature_fine[np.isnan(feature_fine)] = 0  #Replace nan by, eg np.nanmean(feature_fine)
+            if ii in col:
                 overlay.append(feature_fine)
-            else:
-                print('More then 3 features, only use the first three for RGB')
+                overlay_legend.append(legends[ii])
      
-        while idx<2:
+        nc = len(overlay) # number of channels (RGB)
+        while nc<3:
+            print('Less than 3 features, filling other channel with 0')
             overlay.append(feature_fine*0.0)
-            idx = idx+1
+            nc = nc+1
         overlay = np.asarray(overlay)
         overlay = np.transpose(overlay, (1,2,0))
         extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
         plt.imshow(overlay, extent=extent,origin='lower')
         
+        plt.title('(R){}, (G){}, (B){}'.format(overlay_legend[0],overlay_legend[1],overlay_legend[2]))
         #plt.colorbar(shrink=1, pad=0.02, aspect=24);
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
         plt.axis('tight')
         plt.axis('equal')
         plt.xlabel('x (mm)')
         plt.ylabel('y (mm)')
+        
+        ## Plot the colorcone
+        ax2 = plt.subplot2grid((3, 5), (0, 4), colspan=1); ax2.cla()
+        colorbar = Image.open('hsl_cone_graphic.jpg')
+        plt.imshow(colorbar)
+        plt.axis('off')
     else:
         print('feature_array is empty!\n')
     return overlay
