@@ -276,8 +276,8 @@ def get_map(infiles, match_re, feature_args):
             x_pos.append(x)
             y_pos.append(y)
             scans.append(scan)
-            ids.append(feature_id)
-            tags.append(targets)
+            ids.append(feature_id) ## WHY
+            tags.append(targets) ## WHY
     
             val, info = get_feature(infile, feature_args) # val can be an array
             features.append(val)
@@ -503,10 +503,12 @@ def plot_overlay(features_map_list, **kwargs):
         plot_interp = ['linear', 1] 
          
     ## Get all the maps into one 2D array, feature_array
-    features_map, legends = extract_maps(features_map_list)
+    features_map = extract_maps(features_map_list)
     x_pos = features_map['x_pos']
     y_pos = features_map['y_pos']
     feature_array = features_map['features']
+    ids = features_map['ids']
+    tags = features_map['tags']
     
     ## Take three channels for plotting
     overlay = []; overlay_legend = []    
@@ -517,21 +519,22 @@ def plot_overlay(features_map_list, **kwargs):
           
         ## Take three channels, interpolate to fine grid
         if len(feature_array)>3: 
-            print('More then 3 features, using only {} for RGB'.format(overlay_rgb))
+            print('More then 3 features available, using only {} for RGB'.format(overlay_rgb))
         for ii, feature in enumerate(feature_array):
             feature = np.asarray(feature)
             if log10: feature = np.log10(feature)
             x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
             feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine)) # Normalize each channel
             feature_fine[np.isnan(feature_fine)] = 0  # Replace nan 
+            print('id={}, {}'.format(ids[ii], tags[ii]))
             if ii in overlay_rgb:
                 overlay.append(feature_fine)
-                overlay_legend.append(legends[ii])
-     
+                overlay_legend.append('id={}, {}'.format(ids[ii], tags[ii]))
+
         ## Fill empty channels
         nc = len(overlay) # number of channels (RGB)
         while nc<3:
-            print('Less than 3 features, filling channel with 0')
+            print('Less than 3 features selected, filling channel with 0')
             overlay.append(feature_fine*0.0)
             overlay_legend.append('empty')
             nc = nc+1
@@ -570,13 +573,11 @@ def plot_overlay(features_map_list, **kwargs):
 #   features_map (see output of get_map)
 #       x_pos, x_pos, tag
 #       feature_array: list of 1D or 2D arrays, from all the feature_ids, [postision, feature]
-#   legends: id, tag (e.g. grain_size_nm)
 # =============================================================================
 def extract_maps(features_map_list):
     feature_array = []; 
     ids = []       # feature_id
     tags = [] # feature name
-    legends = []
     for ii, feature_map in enumerate(features_map_list): # ii the index for feature_ids
         if ii==0:
             x_pos = feature_map['x_pos']
@@ -588,7 +589,6 @@ def extract_maps(features_map_list):
             ids.append(id_here)
             for tag in features_map_list[ii]['tags'][jj]:
                 tags.append(tag)
-                legends.append('id={}, {}'.format(id_here, tag))
     
    
     # Repack into features_map (good/bad?)
@@ -596,7 +596,7 @@ def extract_maps(features_map_list):
     features_map.update(x_pos=x_pos, y_pos=y_pos, features=feature_array)
     features_map.update(ids=ids, tags=tags)
     
-    return features_map, legends
+    return features_map
 
 
 # =============================================================================
@@ -627,7 +627,7 @@ def math_features(features_map_list, **kwargs):
         plot_interp = ['linear', 1] 
          
     ## Get all the maps into one 2D array, feature_array
-    features_map, legends = extract_maps(features_map_list)
+    features_map = extract_maps(features_map_list)
     feature_array = features_map['features']
 
     feature_a = np.asarray(feature_array[math_ab[0]])
@@ -650,10 +650,11 @@ def math_features(features_map_list, **kwargs):
     original_list = copy.deepcopy(features_map_list[idx])
     features_map_list.append(original_list)
     features_map_list[idx+1]['features'] = [feature_c] # see def get_map for features_map structure
-    features_map_list[idx+1]['ids'].append(math_id)
-    features_map_list[idx+1]['tags'].append(math_ab[2])
+    features_map_list[idx+1].update(ids=[math_id])
+    features_map_list[idx+1].update(tags=[math_ab[2]])
     
     print('Current features_map_list len = {}'.format(len(features_map_list)))
+    print('N_maps = {}'.format(count_maps(features_map_list)))
     
     return feature_c
 

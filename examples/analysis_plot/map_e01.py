@@ -23,7 +23,7 @@ mpl.rcParams['ytick.labelsize'] = 10
 dir_path = '/home/etsai/BNL/Research/KY_platelets/saxs/analysis/'
 dir_path = '/home/etsai/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/analysis/'
 feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
-                'filename'  : 'medium_G1_13mgml_x-*5.00s', # m*y-7*5
+                'filename'  : 'medium_G1_13mgml_x-3.0*5.00s', # m*y-7*5
                 #'filename'  : 'medium_G2-3G1_20mgml_*x-2*5.00s', 
                 #'filename'  : 'medium_as-synth_highC_fine*10.00s', Round 2 Sample1
                 #'filename'  : 'medium_G2-2G1_highC_med*10.00s', 
@@ -112,7 +112,7 @@ for idx in feature_ids:
 
 ## Plot all maps
 fig = plt.figure(200, figsize=[16,5]); plt.clf()  
-features_map_all, legends = extract_maps(features_map_list) # why legends, remove
+features_map_all = extract_maps(features_map_list) # why legends, remove
 plot_map(features_map_all, **feature_args)
 
 
@@ -121,7 +121,9 @@ if False:
     feature_args['math_ab'] = [0, 1, 'divide']
     _ = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
-    features_map_all, legends = extract_maps(features_map_list)
+    features_map_all = extract_maps(features_map_list)
+    
+    fig = plt.figure(200, figsize=[16,5]); plt.clf()  
     plot_map(features_map_all, **feature_args)
 
 ## Plot overlay of three maps (RGB)  
