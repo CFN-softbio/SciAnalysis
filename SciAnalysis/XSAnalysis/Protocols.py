@@ -149,7 +149,7 @@ class circular_average(Protocol):
         
         # TODO: Fit 1D data
         
-        return line
+        return results
                 
                 
                 
@@ -312,7 +312,7 @@ class linecut_angle(Protocol):
         outfile = self.get_outfile(data.name, output_dir, ext='.dat')
         line.save_data(outfile)
         
-        return line
+        return results
                                 
                 
                 

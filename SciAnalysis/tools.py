@@ -179,7 +179,7 @@ class Processor(object):
             
             try:
                 data = self.load(infile, **l_args)
-                results_list= []
+                #results_list= []
                 for protocol in protocols:
                     
                     output_dir_current = self.access_dir(output_dir, protocol.name)
@@ -192,7 +192,7 @@ class Processor(object):
                         print('Running {} for {}'.format(protocol.name, data.name))
                         
                         results = protocol.run(data, output_dir_current, **r_args)
-                        results_list.append(results)
+                        #results_list.append(results)
                         md = {}
                         md['infile'] = data.infile
                         if 'full_name' in l_args:
@@ -210,7 +210,7 @@ class Processor(object):
                 else:
                     raise
                     
-            return results_list
+            #return results_list
 
     def load(self, infile, **kwargs):
         

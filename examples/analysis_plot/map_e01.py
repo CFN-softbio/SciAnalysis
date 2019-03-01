@@ -24,7 +24,7 @@ mpl.rcParams['ytick.labelsize'] = 10
 dir_path = '/home/etsai/BNL/Research/KY_platelets/saxs/analysis/'
 dir_path = '/home/etsai/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/analysis/'
 feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
-                'filename'  : 'medium_G1_13mgml_f*5.00s', # m*y-7*5
+                'filename'  : 'medium_G1_13mgml_x*5.00s', # m*y-7*5
                 #'filename'  : 'medium_G2-3G1_20mgml_*x-2*5.00s', 
                 #'filename'  : 'medium_as-synth_highC_fine*10.00s', Round 2 Sample1
                 #'filename'  : 'medium_G2-2G1_highC_med*10.00s', 
@@ -38,10 +38,10 @@ feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
                 'plot_interp':  ['linear', 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
                } 
 
-feature_1_args = {'source_dir' : dir_path+'thumbnails2/', #thumbnails2/
+feature_1_args = {'source_dir' : dir_path+'thumbnails2_med/', #thumbnails2/
              'ext' : '.jpg',
              #'pixels' : [[89, 122], [102, 201], [152, 73]],  # [*] Choose pixels
-             'targets' : [[228, 61], [181, 39]],  # [190, 43], [*] Choose pixels
+             'targets' : [[525, 337], [600, 366]],  # [190, 43], [*] Choose pixels
              'roi': [1, 'mean'],    # [*] Choose +/- n pixels to include
              }
 
@@ -68,19 +68,18 @@ feature_4_args = {'source_dir' : dir_path+'circular_average/',
 feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args, feature_4_args=feature_4_args)
 
 ########## Feature map
-features_map_list = []
+features_map_list = []; N_maps = 0
 t0 = time.time()
-for idx in [4]:
+for idx in [1]:
     feature_args['feature_id'] = idx; 
     
     ## Find matching files   
     infiles, match_re = get_filematch(feature_args)  
     
     ## Get map
-    #scans, x_pos, y_pos, feature = get_map(infiles, match_re, feature_args)
     features_map = get_map(infiles, match_re, feature_args)
     features_map_list.append(features_map)
-    N_maps = len(features_map['tag'][1])
+    N_maps += len(features_map['tag'][1])
     
     ## Plot map
     fig = plt.figure(100+feature_args['feature_id'], figsize=[16,5]); plt.clf()  
@@ -88,15 +87,19 @@ for idx in [4]:
     plot_map(features_map, **feature_args)
     
     ## Plot one data 
-    ax2 = plt.subplot2grid((1, N_maps+1), (0, 0), colspan=1); ax2.cla()
+    ax2 = plt.subplot2grid((1, len(features_map['tag'][1])+1), (0, 0), colspan=1); ax2.cla()
     cmap = plt.get_cmap('magma');  feature_args.update(cmap=cmap)    
     #feature_args.update(filename='*72506');   infiles, match_re = get_filematch(feature_args)
     plot_data(infiles[0], **feature_args)
     
     t1 = time.time()-t0
+    print('Total of {} maps'.format(N_maps))
     print('Time = {:.1f} s = {:.1f} min'.format(t1, t1/60))
 
 try:
+    feature_args['math_ab'] = [0, 1, 'divide']
+    _ = math_features(features_map_list, **feature_args)
+    feature_args['overlay_rgb'] = [0,2] # starts from 0
     overlay = plot_overlay(features_map_list, **feature_args) 
 except:
     print('Overlay failed.')

@@ -6,7 +6,7 @@ Created on Tue Jan 15 13:51:10 2019
 @author: etsai
 """
 
-import time, os, sys, re, glob, random
+import time, os, sys, re, glob, random, copy
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import ndimage
@@ -252,6 +252,7 @@ def get_target_idx(q, target):
 #       features: for each feature_id, there can be several features
 # =============================================================================
 def get_map(infiles, match_re, feature_args):
+    filename = feature_args['filename']
     feature_id = feature_args['feature_id']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
     tag = [feature_id]
@@ -276,7 +277,7 @@ def get_map(infiles, match_re, feature_args):
     
             val, info = get_feature(infile, feature_args) # val can be an array
             features.append(val)
-            info_map.append(info)
+            if info: info_map.append(info)
 
     features = np.asarray(features)
     features = (features.T).tolist()
@@ -297,7 +298,7 @@ def plot_data(infile, **feature_args):
     if 'log10' in feature_args:
         log10 = feature_args['log10'][1]
     else:
-        log10 = [0, 0]
+        log10 = 0
     if 'feature_id' in feature_args:
         feature_id = feature_args['feature_id']
     else:
@@ -319,7 +320,7 @@ def plot_data(infile, **feature_args):
         plt.imshow(im, cmap=cmap)
         plt.colorbar(shrink=0.8, aspect=24)
         for pixel in pixels:
-            plt.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
+            plt.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=3, markeredgecolor='w', markerfacecolor='None')
         result = im
         
     elif feature_id == 2: 
@@ -407,7 +408,10 @@ def plot_map(feature_map, **kwargs):
     x_pos = feature_map['x_pos']
     y_pos = feature_map['y_pos']
     features = feature_map['features']
-    log10 = kwargs['log10'][1]
+    if 'log10' in kwargs:
+        log10 = kwargs['log10'][1]
+    else:
+        log10 = 0
     if 'val_stat' in kwargs:
         val_stat = kwargs['val_stat']
     if 'cmap' in kwargs and kwargs['cmap']:
@@ -447,7 +451,7 @@ def plot_map(feature_map, **kwargs):
     
 # =============================================================================
 # Give interpolated map with finer discretization
-# note - griddata works better than interpolate.interp2d
+# Note - griddata works better than interpolate.interp2d
 # =============================================================================          
 def interp_map(x_pos, y_pos, feature, plot_interp): 
     x_ax_fine = np.arange(np.min(x_pos), np.max(x_pos), plot_interp[1]) 
@@ -458,13 +462,32 @@ def interp_map(x_pos, y_pos, feature, plot_interp):
 
 # =============================================================================
 # Overlay three features (RGB)
-#   features_map_list: list of feautres_maps
-#   features = feature_map['features']: 1D or 2D array, [postision, feature]
+#   features_map_list: list of feautres_maps, with len = # of feature ids
+#   features = feature_map['features']: 1D or 2D array, axes are [postision, feature]
 #   feature in features: 1D array, axis is [position]
 #   feature_array: list of 1D or 2D arrays, from all the feature_ids, [postision, feature]
+#
+#   Example of features_map_list[0]['tag']:  
+#       [4, ['b', 'prefactor1', 'd_spacing_nm', 'grain_size_nm', 'chi2']]
 # =============================================================================       
 def plot_overlay(features_map_list, **kwargs):
     feature_array = []; legends = []
+    if 'overlay_rgb' in kwargs:
+        overlay_rgb = kwargs['overlay_rgb']
+    else:
+        overlay_rgb = [0, 1, 2]
+    if 'log10' in kwargs:
+        log10 = kwargs['log10'][1]    
+    else:
+        log10 = 0
+    if 'plot_interp' in kwargs:
+        plot_interp = kwargs['plot_interp']
+        if plot_interp[0] is None:
+            plot_interp[0] = 'linear' 
+    else:
+        plot_interp = ['linear', 1] 
+         
+    ## Get all the maps into one array, feature_array
     for ii, feature_map in enumerate(features_map_list):
         if ii==0:
             x_pos = feature_map['x_pos']
@@ -472,47 +495,44 @@ def plot_overlay(features_map_list, **kwargs):
         features = feature_map['features']  # 2D map
         for jj, feature in enumerate(features):
             feature_array.append(feature)
-            # Example of features_map_list[0]['tag']:  [4, ['b', 'prefactor1', 'd_spacing_nm', 'grain_size_nm', 'chi2']]
+            print(features_map_list[ii]['tag'][0])
+            print(features_map_list[ii]['tag'][1][jj])
             legends.append('id={}, {}'.format(features_map_list[ii]['tag'][0], features_map_list[ii]['tag'][1][jj]))
-    log10 = kwargs['log10'][1]    
-    if 'plot_interp' in kwargs:
-        plot_interp = kwargs['plot_interp']
-        if plot_interp[0] is None:
-            plot_interp[0] = 'linear' 
-    else:
-        plot_interp = ['linear', 1] 
 
+    ## Take three channels for plotting
     overlay = []; overlay_legend = []    
     if feature_array!=[]:
         fig = plt.figure(200, figsize=[10, 8]); plt.clf()
         ax = plt.subplot2grid((1, 5), (0, 0), colspan=4); ax.cla()
         ax.set_facecolor('k')
           
-        col = [1, 3, 4] # for an id, take these features for RGB map
+        ## Take three channels, interpolate to fine grid
         if len(feature_array)>3: 
-            print('More then 3 features, using only {} for RGB'.format(col))
+            print('More then 3 features, using only {} for RGB'.format(overlay_rgb))
         for ii, feature in enumerate(feature_array):
             feature = np.asarray(feature)
             if log10: feature = np.log10(feature)
             x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
-            feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine))
-            feature_fine[np.isnan(feature_fine)] = 0  #Replace nan by, eg np.nanmean(feature_fine)
-            if ii in col:
+            feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine)) # Normalize each channel
+            feature_fine[np.isnan(feature_fine)] = 0  # Replace nan 
+            if ii in overlay_rgb:
                 overlay.append(feature_fine)
                 overlay_legend.append(legends[ii])
      
+        ## Fill empty channels
         nc = len(overlay) # number of channels (RGB)
         while nc<3:
             print('Less than 3 features, filling other channel with 0')
             overlay.append(feature_fine*0.0)
+            overlay_legend.append('empty')
             nc = nc+1
+        
+        ## Plot with imshow
         overlay = np.asarray(overlay)
         overlay = np.transpose(overlay, (1,2,0))
         extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
-        plt.imshow(overlay, extent=extent,origin='lower')
-        
+        plt.imshow(overlay, extent=extent,origin='lower')        
         plt.title('(R){}, (G){}, (B){}'.format(overlay_legend[0],overlay_legend[1],overlay_legend[2]))
-        #plt.colorbar(shrink=1, pad=0.02, aspect=24);
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
         plt.axis('tight')
         plt.axis('equal')
@@ -529,4 +549,54 @@ def plot_overlay(features_map_list, **kwargs):
     return overlay
 
     
+# =============================================================================
+#     
+# =============================================================================
+def math_features(features_map_list, **kwargs):
+    feature_array = []; legends = []
+    if 'math_ab' in kwargs:
+        math_ab = kwargs['math_ab']
+    else:
+        math_ab = [1, 2, 'divide']
+    if 'log10' in kwargs:
+        log10 = kwargs['log10'][1]    
+    else:
+        log10 = 0
+    if 'plot_interp' in kwargs:
+        plot_interp = kwargs['plot_interp']
+        if plot_interp[0] is None:
+            plot_interp[0] = 'linear' 
+    else:
+        plot_interp = ['linear', 1] 
+         
+    ## Get all the maps into one array, feature_array
+    for ii, feature_map in enumerate(features_map_list):
+        features = feature_map['features']  # 2D map
+        for jj, feature in enumerate(features):
+            feature_array.append(feature)
+
+    feature_a = np.asarray(feature_array[math_ab[0]])
+    feature_b = np.asarray(feature_array[math_ab[1]])
+    if math_ab[2] == 'divide':
+        feature_c = feature_a / feature_b
+    elif math_ab[2] == 'substract':
+        feature_c = feature_a - feature_b   
+    elif math_ab[2] == 'multiply':
+        feature_c = feature_a * feature_b
+    elif math_ab[2] == 'correlation':
+        feature_c = np.corrcoef(feature_a, feature_b)  
+
+    current_id = int(np.asarray(features_map_list[ii]['tag'][0]))
+    if current_id<100:
+        math_id = 100
+    else:
+        math_id = current_id+1
+    original_list = copy.deepcopy(features_map_list[ii])
+    features_map_list.append(original_list)
+    features_map_list[ii+1]['features'] = [feature_c] # see def get_map for features_map structure
+    features_map_list[ii+1]['tag'] = [math_id, ['('+str(math_ab[0])+')('+str(math_ab[1])+')'+math_ab[2]]]
     
+    return feature_c
+
+
+
