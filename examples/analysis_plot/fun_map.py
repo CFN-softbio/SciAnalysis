@@ -297,7 +297,7 @@ def plot_data(infile, **feature_args):
     if 'log10' in feature_args:
         log10 = feature_args['log10'][1]
     else:
-        log10 = 0
+        log10 = [0, 0]
     if 'feature_id' in feature_args:
         feature_id = feature_args['feature_id']
     else:
@@ -381,14 +381,14 @@ def plot_data(infile, **feature_args):
             I = np.log10(line.y)
             plt.plot(line.x, I) 
         
-        ys = 0.5 #np.nanmin(I)
-        yf = 3 #np.nanmax(I)
+        ys = np.nanmin(I)
+        yf = np.nanmax(I)
         space = yf*0.11
         xs = np.min(line.x)
         xf = np.max(line.x)*0.9
         for idx, feat in enumerate(feats):
             temp = np.asarray(val[idx]) #Note - type(val[0])=lmfit.parameter.Parameter; val[idx].value
-            plt.text(xf, yf-space*idx, feat+'={:.2f}'.format(temp), **font)
+            plt.text(xf, yf-space*idx, feat+'={:.3f}'.format(temp), **font)
         plt.ylim([ys*0.3, yf*1.2])
         plt.xlim([xs*0.5, xf*1.5])
         plt.xlabel('q ($\AA$^-1)')
