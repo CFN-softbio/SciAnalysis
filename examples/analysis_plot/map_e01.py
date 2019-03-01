@@ -23,7 +23,7 @@ mpl.rcParams['ytick.labelsize'] = 10
 dir_path = '/home/etsai/BNL/Research/KY_platelets/saxs/analysis/'
 dir_path = '/home/etsai/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/analysis/'
 feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
-                'filename'  : 'medium_G1_13mgml_x-3.0*5.00s', # m*y-7*5
+                'filename'  : 'medium_G1_13mgml_x-3*5.00s', # m*y-7*5
                 #'filename'  : 'medium_G2-3G1_20mgml_*x-2*5.00s', 
                 #'filename'  : 'medium_as-synth_highC_fine*10.00s', Round 2 Sample1
                 #'filename'  : 'medium_G2-2G1_highC_med*10.00s', 
@@ -83,7 +83,7 @@ features_map_list = [];
 t0 = time.time()
 
 ## Get maps for each feature_ids
-feature_ids = [1]
+feature_ids = [1,2]
 for idx in feature_ids:
     feature_args['feature_id'] = idx; 
     
@@ -106,8 +106,10 @@ for idx in feature_ids:
     plot_data(infiles[0], **feature_args)
     
     t1 = time.time()-t0
+    print('----------------------')
     print('Total of {} maps'.format(count_maps(features_map_list)))
     print('Time = {:.1f} s = {:.1f} min'.format(t1, t1/60))
+    print('----------------------')
 
 
 ## Plot all maps
@@ -117,9 +119,9 @@ plot_map(features_map_all, **feature_args)
 
 
 ## Apply math to selected maps
-if False:  
-    feature_args['math_ab'] = [0, 1, 'divide']
-    _ = math_features(features_map_list, **feature_args)
+if True:  
+    feature_args['math_ab'] = [0, 2, 'correlation']
+    feature_c = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
     features_map_all = extract_maps(features_map_list)
     
@@ -128,7 +130,7 @@ if False:
 
 ## Plot overlay of three maps (RGB)  
 try:
-    feature_args['overlay_rgb'] = [0,2] # starts from 0
+    feature_args['overlay_rgb'] = [0,1,2] # starts from 0
     overlay = plot_overlay(features_map_list, **feature_args)    
 except:
     print('Overlay failed.')

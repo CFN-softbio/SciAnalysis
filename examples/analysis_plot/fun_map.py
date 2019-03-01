@@ -256,7 +256,6 @@ def get_map(infiles, match_re, feature_args):
     filename = feature_args['filename']
     feature_id = feature_args['feature_id']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
-    targets = kwargs['targets']
     ids = []
     tags = []
     scans = []
@@ -264,6 +263,11 @@ def get_map(infiles, match_re, feature_args):
     y_pos = []
     features = [] 
     info_map = []
+    
+    for target in kwargs['targets']:
+        ids.append(feature_id) 
+        tags.append(target) 
+ 
     for idx, infile in enumerate(infiles):
            
         filebase, filename = os.path.split(infile)
@@ -276,8 +280,6 @@ def get_map(infiles, match_re, feature_args):
             x_pos.append(x)
             y_pos.append(y)
             scans.append(scan)
-            ids.append(feature_id) ## WHY
-            tags.append(targets) ## WHY
     
             val, info = get_feature(infile, feature_args) # val can be an array
             features.append(val)
@@ -526,7 +528,7 @@ def plot_overlay(features_map_list, **kwargs):
             x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
             feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine)) # Normalize each channel
             feature_fine[np.isnan(feature_fine)] = 0  # Replace nan 
-            print('id={}, {}'.format(ids[ii], tags[ii]))
+            #print('id={}, {}'.format(ids[ii], tags[ii]))
             if ii in overlay_rgb:
                 overlay.append(feature_fine)
                 overlay_legend.append('id={}, {}'.format(ids[ii], tags[ii]))
@@ -576,7 +578,7 @@ def plot_overlay(features_map_list, **kwargs):
 # =============================================================================
 def extract_maps(features_map_list):
     feature_array = []; 
-    ids = []       # feature_id
+    ids = []  # feature_id
     tags = [] # feature name
     for ii, feature_map in enumerate(features_map_list): # ii the index for feature_ids
         if ii==0:
@@ -585,11 +587,8 @@ def extract_maps(features_map_list):
         features = feature_map['features']  # 2D map
         for jj, feature in enumerate(features):  # jj the index for each features within each feature_id
             feature_array.append(feature)
-            id_here = features_map_list[ii]['ids'][jj]
-            ids.append(id_here)
-            for tag in features_map_list[ii]['tags'][jj]:
-                tags.append(tag)
-    
+            ids.append(features_map_list[ii]['ids'][jj])
+            tags.append(features_map_list[ii]['tags'][jj])
    
     # Repack into features_map (good/bad?)
     features_map = {}
@@ -609,7 +608,9 @@ def extract_maps(features_map_list):
 #   features_map_list: updated (appended) with a new feature_id (100+ii) contianing the new feature_c map
 # =============================================================================
 def math_features(features_map_list, **kwargs):
-    print('Current features_map_list len = {}'.format(len(features_map_list)))
+    print('Apply math to features...')
+    print('  - Current features_map_list len = {}'.format(len(features_map_list)))
+    print('  - Current N_maps = {}'.format(count_maps(features_map_list)))
     feature_array = []; legends = []
     if 'math_ab' in kwargs:
         math_ab = kwargs['math_ab']
@@ -638,7 +639,7 @@ def math_features(features_map_list, **kwargs):
         feature_c = feature_a - feature_b   
     elif math_ab[2] == 'multiply':
         feature_c = feature_a * feature_b
-    elif math_ab[2] == 'correlation':
+    elif math_ab[2] == 'correlation': ## change
         feature_c = np.corrcoef(feature_a, feature_b)  
 
     idx = len(features_map_list)-1
@@ -651,10 +652,11 @@ def math_features(features_map_list, **kwargs):
     features_map_list.append(original_list)
     features_map_list[idx+1]['features'] = [feature_c] # see def get_map for features_map structure
     features_map_list[idx+1].update(ids=[math_id])
-    features_map_list[idx+1].update(tags=[math_ab[2]])
+    temp = '({})({}){}'.format(math_ab[0],math_ab[1],math_ab[2])
+    features_map_list[idx+1].update(tags=[temp])
     
-    print('Current features_map_list len = {}'.format(len(features_map_list)))
-    print('N_maps = {}'.format(count_maps(features_map_list)))
+    print('  - Current features_map_list len = {}'.format(len(features_map_list)))
+    print('  - Current N_maps = {}'.format(count_maps(features_map_list)))
     
     return feature_c
 
