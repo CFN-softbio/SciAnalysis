@@ -19,6 +19,9 @@ from skimage import io
 
 from fun_ky import *
 import lmfit
+
+from mpl_toolkits.axes_grid1 import host_subplot
+import mpl_toolkits.axisartist as AA
         
 # =============================================================================
 # Load data from .dat 
@@ -146,8 +149,10 @@ def get_feature(infile, feature_args):
         pixels = kwargs['targets']
         roi = kwargs['roi']
         n = roi[0]
-        im = color.rgb2gray(io.imread(infile))
-        imarray = np.array(im)
+        #im = color.rgb2gray(io.imread(infile)); imarray = np.array(im)
+        im = np.load(infile).items()
+        imarray = np.array(im[0][1])        
+        
         if log10: imarray = np.log10(imarray)
         for pixel in pixels:
             temp_roi = imarray[pixel[1]-n:pixel[1]+n+1,pixel[0]-n:pixel[0]+n+1] #TEMP
@@ -182,21 +187,28 @@ def get_feature(infile, feature_args):
         data_col = kwargs['data_col']
         angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
+        N = kwargs['N_fold']
         angle, I = extract_data(infile, data_col)
-        if log10: I = np.log10(I)
+        angle_fold, I_fold_stat = line_fold(angle, I, N)
+        I_fold = I_fold_stat[:,1] #mean
+        if log10: 
+            I = np.log10(I)
+            I_fold = np.log10(I_fold)
         i0 = get_target_idx(angle, angle_roi[0])
         i1 = get_target_idx(angle, angle_roi[1])
         I_crop = I[i0:i1+1]
         for angle_target in angle_targets:  
             temp = np.nan
             if angle_target =='max':
-                if np.var(I_crop) > 0: # TEMP 
-                    temp = angle[i0+np.nanargmax(I_crop)]
+                temp = angle_fold[np.nanargmax(I_fold)]
+                #if np.var(I_crop) > 0: # TEMP 
+                #    temp = angle[i0+np.nanargmax(I_crop)]
             elif angle_target =='var':
                 temp = np.nanvar(I_crop)
             else: 
                 try:
-                    temp = I[get_target_idx(angle, angle_target)]
+                    temp = I_fold[get_target_idx(angle_fold, angle_target)]
+                    #temp = I[get_target_idx(angle, angle_target)]
                 except:
                     print('Cannot find I[get_target_idx(angle, angle_target)] \n')
             val.append(temp)
@@ -320,14 +332,36 @@ def plot_data(infile, **feature_args):
     result = []
     if feature_id == 1:
         pixels = kwargs['targets']
-        im = color.rgb2gray(io.imread(infile))
+        im = np.load(infile).items()
+        imarray = im[0][1] #image
+        x_axis = im[1][1] 
+        y_axis = im[2][1] 
+        x_scale = im[3][1] 
+        y_scale = im[4][1] 
+        extent = (np.nanmin(x_axis), np.nanmax(x_axis), np.nanmin(y_axis), np.nanmax(y_axis))
         if log10:
-            im = np.log10(im)
-        plt.imshow(im, cmap=cmap)
-        plt.colorbar(shrink=0.8, aspect=24)
+            imarray = np.log10(imarray)        
+        
+        #plt.imshow(imarray, extent=extent, cmap=cmap, origin='lower')     
+        host = host_subplot(111,axes_class=AA.Axes)
+        plt.subplots_adjust(right=0.8)       
+        host.imshow(imarray, cmap=cmap, origin='lower') # vmin=val_stat[0], vmax=val_stat[1]    
+        #plt.colorbar(shrink=0.8, aspect=24)
         for pixel in pixels:
-            plt.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=3, markeredgecolor='w', markerfacecolor='None')
-        result = im
+            host.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
+        
+        par2 = host.twinx()
+        new_fixed_axis = par2.get_grid_helper().new_fixed_axis
+        par2.axis["right"] = new_fixed_axis(loc="right",
+                                            axes=par2,
+                                            offset=(10, 0))
+        par2.axis["right"].toggle(all=True)
+        par2.set_ylabel("q ($\AA^{-1}$)", color='k')
+        par2.set_ylim(extent[2],extent[3])
+        par2.tick_params(axis='y', colors='k', grid_color='r', labelcolor='r')
+        par2.spines['left'].set_color('r')
+
+        result = imarray
         
     elif feature_id == 2: 
         q_targets = kwargs['targets']
@@ -401,7 +435,11 @@ def plot_data(infile, **feature_args):
         plt.xlabel('q ($\AA$^-1)')
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         
-    if verbose: plt.title(infile)
+    if verbose: 
+        ll = len(infile)
+        l0 = int(np.round(ll/3))
+        plt.title(infile[0:l0]+'\n'+infile[l0+1:l0*2]+'\n'+infile[l0*2+1:-1])
+                
     return result
  
 # =============================================================================
@@ -442,7 +480,7 @@ def plot_map(features_map, **kwargs):
     
     N_maps = len(features)
     for idx, feature in enumerate(features):
-        ax = plt.subplot2grid((1, N_maps+1), (0, idx+1), colspan=1); 
+        ax = plt.subplot2grid((1, N_maps), (0, idx), colspan=1); 
         feature = np.asarray(feature)
         if log10:
             feature = np.log10(feature)
@@ -493,6 +531,10 @@ def plot_overlay(features_map_list, **kwargs):
         overlay_rgb = kwargs['overlay_rgb']
     else:
         overlay_rgb = [0, 1, 2]
+    if 'normalize_each' in kwargs:
+        normalize_each = kwargs['normalize_each']
+    else:
+        normalize_each = True
     if 'log10' in kwargs:
         log10 = kwargs['log10'][1]    
     else:
@@ -513,54 +555,79 @@ def plot_overlay(features_map_list, **kwargs):
     tags = features_map['tags']
     
     ## Take three channels for plotting
-    overlay = []; overlay_legend = []    
+    overlay = []; overlay_legend = [] ; channel = 0; rgb = 'RGB'
     if feature_array!=[]:
         fig = plt.figure(500, figsize=[10, 8]); plt.clf()
-        ax = plt.subplot2grid((1, 5), (0, 0), colspan=4); ax.cla()
-        ax.set_facecolor('k')
+        
+        ## Get max and min for normalization 
+        max_val = -1; min_val = 1e15;
+        for ii, feature in enumerate(feature_array):
+            if ii in overlay_rgb:
+                if np.nanmax(feature_array[ii]) > max_val:
+                    max_val = np.nanmax(feature_array[ii])
+                if np.nanmin(feature_array[ii]) < min_val:
+                    min_val = np.nanmin(feature_array[ii])
           
         ## Take three channels, interpolate to fine grid
         if len(feature_array)>3: 
             print('More then 3 features available, using only {} for RGB'.format(overlay_rgb))
         for ii, feature in enumerate(feature_array):
-            feature = np.asarray(feature)
-            if log10: feature = np.log10(feature)
-            x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
-            feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine)) # Normalize each channel
-            feature_fine[np.isnan(feature_fine)] = 0  # Replace nan 
-            #print('id={}, {}'.format(ids[ii], tags[ii]))
             if ii in overlay_rgb:
-                overlay.append(feature_fine)
-                overlay_legend.append('id={}, {}'.format(ids[ii], tags[ii]))
+                feature = np.asarray(feature)
+                if log10: feature = np.log10(feature)
+                x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
+                if normalize_each:
+                    feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine)) # Normalize each channel
+                else:
+                    feature_fine = (feature_fine-min_val) / (max_val-min_val) # Normalize wrt max_val 
+                feature_fine[np.isnan(feature_fine)] = 0  # Replace nan 
 
-        ## Fill empty channels
-        nc = len(overlay) # number of channels (RGB)
-        while nc<3:
-            print('Less than 3 features selected, filling channel with 0')
-            overlay.append(feature_fine*0.0)
-            overlay_legend.append('empty')
-            nc = nc+1
+                ## Plot each channel                
+                ax = plt.subplot2grid((3, 7), (channel, 0), colspan=2); 
+                image_channel = np.asarray(image_RGB(feature_fine, rgb[channel]))
+                if overlay==[]:
+                    overlay = image_channel
+                    extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
+                else: 
+                    overlay += image_channel
+                plt.imshow(image_channel, extent=extent, origin='lower') 
+                plt.title('({}) id={}, {}'.format(rgb[channel], ids[ii], tags[ii]))
+                channel += 1
         
         ## Plot with imshow
-        overlay = np.asarray(overlay)
-        overlay = np.transpose(overlay, (1,2,0))
-        extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
+        ax = plt.subplot2grid((3, 7), (0, 2), rowspan=3, colspan=4); ax.cla()
+        ax.set_facecolor('k')
         plt.imshow(overlay, extent=extent,origin='lower')        
-        plt.title('(R){}, (G){}, (B){}'.format(overlay_legend[0],overlay_legend[1],overlay_legend[2]))
+        plt.title('normalize_each {}'.format(normalize_each))
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
         plt.axis('tight')
         plt.axis('equal')
         plt.xlabel('x (mm)')
-        plt.ylabel('y (mm)')
+        #plt.ylabel('y (mm)')
         
         ## Plot the colorcone
-        ax2 = plt.subplot2grid((3, 5), (0, 4), colspan=1); ax2.cla()
+        ax2 = plt.subplot2grid((3, 7), (0, 6), colspan=1); ax2.cla()
         colorbar = Image.open('hsl_cone_graphic.jpg')
         plt.imshow(colorbar)
         plt.axis('off')
     else:
         print('feature_array is empty!\n')
     return overlay
+
+# =============================================================================
+# 
+# =============================================================================
+def image_RGB(image, rgb):
+    dim = image.shape
+    image_stack = np.zeros([dim[0], dim[1], 3])    
+    if 'R' in rgb:
+        image_stack[:,:,0] = image
+    if 'G' in rgb:
+        image_stack[:,:,1] = image     
+    if 'B' in rgb:
+        image_stack[:,:,2] = image
+    
+    return image_stack
 
 
 # =============================================================================
@@ -630,6 +697,7 @@ def math_features(features_map_list, **kwargs):
     ## Get all the maps into one 2D array, feature_array
     features_map = extract_maps(features_map_list)
     feature_array = features_map['features']
+    tags = features_map['tags']
 
     feature_a = np.asarray(feature_array[math_ab[0]])
     feature_b = np.asarray(feature_array[math_ab[1]])
@@ -652,7 +720,7 @@ def math_features(features_map_list, **kwargs):
     features_map_list.append(original_list)
     features_map_list[idx+1]['features'] = [feature_c] # see def get_map for features_map structure
     features_map_list[idx+1].update(ids=[math_id])
-    temp = '({})({}){}'.format(math_ab[0],math_ab[1],math_ab[2])
+    temp = '({})({}){}, {}'.format(math_ab[0],math_ab[1],math_ab[2], tags[math_ab[0]])
     features_map_list[idx+1].update(tags=[temp])
     
     print('  - Current features_map_list len = {}'.format(len(features_map_list)))
@@ -672,7 +740,33 @@ def count_maps(features_map_list):
     return N_maps
 
 
-
+# =============================================================================
+# Assume N symmetry
+# =============================================================================
+def line_fold(x, y, N):
+    verbose = 1
+    len0 = len(y)
+    len1 = int(np.floor(len0/N))
+    x_fold = np.asarray(x[0:len1])-np.min(x)
+    y_fold = np.zeros([len1,4])
+    for ii in np.arange(0, len1):
+        val = []
+        for nn in np.arange(0,N):
+            idx = get_target_idx(x[ii]+360/N*nn, x)
+            val.append(y[idx])
+        y_fold[ii,0] = np.min(val)
+        y_fold[ii,1] = np.mean(val)
+        y_fold[ii,2] = np.max(val)
+        y_fold[ii,3] = np.var(val)
+    
+    if verbose:
+        plt.figure(24); plt.clf()
+        for jj in [0,1,2,3]:
+            ax = plt.subplot2grid((4,1), (jj,0))
+            plt.plot(x_fold, y_fold[:,jj])
+            plt.grid()
+    
+    return x_fold, y_fold
 
 
 

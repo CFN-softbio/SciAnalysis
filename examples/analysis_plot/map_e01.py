@@ -23,18 +23,18 @@ mpl.rcParams['ytick.labelsize'] = 10
 dir_path = '/home/etsai/BNL/Research/KY_platelets/saxs/analysis/'
 dir_path = '/home/etsai/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/analysis/'
 feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
-                'filename'  : 'medium_G1_13mgml_x-3*5.00s', # m*y-7*5
+                'filename'  : 'medium_G1_13mgml_f*5.00s', # m*y-7*5
                 #'filename'  : 'medium_G2-3G1_20mgml_*x-2*5.00s', 
-                #'filename'  : 'medium_as-synth_highC_fine*10.00s', Round 2 Sample1
-                #'filename'  : 'medium_G2-2G1_highC_med*10.00s', 
+                'filename'  : 'medium_as-synth_highC_f*10.00s', #Round 2 Sample1
+                #'filename'  : 'medium_G2-2G1_highC_coarse*10.00s', 
                 #'filename'  : dir_path+'large_G2-2G1_2_med*10.00s',
                 #'filename'  : '14_As-synthesized_DEG_Grid',  #x-0.350_y0.20 #14_As-synthesized_DEG_Grid',
-                'exclude': ['072641', '069850'], 
+                'exclude': ['072641', '069850','081511'], 
                 'feature_id': 1, # ignore
                 'map_type': 'xy',
                 'log10'  : [0, 1], # [data, plot]
                 'verbose': 1,
-                'plot_interp':  ['linear', 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
+                'plot_interp':  ['linear' , 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
                } 
 
 # =============================================================================
@@ -46,24 +46,25 @@ feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
 #   If feature_id == 3, feature maps for I(chi=chi0), argmax(I(chi|q0)), ...
 #   If feature_id == 4, feature maps based on fitting results, d_spacing, grain_size, ...
 # =============================================================================
-feature_1_args = {'source_dir' : dir_path+'thumbnails2_med/', #thumbnails2/
-             'ext' : '.jpg',
-             'targets' : [[525, 337], [600, 366]],  # [190, 43], [*] Choose pixels
+feature_1_args = {'source_dir' : dir_path+'qr_image/', #thumbnails2/
+             'ext' : '.npz',
+             'targets' : [ [311, 787],[512, 821], [659, 760], [756, 659], [753,672]],  # [190, 43], [*] Choose pixels
              'roi': [1, 'mean'],    # [*] Choose +/- n pixels to include
              }
 
 feature_2_args = {'source_dir' : dir_path+'circular_average/', #'../circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
-             'targets' : [0.037, 0.059], #0.053  # [*] Choose q0 or q0,q1
-             'roi': [1, 'mean'],    # [*] Choose the half-width (data points) of the peak q
+             'targets' : [0.093], #0.053  # [*] Choose q0 or q0,q1
+             'roi': [3, 'mean'],    # [*] Choose the half-width (data points) of the peak q
              }
                    
-feature_3_args = {'source_dir' : dir_path+'linecut_angle060/',
+feature_3_args = {'source_dir' : dir_path+'linecut_angle093/',
              'ext' : '.dat',
              'data_col' : [0, 1],
-             'targets': ['max', 'var'], #'max', #[21] # 'max', 'var', or specify angle 
-             'angle_roi': [5,  65], # range to consider for max or var 
+             'N_fold': 6,
+             'targets': ['max', 9, 25.5, 35, 40, 58], #, 'var', 10, 26, 36, 42 , 57, 59, 69], #'max', #[21] # 'max', 'var', or specify angle 
+             'angle_roi': [4,  65], # range to consider for max or var 
              }
 
 feature_4_args = {'source_dir' : dir_path+'circular_average/',
@@ -83,7 +84,7 @@ features_map_list = [];
 t0 = time.time()
 
 ## Get maps for each feature_ids
-feature_ids = [1,2]
+feature_ids = [2,3]
 for idx in feature_ids:
     feature_args['feature_id'] = idx; 
     
@@ -100,10 +101,12 @@ for idx in feature_ids:
     plot_map(features_map, **feature_args)
     
     ## Plot one data 
-    ax2 = plt.subplot2grid((1, len(features_map['tags'])+1), (0, 0), colspan=1); ax2.cla()
-    cmap = plt.get_cmap('magma');  feature_args.update(cmap=cmap)    
-    #feature_args.update(filename='*72506');   infiles, match_re = get_filematch(feature_args)
-    plot_data(infiles[0], **feature_args)
+    fig = plt.figure(150+feature_args['feature_id'], figsize=[8,8]); plt.clf()
+    cmap = plt.get_cmap('jet');  feature_args.update(cmap=cmap)    
+    #feature_args.update(filename='*82100');   infiles, match_re = get_filematch(feature_args)
+    feature_args.update(log10=[0, 0])
+    #feature_args.update(val_stat = [0, 3])
+    #_ = plot_data(infiles[0], **feature_args)
     
     t1 = time.time()-t0
     print('----------------------')
@@ -119,21 +122,30 @@ plot_map(features_map_all, **feature_args)
 
 
 ## Apply math to selected maps
-if True:  
-    feature_args['math_ab'] = [0, 2, 'correlation']
+if False:  
+    feature_args['math_ab'] = [2, 0, 'divide']
     feature_c = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
+    
+    feature_args['math_ab'] = [4, 0, 'divide']
+    feature_c = math_features(features_map_list, **feature_args)
+    print('Total of {} maps'.format(count_maps(features_map_list)))
+        
+    feature_args['math_ab'] = [6, 0, 'divide']
+    feature_c = math_features(features_map_list, **feature_args)
+    print('Total of {} maps'.format(count_maps(features_map_list)))
+    
     features_map_all = extract_maps(features_map_list)
     
     fig = plt.figure(200, figsize=[16,5]); plt.clf()  
     plot_map(features_map_all, **feature_args)
 
 ## Plot overlay of three maps (RGB)  
-try:
-    feature_args['overlay_rgb'] = [0,1,2] # starts from 0
+if False:
+    feature_args['overlay_rgb'] = [7,9,12] # starts from 0
+    feature_args['normalize_each'] = False
     overlay = plot_overlay(features_map_list, **feature_args)    
-except:
-    print('Overlay failed.')
+
 
 
 
