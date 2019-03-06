@@ -142,6 +142,7 @@ def calc_distance(p0, p1):
 def get_feature(infile, feature_args):
     log10 = feature_args['log10'][0]
     feature_id = feature_args['feature_id']
+    verbose = feature_args['verbose']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
     
     val = []; info = [] # additional infor to store 
@@ -187,30 +188,37 @@ def get_feature(infile, feature_args):
         data_col = kwargs['data_col']
         angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
-        N = kwargs['N_fold']
-        angle, I = extract_data(infile, data_col)
-        angle_fold, I_fold_stat = line_fold(angle, I, N)
-        I_fold = I_fold_stat[:,1] #mean
-        if log10: 
-            I = np.log10(I)
-            I_fold = np.log10(I_fold)
-        i0 = get_target_idx(angle, angle_roi[0])
-        i1 = get_target_idx(angle, angle_roi[1])
-        I_crop = I[i0:i1+1]
+        if type(angle_roi[1]) is str:
+            N_fold = int(np.asarray(angle_roi[0]))
+            stat = angle_roi[1]
+        else:
+            N_fold = 0
+        angle, I = extract_data(infile, data_col)        
+        if log10: I = np.log10(I)
+        if N_fold:
+            angle_fold, I_fold_stat = line_fold(angle, I, N_fold, verbose)
+            if stat=='mean':
+                I_fold = I_fold_stat[:,1] 
+            elif stat=='max':
+                I_fold = I_fold_stat[:,2]   
+        else:
+            i0 = get_target_idx(angle, angle_roi[0])
+            i1 = get_target_idx(angle, angle_roi[1])
+            I_crop = I[i0:i1+1]
         for angle_target in angle_targets:  
             temp = np.nan
-            if angle_target =='max':
-                temp = angle_fold[np.nanargmax(I_fold)]
-                #if np.var(I_crop) > 0: # TEMP 
-                #    temp = angle[i0+np.nanargmax(I_crop)]
+            if angle_target =='argmax':
+                if N_fold: 
+                    temp = angle_fold[np.nanargmax(I_fold)]
+                else:
+                    temp = angle[i0+np.nanargmax(I_crop)]
             elif angle_target =='var':
-                temp = np.nanvar(I_crop)
+                temp = np.nanvar(I)
             else: 
-                try:
+                if N_fold:
                     temp = I_fold[get_target_idx(angle_fold, angle_target)]
-                    #temp = I[get_target_idx(angle, angle_target)]
-                except:
-                    print('Cannot find I[get_target_idx(angle, angle_target)] \n')
+                else:
+                    temp = I[get_target_idx(angle, angle_target)]
             val.append(temp)
 
     elif feature_id == 4:  
@@ -362,6 +370,9 @@ def plot_data(infile, **feature_args):
         par2.tick_params(axis='y', colors='k', grid_color='r', labelcolor='r')
         par2.spines['left'].set_color('r')
 
+        plt.figure(161)
+        plt.imshow(imarray, extent=extent, cmap=cmap, origin='lower') 
+        
         result = imarray
         
     elif feature_id == 2: 
@@ -392,24 +403,52 @@ def plot_data(infile, **feature_args):
         data_col = kwargs['data_col']
         angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
+        if type(angle_roi[1]) is str:
+            N_fold = int(np.asarray(angle_roi[0]))
+            stat = angle_roi[1]
+        else:
+            N_fold = 0
         angle, I = extract_data(infile, data_col)
-        if log10: I = np.log10(I)
-        plt.plot(angle, I)  
+        if log10: 
+            I = np.log10(I)
+        if N_fold:
+            angle_fold, I_fold_stat = line_fold(angle, I, N_fold, 0)
+            if stat=='mean':
+                I_fold = I_fold_stat[:,1] 
+            elif stat=='max':
+                I_fold = I_fold_stat[:,2]  
+            ax2 = plt.subplot2grid((2, 1), (1, 0), colspan=1) 
+            for nn in np.arange(-N_fold/2,N_fold/2):
+                plt.plot(angle_fold+nn*360/N_fold, I_fold)   
+            plt.xlim([np.min(angle), np.max(angle)])
+        else:
+            i0 = get_target_idx(angle, angle_roi[0])
+            i1 = get_target_idx(angle, angle_roi[1])
+            I_crop = I[i0:i1+1]
         y_lim = [np.nanmin(I), np.nanmax(I)]
+        ax1 = plt.subplot2grid((2, 1), (0, 0), colspan=1) 
+        plt.plot(angle, I) 
+        plt.xlim([np.min(angle), np.max(angle)])
         for idx, angle_target in enumerate(angle_targets):
-            if angle_target =='max':
-                i0 = get_target_idx(angle, angle_roi[0])
-                i1 = get_target_idx(angle, angle_roi[1])
-                plt.plot([angle[i0], angle[i1]], [y_lim[0], y_lim[0]])
-                I_crop = I[i0:i1+1]
-                val = angle[i0+np.argmax(I_crop)]
-                plt.plot([val, val], y_lim)
-                plt.text(val, np.max(I_crop)*0.95, 'argmax='+str(np.round(val,2)))
+            if angle_target =='argmax':
+                if N_fold==0:                    
+                    i0 = get_target_idx(angle, angle_roi[0])
+                    i1 = get_target_idx(angle, angle_roi[1])
+                    plt.plot([angle[i0], angle[i1]], [y_lim[0], y_lim[0]])
+                    I_crop = I[i0:i1+1]
+                    val = angle[i0+np.argmax(I_crop)]
+                    ax1.plot([val, val], y_lim,'--')
+                    ax1.text(val, np.max(I_crop)*0.95, 'argmax='+str(np.round(val,2)))
+                else:
+                    val = angle_fold[np.argmax(I_fold)]
+                    ax2.plot([val, val], [np.nanmin(I_fold), np.nanmax(I_fold)],'--')
+                    ax2.text(val, np.max(I_fold)*0.95, 'argmax='+str(np.round(val,2)))
             elif type(angle_target) is not str:
                 plt.plot([angle_target, angle_target], [y_lim[0], y_lim[0]])
-                plt.plot([angle_target, angle_target], y_lim)
+                plt.plot([angle_target, angle_target], y_lim,'--')
                 plt.text(angle_target, y_lim[0]+idx*0.1, '('+str(angle_target)+')')
-        plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
+        ax1.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
+        ax2.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         plt.xlabel('$\chi$ (degree)')
         if log10: 
             plt.ylabel('log10(I)')
@@ -439,7 +478,7 @@ def plot_data(infile, **feature_args):
     if verbose: 
         ll = len(infile)
         l0 = int(np.round(ll/3))
-        plt.title(infile[0:l0]+'\n'+infile[l0+1:l0*2]+'\n'+infile[l0*2+1:-1])
+        plt.title(infile[0:l0]+'\n'+infile[l0+1:l0*2]+'\n'+infile[l0*2+1:])
                 
     return result
  
@@ -474,7 +513,7 @@ def plot_map(features_map, **kwargs):
         cmap = kwargs['cmap'];
     else:
         cmap = plt.get_cmap('viridis')
-    if 'plot_interp' in kwargs:
+    if 'plot_interp' in kwargs and len(x_pos)>1:
         plot_interp = kwargs['plot_interp']
     else:
         plot_interp = [None, 1]
@@ -744,21 +783,28 @@ def count_maps(features_map_list):
 # =============================================================================
 # Assume N symmetry
 # =============================================================================
-def line_fold(x, y, N):
-    verbose = 0
-    len0 = len(y)
-    len1 = int(np.floor(len0/N))
-    x_fold = np.asarray(x[0:len1])-np.min(x)
-    y_fold = np.zeros([len1,4])
-    for ii in np.arange(0, len1):
+def line_fold(x, y, N, verbose):     
+    step = 0.01
+    x_fine = np.arange(np.min(x), np.max(x)+step, step)
+    y_fine = np.interp(x_fine, x, y)  
+   
+    idx0 = get_target_idx(x_fine, 0)
+    idx1 = get_target_idx(x_fine, 360/N)
+    
+    #print(idx1-idx0+1)
+    x_fold = x_fine[idx0:idx1+1]
+    y_fold = np.zeros([len(x_fold),4])
+    
+    for ii in np.arange(idx0,idx1+1):
         val = []
-        for nn in np.arange(0,N):
-            idx = get_target_idx(x[ii]+360/N*nn, x)
-            val.append(y[idx])
-        y_fold[ii,0] = np.min(val)
-        y_fold[ii,1] = np.mean(val)
-        y_fold[ii,2] = np.max(val)
-        y_fold[ii,3] = np.var(val)
+        for nn in np.arange(-N/2,N/2):
+            idx = get_target_idx(x_fine, x_fine[ii]+nn*360/N)
+            val.append(y_fine[idx])
+        jj = ii-idx0
+        y_fold[jj,0] = np.min(val)
+        y_fold[jj,1] = np.mean(val)
+        y_fold[jj,2] = np.max(val)
+        y_fold[jj,3] = np.var(val)
     
     if verbose:
         plt.figure(24); plt.clf()
