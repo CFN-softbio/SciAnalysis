@@ -34,7 +34,7 @@ feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
                 'map_type': 'xy',
                 'log10'  : [0, 1], # [data, plot]
                 'verbose': 0,
-                'plot_interp':  [ None, 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
+                'plot_interp':  [ 'linear', 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
                } 
 
 # =============================================================================
@@ -55,14 +55,14 @@ feature_1_args = {'source_dir' : dir_path+'qr_image/', #thumbnails2/
 feature_2_args = {'source_dir' : dir_path+'circular_average/', #'../circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
-             'targets' : [0.0812], #0.053  # [*] Choose q0 or q0,q1
+             'targets' : [0.0805], #0.053  # [*] Choose q0 or q0,q1
              'roi': [3, 'mean'],    # [*] Choose the half-width (data points) of the peak q
              }
                    
 feature_3_args = {'source_dir' : dir_path+'linecut_angle080/',
              'ext' : '.dat',
              'data_col' : [0, 1],
-             'angle_roi': [6, 'mean'], #[-61,  1], # range [0, 60] or N_fold [6, 'mean']
+             'angle_roi': [0, 60], #[6, 'mean'], #[-61,  1], # range [0, 60] or N_fold [6, 'mean']
              'targets': ['argmax', 16.3, 22.1,  27, 33.4, 54], #, 'var', 10, 26, 36, 42 , 57, 59, 69], #'max', #[21] # 'max', 'var', or specify angle 
              }
 
@@ -84,7 +84,7 @@ features_map_list = [];
 t0 = time.time()
 
 ## Get maps for each feature_ids
-feature_ids = [3]
+feature_ids = [2,3]
 for idx in feature_ids:
     feature_args['feature_id'] = idx; 
     
@@ -124,19 +124,19 @@ plot_map(features_map_all, **feature_args)
 
 ## Apply math to selected maps
 if False:  
-    feature_args['math_ab'] = [2, 5, 'substract']
+    feature_args['math_ab'] = [3, 0, 'divide']
     feature_c = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
     
-    feature_args['math_ab'] = [3, 5, 'substract']
+    feature_args['math_ab'] = [4, 0, 'divide']
     feature_c = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
         
-    feature_args['math_ab'] = [4, 5, 'substract']
+    feature_args['math_ab'] = [5, 0, 'divide']
     feature_c = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
  
-    feature_args['math_ab'] = [5, 0, 'divide']
+    feature_args['math_ab'] = [6, 0, 'divide']
     feature_c = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
     
@@ -147,7 +147,7 @@ if False:
 
 ## Plot overlay of three maps (RGB)  
 if False:
-    feature_args['overlay_rgb'] = [2,4] # starts from 0
+    feature_args['overlay_rgb'] = [9,7] # starts from 0
     feature_args['normalize_each'] = 0
     overlay = plot_overlay(features_map_list, **feature_args)    
 

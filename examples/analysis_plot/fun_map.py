@@ -443,12 +443,12 @@ def plot_data(infile, **feature_args):
                     val = angle_fold[np.argmax(I_fold)]
                     ax2.plot([val, val], [np.nanmin(I_fold), np.nanmax(I_fold)],'--')
                     ax2.text(val, np.max(I_fold)*0.95, 'argmax='+str(np.round(val,2)))
+                    ax2.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
             elif type(angle_target) is not str:
                 plt.plot([angle_target, angle_target], [y_lim[0], y_lim[0]])
                 plt.plot([angle_target, angle_target], y_lim,'--')
                 plt.text(angle_target, y_lim[0]+idx*0.1, '('+str(angle_target)+')')
         ax1.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
-        ax2.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
         plt.xlabel('$\chi$ (degree)')
         if log10: 
             plt.ylabel('log10(I)')
@@ -532,7 +532,7 @@ def plot_map(features_map, **kwargs):
             x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
             #plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
             extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
-            plt.imshow(feature_fine, vmin=val_stat[0], vmax=val_stat[1], extent=extent, origin='lower')
+            plt.imshow(feature_fine, vmin=val_stat[0], vmax=val_stat[1], extent=extent, origin='lower', cmap=cmap) 
         else:
             #print('Plotting map using scatter')
             plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
@@ -601,12 +601,11 @@ def plot_overlay(features_map_list, **kwargs):
         
         ## Get max and min for normalization 
         max_val = -1; min_val = 1e15;
-        for ii, feature in enumerate(feature_array):
-            if ii in overlay_rgb:
-                if np.nanmax(feature_array[ii]) > max_val:
-                    max_val = np.nanmax(feature_array[ii])
-                if np.nanmin(feature_array[ii]) < min_val:
-                    min_val = np.nanmin(feature_array[ii])
+        for ii in overlay_rgb:
+            if np.nanmax(feature_array[ii]) > max_val:
+                max_val = np.nanmax(feature_array[ii])
+            if np.nanmin(feature_array[ii]) < min_val:
+                min_val = np.nanmin(feature_array[ii])
         if log10: 
             min_val = np.log10(min_val)         
             max_val = np.log10(max_val) 
@@ -614,28 +613,27 @@ def plot_overlay(features_map_list, **kwargs):
         ## Take three channels, interpolate to fine grid
         if len(feature_array)>3: 
             print('More then 3 features available, using only {} for RGB'.format(overlay_rgb))
-        for ii, feature in enumerate(feature_array):
-            if ii in overlay_rgb:
-                feature = np.asarray(feature)
-                if log10: feature = np.log10(feature)
-                x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
-                if normalize_each:
-                    feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine)) # Normalize each channel
-                else:
-                    feature_fine = (feature_fine-min_val) / (max_val-min_val) # Normalize wrt max_val 
-                feature_fine[np.isnan(feature_fine)] = 0  # Replace nan 
+        for ii in overlay_rgb:
+            feature = np.asarray(feature_array[ii])
+            if log10: feature = np.log10(feature)
+            x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
+            if normalize_each:
+                feature_fine = (feature_fine-np.nanmin(feature_fine)) / (np.nanmax(feature_fine)-np.nanmin(feature_fine)) # Normalize each channel
+            else:
+                feature_fine = (feature_fine-min_val) / (max_val-min_val) # Normalize wrt max_val 
+            feature_fine[np.isnan(feature_fine)] = 0  # Replace nan 
 
-                ## Plot each channel                
-                ax = plt.subplot2grid((3, 7), (channel, 0), colspan=2); 
-                image_channel = np.asarray(image_RGB(feature_fine, rgb[channel]))
-                if overlay==[]:
-                    overlay = image_channel
-                    extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
-                else: 
-                    overlay += image_channel
-                plt.imshow(image_channel, extent=extent, origin='lower') 
-                plt.title('({}) id={}, {}'.format(rgb[channel], ids[ii], tags[ii]))
-                channel += 1
+            ## Plot each channel                
+            ax = plt.subplot2grid((3, 7), (channel, 0), colspan=2); 
+            image_channel = np.asarray(image_RGB(feature_fine, rgb[channel]))
+            if overlay==[]:
+                overlay = image_channel
+                extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
+            else: 
+                overlay += image_channel
+            plt.imshow(image_channel, extent=extent, origin='lower') 
+            plt.title('({}) id={}, {}'.format(rgb[channel], ids[ii], tags[ii]))
+            channel += 1
         
         ## Plot with imshow
         ax = plt.subplot2grid((3, 7), (0, 2), rowspan=3, colspan=4); ax.cla()
