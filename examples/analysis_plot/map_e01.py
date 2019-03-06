@@ -63,14 +63,15 @@ feature_3_args = {'source_dir' : dir_path+'linecut_angle093/',
              'ext' : '.dat',
              'data_col' : [0, 1],
              'N_fold': 6,
-             'targets': ['max', 9, 25.5, 35, 40, 58], #, 'var', 10, 26, 36, 42 , 57, 59, 69], #'max', #[21] # 'max', 'var', or specify angle 
+             'targets': ['max', 6.6, 9, 35, 58], #, 'var', 10, 26, 36, 42 , 57, 59, 69], #'max', #[21] # 'max', 'var', or specify angle 
              'angle_roi': [4,  65], # range to consider for max or var 
              }
 
 feature_4_args = {'source_dir' : dir_path+'circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
-             'targets': ['b', 'prefactor1', 'x_center1', 'd_spacing_nm', 'grain_size_nm', 'chi2'] #b, prefactor1, x_center1, sigma1, chi2
+             'fit_range': [0.085, 0.1],                 
+             'targets': ['b'] #, 'prefactor1', 'x_center1', 'd_spacing_nm', 'grain_size_nm', 'chi2'] #b, prefactor1, x_center1, sigma1, chi2
              }
 
 feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args, feature_4_args=feature_4_args)
@@ -84,7 +85,7 @@ features_map_list = [];
 t0 = time.time()
 
 ## Get maps for each feature_ids
-feature_ids = [2,3]
+feature_ids = [3,4]
 for idx in feature_ids:
     feature_args['feature_id'] = idx; 
     
@@ -106,7 +107,7 @@ for idx in feature_ids:
     #feature_args.update(filename='*82100');   infiles, match_re = get_filematch(feature_args)
     feature_args.update(log10=[0, 0])
     #feature_args.update(val_stat = [0, 3])
-    #_ = plot_data(infiles[0], **feature_args)
+    _ = plot_data(infiles[0], **feature_args)
     
     t1 = time.time()-t0
     print('----------------------')
@@ -127,11 +128,15 @@ if False:
     feature_c = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
     
-    feature_args['math_ab'] = [4, 0, 'divide']
+    feature_args['math_ab'] = [3, 0, 'divide']
     feature_c = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
         
-    feature_args['math_ab'] = [6, 0, 'divide']
+    feature_args['math_ab'] = [4, 0, 'divide']
+    feature_c = math_features(features_map_list, **feature_args)
+    print('Total of {} maps'.format(count_maps(features_map_list)))
+ 
+    feature_args['math_ab'] = [5, 0, 'divide']
     feature_c = math_features(features_map_list, **feature_args)
     print('Total of {} maps'.format(count_maps(features_map_list)))
     
@@ -142,8 +147,8 @@ if False:
 
 ## Plot overlay of three maps (RGB)  
 if False:
-    feature_args['overlay_rgb'] = [7,9,12] # starts from 0
-    feature_args['normalize_each'] = False
+    feature_args['overlay_rgb'] = [3,5] # starts from 0
+    feature_args['normalize_each'] = True
     overlay = plot_overlay(features_map_list, **feature_args)    
 
 

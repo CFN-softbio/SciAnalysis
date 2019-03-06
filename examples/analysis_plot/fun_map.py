@@ -216,10 +216,11 @@ def get_feature(infile, feature_args):
     elif feature_id == 4:  
         data_col = kwargs['data_col']
         feats = kwargs['targets']
+        fit_range = kwargs['fit_range']
         q, I = extract_data(infile, data_col) 
         if log10: I = np.log10(I)
         line = DataLine(x=q, y=I)
-        run_args = {'fit_range': [0.02, 0.06], 'sigma': 0.001, 'verbosity': 0}
+        run_args = {'fit_range': fit_range, 'sigma': 0.001, 'verbosity': 0}
         lm_result, fit_line, fit_line_extended = Protocols.circular_average_q2I_fit()._fit_peaks(line=line, q0=None, vary=True, **run_args)
         for feat in feats:
             if feat == 'd_spacing_nm':
@@ -744,7 +745,7 @@ def count_maps(features_map_list):
 # Assume N symmetry
 # =============================================================================
 def line_fold(x, y, N):
-    verbose = 1
+    verbose = 0
     len0 = len(y)
     len1 = int(np.floor(len0/N))
     x_fold = np.asarray(x[0:len1])-np.min(x)
