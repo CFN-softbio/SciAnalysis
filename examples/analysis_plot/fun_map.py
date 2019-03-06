@@ -607,7 +607,10 @@ def plot_overlay(features_map_list, **kwargs):
                     max_val = np.nanmax(feature_array[ii])
                 if np.nanmin(feature_array[ii]) < min_val:
                     min_val = np.nanmin(feature_array[ii])
-          
+        if log10: 
+            min_val = np.log10(min_val)         
+            max_val = np.log10(max_val) 
+
         ## Take three channels, interpolate to fine grid
         if len(feature_array)>3: 
             print('More then 3 features available, using only {} for RGB'.format(overlay_rgb))

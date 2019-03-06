@@ -200,7 +200,7 @@ class Processor(object):
                         try:
                             self.store_results(results, output_dir, infile, protocol, **md)
                         except:
-                            print('store_results did not work.')
+                            print('In tools.py: store_results did not work.')
                         
 
             except Exception as exception:
@@ -210,7 +210,7 @@ class Processor(object):
                 else:
                     raise
                     
-            #return results_list
+        #return results_list
 
     def load(self, infile, **kwargs):
         

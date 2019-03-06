@@ -147,8 +147,8 @@ if False:
 
 ## Plot overlay of three maps (RGB)  
 if False:
-    feature_args['overlay_rgb'] = [1,3,4] # starts from 0
-    feature_args['normalize_each'] = 1
+    feature_args['overlay_rgb'] = [2,4] # starts from 0
+    feature_args['normalize_each'] = 0
     overlay = plot_overlay(features_map_list, **feature_args)    
 
 
