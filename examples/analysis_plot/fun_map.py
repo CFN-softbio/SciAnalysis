@@ -188,6 +188,7 @@ def get_feature(infile, feature_args):
         data_col = kwargs['data_col']
         angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
+        normalize = kwargs['normalize']
         if type(angle_roi[1]) is str:
             N_fold = int(np.asarray(angle_roi[0]))
             stat = angle_roi[1]
@@ -216,9 +217,11 @@ def get_feature(infile, feature_args):
                 temp = np.nanvar(I)
             else: 
                 if N_fold:
-                    temp = I_fold[get_target_idx(angle_fold, angle_target)]
+                    temp = I_fold[get_target_idx(angle_fold, angle_target)] 
                 else:
-                    temp = I[get_target_idx(angle, angle_target)]
+                    temp = I[get_target_idx(angle, angle_target)] 
+                if normalize:
+                    temp = temp / np.sum(I)
             val.append(temp)
 
     elif feature_id == 4:  

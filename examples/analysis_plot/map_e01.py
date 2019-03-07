@@ -64,6 +64,7 @@ feature_3_args = {'source_dir' : dir_path+'linecut_angle080/',
              'data_col' : [0, 1],
              'angle_roi': [0, 60], #[6, 'mean'], #[-61,  1], # range [0, 60] or N_fold [6, 'mean']
              'targets': ['argmax', 16.3, 22.1,  27, 33.4, 54], #, 'var', 10, 26, 36, 42 , 57, 59, 69], #'max', #[21] # 'max', 'var', or specify angle 
+             'normalize': True, # normalize by sum(I)
              }
 
 feature_4_args = {'source_dir' : dir_path+'circular_average/',
@@ -84,7 +85,7 @@ features_map_list = [];
 t0 = time.time()
 
 ## Get maps for each feature_ids
-feature_ids = [2,3]
+feature_ids = [3]
 for idx in feature_ids:
     feature_args['feature_id'] = idx; 
     
@@ -147,7 +148,7 @@ if False:
 
 ## Plot overlay of three maps (RGB)  
 if False:
-    feature_args['overlay_rgb'] = [9,7] # starts from 0
+    feature_args['overlay_rgb'] = [2,4,3] # starts from 0
     feature_args['normalize_each'] = 0
     overlay = plot_overlay(features_map_list, **feature_args)    
 
