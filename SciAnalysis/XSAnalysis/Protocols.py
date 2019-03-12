@@ -2067,6 +2067,68 @@ class export_STL(Protocol):
 
 
 
+class metadata_extract(Protocol):
+    
+    def __init__(self, name='metadata_extract', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.dat'
+        
+        patterns = [
+                    ['theta', '.+_th(\d+\.\d+)_.+'] ,
+                    ['x_position', '.+_x(-?\d+\.\d+)_.+'] ,
+                    ['y_position', '.+_y(-?\d+\.\d+)_.+'] ,
+                    ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
+                    ['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
+                    ['exposure_time', '.+_(\d+\.\d+)c_\d+_?axs.+'] ,
+                    ['sequence_ID', '.+_(\d+)_?axs.+'] ,
+                    ]            
+            
+        self.run_args = { 'patterns' : patterns }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        infile = data.infile
+        f = tools.Filename(infile)
+        filepath, filename, filebase, ext = f.split()
+        
+        results['infile'] = infile
+        results['filepath'] = filepath
+        results['filename'] = filename
+        results['filebase'] = filebase
+        results['fileext'] = ext
+        
+        results['sample_name'] = data.name
+        results['file_ctime'] = os.path.getctime(infile)
+        results['file_modification_time'] = os.path.getmtime(infile)
+        results['file_access_time'] = os.path.getatime(infile)
+        results['file_size'] = os.path.getsize(infile)
+        
+        patterns = run_args['patterns']
+        
+        for pattern_name, pattern_string in patterns:
+            pattern = re.compile(pattern_string)
+            m = pattern.match(filename)
+            if m:
+                if run_args['verbosity']>=5:
+                    print('  matched: {} = {}'.format(pattern_name, m.groups()[0]))
+                results[pattern_name] = float(m.groups()[0])
+        
+        
+        outfile = self.get_outfile(data.name, output_dir, ext='.npy')
+        np.save(outfile, results)
+        
+        
+        return results
+
+
+
 
 # Protocols that operate on multiple files
 # These methods are being moved to a separate file (Multiple.py)
