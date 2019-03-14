@@ -140,26 +140,32 @@ def calc_distance(p0, p1):
     return r
 
 # =============================================================================
-#
-# Define features! 
-#
+# For file 'infile', get features and store as lists in val
+# Input: 
+#   infile, feature_id (in feature_args)
+# Output: 
+#   lists: val and info
 # =============================================================================
 def get_feature(infile, feature_args):
-    log10 = feature_args['log10'][0]
+    #log10 = feature_args['log10']
     feature_id = feature_args['feature_id']
     verbose = feature_args['verbose']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
     
-    val = []; info = [] # additional infor to store 
+    val = []; info = [] # additional info to store 
     if feature_id == 1:
         pixels = kwargs['targets']
         roi = kwargs['roi']
         n = roi[0]
         #im = color.rgb2gray(io.imread(infile)); imarray = np.array(im)
         im = np.load(infile).items()
-        imarray = np.array(im[0][1])        
+        imarray = np.array(im[0][1])   
+        x_axis = im[1][1] 
+        y_axis = im[2][1] 
+        x_scale = im[3][1] 
+        y_scale = im[4][1] 
+        image_dict = {'image': imarray, 'x_axis': x_axis, 'y_axis': y_axis, 'x_scale': x_scale, 'y_scale':y_scale}
         
-        if log10: imarray = np.log10(imarray)
         for pixel in pixels:
             temp_roi = imarray[pixel[1]-n:pixel[1]+n+1,pixel[0]-n:pixel[0]+n+1] #TEMP
             if roi[1]=='mean':
@@ -169,16 +175,16 @@ def get_feature(infile, feature_args):
             else:
                 temp = imarray[pixel[1], pixel[0]]
             val.append(temp)
+        info.append(image_dict)
         
     elif feature_id == 2:  
         data_col = kwargs['data_col']
         q_targets = kwargs['targets']
         roi = kwargs['roi']
         n = roi[0]
-        #t1 = time.time()
         q, I = extract_data(infile, data_col)
-        if log10: I = np.log10(I)
-        #print('time.f2 = {}'.format(time.time()-t1))
+        line = DataLine(x=q, y=I)
+        
         for q_target in q_targets:
             cen = get_target_idx(q, q_target)
             if roi[1]=='mean':
@@ -188,6 +194,7 @@ def get_feature(infile, feature_args):
             else:
                 temp = I[cen] 
             val.append(temp)
+        info.append(line)
         
     elif feature_id == 3:  
         data_col = kwargs['data_col']
@@ -200,17 +207,22 @@ def get_feature(infile, feature_args):
         else:
             N_fold = 0
         angle, I = extract_data(infile, data_col)        
-        if log10: I = np.log10(I)
+        line_orig = DataLine(x=angle, y=I)
+        info.append(line_orig)
+        
         if N_fold:
-            angle_fold, I_fold_stat = line_fold(angle, I, N_fold, verbose)
+            angle_fold, I_fold_stat = fold_line(angle, I, N_fold, verbose)
             if stat=='mean':
                 I_fold = I_fold_stat[:,1] 
             elif stat=='max':
                 I_fold = I_fold_stat[:,2]   
+            line_fold = DataLine(x=angle_fold, y=I_fold)
+            info.append(line_fold)            
         else:
             i0 = get_target_idx(angle, angle_roi[0])
             i1 = get_target_idx(angle, angle_roi[1])
             I_crop = I[i0:i1+1]
+        
         for angle_target in angle_targets:  
             temp = np.nan
             if angle_target =='argmax':
@@ -234,7 +246,6 @@ def get_feature(infile, feature_args):
         feats = kwargs['targets']
         fit_range = kwargs['fit_range']
         q, I = extract_data(infile, data_col) 
-        if log10: I = np.log10(I)
         line = DataLine(x=q, y=I)
         run_args = {'fit_range': fit_range, 'sigma': 0.001, 'verbosity': 0}
         lm_result, fit_line, fit_line_extended = Protocols.circular_average_q2I_fit()._fit_peaks(line=line, q0=None, vary=True, **run_args)
@@ -327,17 +338,15 @@ def get_map(infiles, match_re, feature_args):
     
     return features_map
     
-    
 # =============================================================================
 # Plot one data
 # =============================================================================        
 def plot_data(infile, **feature_args):
     font = {'family' : 'normal',
         'weight' : 'bold',
-        'size'   : 12}
-    
+        'size'   : 12}    
     if 'log10' in feature_args:
-        log10 = feature_args['log10'][1]
+        log10 = feature_args['log10']
     else:
         log10 = 0
     if 'feature_id' in feature_args:
@@ -348,56 +357,44 @@ def plot_data(infile, **feature_args):
         subplot = feature_args['subplot']
     else:
         subplot = 0
-    verbose = feature_args['verbose']        
+    if 'verbose' in feature_args:
+        verbose = feature_args['verbose']  
+    else:
+        verbose = 0
+        
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
-
     if 'cmap' in feature_args and feature_args['cmap']:
         cmap = feature_args['cmap']
     else:
         cmap = 'viridis'
        
-    result = []
+    val, info = get_feature(infile, feature_args)  
     if feature_id == 1:
         pixels = kwargs['targets']
-        im = np.load(infile).items()
-        imarray = im[0][1] #image
-        x_axis = im[1][1] 
-        y_axis = im[2][1] 
-        x_scale = im[3][1] 
-        y_scale = im[4][1] 
-        extent = (np.nanmin(x_axis), np.nanmax(x_axis), np.nanmin(y_axis), np.nanmax(y_axis))
-        if log10:
-            imarray = np.log10(imarray)        
- 
-        if subplot:
+        imarray = info[0]['image']
+        if log10: imarray = np.log10(imarray)
+        x_axis = info[0]['x_axis']
+        y_axis = info[0]['y_axis']
+        extent = (np.nanmin(x_axis), np.nanmax(x_axis), np.nanmin(y_axis), np.nanmax(y_axis)) 
+        if subplot: # Plot also the q-axis
             host = host_subplot(111,axes_class=AA.Axes)
             plt.subplots_adjust(right=0.8)       
-            host.imshow(imarray, cmap=cmap, origin='lower') # vmin=val_stat[0], vmax=val_stat[1]    
-            #plt.colorbar(shrink=0.8, aspect=24)
-            for pixel in pixels:
-                host.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
-        
+            host.imshow(imarray, cmap=cmap, origin='lower') # vmin=val_stat[0], vmax=val_stat[1]  
+            host.set_facecolor('k')
             par2 = host.twinx()
             new_fixed_axis = par2.get_grid_helper().new_fixed_axis
-            par2.axis["right"] = new_fixed_axis(loc="right",
-                                                axes=par2,
-                                                offset=(10, 0))
+            par2.axis["right"] = new_fixed_axis(loc="right", axes=par2, offset=(10, 0))
             par2.axis["right"].toggle(all=True)
             par2.set_ylabel("q ($\AA^{-1}$)", color='k')
-            par2.set_ylim(extent[2],extent[3])
-            par2.tick_params(axis='y', colors='k', grid_color='r', labelcolor='r')
-            par2.spines['left'].set_color('r')
-    
-            plt.figure(161)
-            plt.imshow(imarray, extent=extent, cmap=cmap, origin='lower') 
+            par2.set_ylim(extent[2],extent[3]) 
         else:
             plt.imshow(imarray, cmap=cmap, origin='lower')     
-            for pixel in pixels:
-                plt.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
-        
-            
-        result = imarray
-        
+        for pixel in pixels: # Label pixels of interest
+            plt.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
+        if verbose>1: # Extra plot with q-axes
+            plt.figure(161)
+            plt.imshow(imarray, extent=extent, cmap=cmap, origin='lower') 
+    
     elif feature_id == 2: 
         q_targets = kwargs['targets']
         data_col = kwargs['data_col']
@@ -405,7 +402,8 @@ def plot_data(infile, **feature_args):
             n = kwargs['roi'][0]
         else:
             n = 0
-        q, I = extract_data(infile, data_col)        
+        q = info[0].x
+        I = info[0].y
         if log10: I = np.log10(I)
         plt.plot(q, I)     
         for idx, q_target in enumerate(q_targets):
@@ -431,23 +429,19 @@ def plot_data(infile, **feature_args):
             stat = angle_roi[1]
         else:
             N_fold = 0
-        angle, I = extract_data(infile, data_col)
-        if log10: 
-            I = np.log10(I)
+        angle = info[0].x
+        I = info[0].y
+        if log10: I = np.log10(I)
         if N_fold:
-            angle_fold, I_fold_stat = line_fold(angle, I, N_fold, 0)
-            if stat=='mean':
-                I_fold = I_fold_stat[:,1] 
-            elif stat=='max':
-                I_fold = I_fold_stat[:,2]  
+            angle_fold = info[1].x
+            I_fold = info[1].y
+            if log10: I_fold = np.log10(I_fold)
             ax2 = plt.subplot2grid((2, 1), (1, 0), colspan=1) 
             for nn in np.arange(-N_fold/2,N_fold/2):
                 plt.plot(angle_fold+nn*360/N_fold, I_fold)   
             plt.xlim([np.min(angle), np.max(angle)])
-        else:
-            i0 = get_target_idx(angle, angle_roi[0])
-            i1 = get_target_idx(angle, angle_roi[1])
-            I_crop = I[i0:i1+1]
+            ax2.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
+
         y_lim = [np.nanmin(I), np.nanmax(I)]
         ax1 = plt.subplot2grid((2, 1), (0, 0), colspan=1) 
         plt.plot(angle, I) 
@@ -455,18 +449,12 @@ def plot_data(infile, **feature_args):
         for idx, angle_target in enumerate(angle_targets):
             if angle_target =='argmax':
                 if N_fold==0:                    
-                    i0 = get_target_idx(angle, angle_roi[0])
-                    i1 = get_target_idx(angle, angle_roi[1])
-                    plt.plot([angle[i0], angle[i1]], [y_lim[0], y_lim[0]])
-                    I_crop = I[i0:i1+1]
-                    val = angle[i0+np.argmax(I_crop)]
-                    ax1.plot([val, val], y_lim,'--')
-                    ax1.text(val, np.max(I_crop)*0.95, 'argmax='+str(np.round(val,2)))
+                    ax1.plot([val[idx], val[idx]], y_lim,'--')
+                    ax1.plot(angle_roi, [y_lim[0], y_lim[0]])
+                    ax1.text(val[idx], y_lim[1], 'argmax=('+str(np.round(val[idx],2))+')')
                 else:
-                    val = angle_fold[np.argmax(I_fold)]
-                    ax2.plot([val, val], [np.nanmin(I_fold), np.nanmax(I_fold)],'--')
-                    ax2.text(val, np.max(I_fold)*0.95, 'argmax='+str(np.round(val,2)))
-                    ax2.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
+                    ax2.plot([val[idx], val[idx]], y_lim,'--')
+                    ax2.text(val[idx], y_lim[1], 'argmax='+str(np.round(val,2)))
             elif type(angle_target) is not str:
                 plt.plot([angle_target, angle_target], [y_lim[0], y_lim[0]])
                 plt.plot([angle_target, angle_target], y_lim,'--')
@@ -482,7 +470,8 @@ def plot_data(infile, **feature_args):
         feats = kwargs['targets']
         val, info = get_feature(infile, feature_args)
         for ii, line in enumerate(info):
-            I = np.log10(line.y)
+            I = line.y
+            if log10: I = np.log10(line.y)
             if ii==0: 
                 plt.plot(line.x, I) 
             else:            
@@ -504,10 +493,8 @@ def plot_data(infile, **feature_args):
     if verbose: 
         ll = len(infile)
         l0 = int(np.round(ll/3))
-        plt.title(infile[0:l0]+'\n'+infile[l0+1:l0*2]+'\n'+infile[l0*2+1:])
+        plt.title(infile[0:l0]+'\n'+infile[l0:l0*2]+'\n'+infile[l0*2:])
                 
-    return result
- 
 # =============================================================================
 # Plot map based on feature
 # =============================================================================       
@@ -529,8 +516,9 @@ def plot_map(features_map, **kwargs):
     x_pos = features_map['x_pos']
     y_pos = features_map['y_pos']
     features = features_map['features']
+    
     if 'log10' in kwargs:
-        log10 = kwargs['log10'][1]
+        log10 = kwargs['log10']
     else:
         log10 = 0
     if 'val_stat' in kwargs:
@@ -550,30 +538,43 @@ def plot_map(features_map, **kwargs):
         
     N_maps = len(features)
     for idx, feature in enumerate(features):
-        if subplot: ax = plt.subplot2grid((1, N_maps), (0, idx), colspan=1); 
+        if subplot: ax = plt.subplot2grid((2, N_maps), (0, idx), colspan=1); 
+        
         feature = np.asarray(feature)
         if log10:
             feature = np.log10(feature)
         if 'val_stat' not in kwargs:
-            #val_stat = [np.nanmin(feature), np.nanmean([np.nanmedian(feature), np.nanmax(feature)]) ]
-            val_stat = [np.nanmin(feature), np.nanmax(feature)]
+            val_stat = [0.1*np.nanmedian(feature)+0.9*np.nanmin(feature), 0.1*np.nanmedian(feature)+0.9*np.nanmax(feature) ]
+            #val_stat = [np.nanmin(feature), np.nanmax(feature)]
         if plot_interp[0] is not None:
             #print('Plotting map using imshow')
-            x_pos_fine, y_pos_fine, feature_fine = interp_map(x_pos, y_pos, feature, plot_interp) 
-            #plt.pcolormesh(x_pos_fine, y_pos_fine, feature_fine, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
+            x_pos_fine, y_pos_fine, feature = interp_map(x_pos, y_pos, feature, plot_interp) 
+            #plt.pcolormesh(x_pos_fine, y_pos_fine, feature, vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
             extent = (np.nanmin(x_pos_fine), np.nanmax(x_pos_fine), np.nanmin(y_pos_fine), np.nanmax(y_pos_fine))
-            plt.imshow(feature_fine, vmin=val_stat[0], vmax=val_stat[1], extent=extent, origin='lower', cmap=cmap) 
+            plt.imshow(feature, vmin=val_stat[0], vmax=val_stat[1], extent=extent, origin='lower', cmap=cmap) 
         else:
             #print('Plotting map using scatter')
             plt.scatter(x_pos, y_pos, c=feature, marker="s", vmin=val_stat[0], vmax=val_stat[1], cmap=cmap) 
-            
-        plt.colorbar(shrink=1, pad=0.02, aspect=24);
+
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
-        #plt.title(source_dir+filename)
-        plt.title('Map {}'.format(idx))
+        plt.axis('tight')
         plt.axis('equal')
-        plt.xlabel('x (mm)  [feature_id '+ str(ids[idx]) + ',  ' + str(tags[idx])+']')
-        plt.ylabel('y (mm)')
+        plt.xlabel('[feature_id '+ str(ids[idx]) + ',  ' + str(tags[idx])+']')            
+        if idx==0: plt.ylabel('y (mm)')
+        if subplot: 
+            plt.colorbar(shrink=1, pad=0.02, aspect=24);
+            plt.title('Map {}'.format(idx))
+        
+        if subplot: # Plot histogram
+            ax = plt.subplot2grid((2, N_maps), (1, idx), colspan=1); 
+            feature = feature[~np.isnan(feature)]
+            N_bins = 50;
+            plt.hist(feature, bins=N_bins, color=rand_color(0.3,0.9))
+            #plt.xlabel('val (bins={})'.format(N_bins))
+            if idx==0: plt.ylabel('count')
+            plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
+            
+
     
 # =============================================================================
 # Give interpolated map with finer discretization
@@ -584,6 +585,7 @@ def interp_map(x_pos, y_pos, feature, plot_interp):
     y_ax_fine = np.arange(np.min(y_pos), np.max(y_pos), plot_interp[1])
     x_pos_fine, y_pos_fine = np.meshgrid(x_ax_fine, y_ax_fine)
     feature_fine = griddata((x_pos, y_pos), feature, (x_pos_fine, y_pos_fine), method=plot_interp[0])
+    feature_fine = np.asarray(feature_fine)
     return x_pos_fine, y_pos_fine, feature_fine
 
 # =============================================================================
@@ -606,7 +608,7 @@ def plot_overlay(features_map_list, **kwargs):
     else:
         normalize_each = True
     if 'log10' in kwargs:
-        log10 = kwargs['log10'][1]    
+        log10 = kwargs['log10']    
     else:
         log10 = 0
     if 'plot_interp' in kwargs:
@@ -755,7 +757,7 @@ def math_features(features_map_list, **kwargs):
     else:
         math_ab = [1, 2, 'divide']
     if 'log10' in kwargs:
-        log10 = kwargs['log10'][1]    
+        log10 = kwargs['log10'] 
     else:
         log10 = 0
     if 'plot_interp' in kwargs:
@@ -814,10 +816,12 @@ def count_maps(features_map_list):
 # =============================================================================
 # Assume N symmetry
 # =============================================================================
-def line_fold(x, y, N, verbose):     
-    step = 0.01
+def fold_line(x, y, N, verbose):     
+    step = 0.05
+    period = 360/N/step
     x_fine = np.arange(np.min(x), np.max(x)+step, step)
     y_fine = np.interp(x_fine, x, y)  
+    length = len(x_fine)
    
     idx0 = get_target_idx(x_fine, 0)
     idx1 = get_target_idx(x_fine, 360/N)
@@ -828,16 +832,18 @@ def line_fold(x, y, N, verbose):
     
     for ii in np.arange(idx0,idx1+1):
         val = []
+        cen = get_target_idx(x_fine, x_fine[ii])
         for nn in np.arange(-N/2,N/2):
-            idx = get_target_idx(x_fine, x_fine[ii]+nn*360/N)
-            val.append(y_fine[idx])
+            #idx = get_target_idx(x_fine, x_fine[ii]+nn*360/N)
+            idx = int(cen + nn*period)
+            if idx<length: val.append(y_fine[idx])
         jj = ii-idx0
         y_fold[jj,0] = np.min(val)
         y_fold[jj,1] = np.mean(val)
         y_fold[jj,2] = np.max(val)
         y_fold[jj,3] = np.var(val)
     
-    if verbose:
+    if verbose>1:
         plt.figure(24); plt.clf()
         for jj in [0,1,2,3]:
             ax = plt.subplot2grid((4,1), (jj,0))
@@ -847,7 +853,12 @@ def line_fold(x, y, N, verbose):
     return x_fold, y_fold
 
 
-
-
+# =============================================================================
+# Generate a random color, each channel with range (a,b)
+# =============================================================================
+def rand_color(a, b):
+    r = b-a
+    color = (random.random()*r+a, random.random()*r+a, random.random()*r+a)
+    return color
 
 
