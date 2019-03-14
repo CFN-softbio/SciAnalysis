@@ -238,15 +238,21 @@ def get_feature(infile, feature_args):
         line = DataLine(x=q, y=I)
         run_args = {'fit_range': fit_range, 'sigma': 0.001, 'verbosity': 0}
         lm_result, fit_line, fit_line_extended = Protocols.circular_average_q2I_fit()._fit_peaks(line=line, q0=None, vary=True, **run_args)
+        chi2 = lm_result.chisqr/lm_result.nfree
         for feat in feats:
             if feat == 'd_spacing_nm':
                 temp = 0.1*2.*np.pi/lm_result.params['x_center1'] #d in nm
             elif feat == 'grain_size_nm':
                 temp = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/lm_result.params['sigma1'] #nm
             elif feat == 'chi2':
-                temp = lm_result.chisqr/lm_result.nfree
+                temp = chi2
             else:
                 temp = lm_result.params[feat]  
+            ## Threshold 
+            if chi2>1.0: # ususally this means good fitting
+                temp = np.asarray(temp)*(chi2>1.0) 
+            else:
+                temp = np.nan
             val.append(temp)
         info.append(line)
         info.append(fit_line)
@@ -549,7 +555,7 @@ def plot_map(features_map, **kwargs):
         if log10:
             feature = np.log10(feature)
         if 'val_stat' not in kwargs:
-            #val_stat = [np.nanmin(feature), np.mean([np.nanmedian(feature), np.nanmax(feature)]) ]
+            #val_stat = [np.nanmin(feature), np.nanmean([np.nanmedian(feature), np.nanmax(feature)]) ]
             val_stat = [np.nanmin(feature), np.nanmax(feature)]
         if plot_interp[0] is not None:
             #print('Plotting map using imshow')

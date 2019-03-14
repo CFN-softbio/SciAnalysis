@@ -24,7 +24,7 @@ dir_path = '/home/etsai/BNL/Research/KY_platelets/saxs/analysis/'
 dir_path = '/home/etsai/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/analysis/'
 feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
                 'filename'  : 'medium_G1_13mgml_f*5.00s', # m*y-7*5
-                'filename'  : 'medium_G2-3G1_20mgml_x*_y*5.00s', 
+                'filename'  : 'medium_G2-3G1_20mgml_f*_y*5.00s', 
                 #'filename'  : 'medium_as-synth_highC_f*10.00s', #Round 2 Sample1
                 #'filename'  : 'medium_G2-2G1_highC_m*10.00s',  #81484, 082969
                 #'filename'  : dir_path+'large_G2-2G1_2_med*10.00s',
@@ -34,9 +34,10 @@ feature_args = {#'filename'  : 'large_G1_15mgml_finegrid2*5.00s', # [*] Specify
                             '074831', '074833'], 
                 'feature_id': 1, # ignore
                 'map_type': 'xy',
-                'log10'  : [0, 1], # [data, plot]
+                'log10'  : [0, 0], # [data, plot]
                 'verbose': 1,
-                'plot_interp':  [ None, 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
+                'plot_interp':  ['linear', 0.001], #None, 'linear'(recommended), 'cubic', 'nearest', pixel in mm
+                'subplot': 1
                } 
 
 # =============================================================================
@@ -72,7 +73,7 @@ feature_3_args = {'source_dir' : dir_path+'linecut_angle080/',
 feature_4_args = {'source_dir' : dir_path+'circular_average/',
              'ext' : '.dat',
              'data_col' : [0, 2],
-             'fit_range': [0.128, 0.135],                 
+             'fit_range': [0.045, 0.058],                 
              'targets': ['b', 'prefactor1', 'x_center1', 'd_spacing_nm', 'grain_size_nm', 'chi2'] #b, prefactor1, x_center1, sigma1, chi2
              }
 
@@ -87,7 +88,7 @@ features_map_list = [];
 t0 = time.time()
 
 ## Get maps for each feature_ids
-feature_ids = [2]
+feature_ids = [2,4]
 for idx in feature_ids:
     feature_args['feature_id'] = idx; 
     
@@ -107,7 +108,7 @@ for idx in feature_ids:
     ## Plot one data 
     fig = plt.figure(150+feature_args['feature_id'], figsize=[8,8]); plt.clf()
     cmap = plt.get_cmap('jet');  feature_args.update(cmap=cmap)    
-    #feature_args.update(filename='*82100');   infiles, match_re = get_filematch(feature_args)
+    #feature_args.update(filename='*070626');   infiles, match_re = get_filematch(feature_args)
     feature_args.update(log10=[0, 1])
     #feature_args.update(val_stat = [0, 3])
     _ = plot_data(infiles[0], **feature_args)
@@ -150,13 +151,20 @@ if False:
 
 ## Plot overlay of three maps (RGB)  
 if False:
-    feature_args['overlay_rgb'] = [3,4] # starts from 0
+    feature_args['overlay_rgb'] = [3,5] # starts from 0
     feature_args['normalize_each'] = 1
+    feature_args.update(log10=[0, 0])
     overlay = plot_overlay(features_map_list, **feature_args)    
 
 
-
-
+## Plot histogram
+if False:
+    feature_c = features_map_all['features'][5]
+    feature_c = np.asarray(feature_c)
+    plt.figure(99); plt.clf(); 
+    plt.hist(feature_c, bins=50)
+    plt.grid()
+    
 
 
 
