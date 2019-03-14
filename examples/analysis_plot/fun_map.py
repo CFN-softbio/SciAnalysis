@@ -75,14 +75,19 @@ def get_filematch(feature_args):
         print('Considering {} files...'.format(len(infiles)))   
     
     # Exclude some files
+    infiles_new = []
     for idx, infile in enumerate(infiles):
+        include = True
         for file in exclude:
             if infile.find(file)>-1:
-                infiles.pop(idx)
+                include = False
+        if include: 
+            infiles_new.append(infiles[idx])
+                
     if verbose>0:
-        print('  - Now considering {} files...'.format(len(infiles)))   
+        print('  - Now considering {} files...'.format(len(infiles_new)))   
             
-    return infiles, match_re
+    return infiles_new, match_re
 
 # =============================================================================
 # Get files with matching pattern
@@ -333,6 +338,10 @@ def plot_data(infile, **feature_args):
         feature_id = feature_args['feature_id']
     else:
         feature_id = 1
+    if 'subplot' in feature_args:
+        subplot = feature_args['subplot']
+    else:
+        subplot = 0
     verbose = feature_args['verbose']        
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
 
@@ -353,29 +362,34 @@ def plot_data(infile, **feature_args):
         extent = (np.nanmin(x_axis), np.nanmax(x_axis), np.nanmin(y_axis), np.nanmax(y_axis))
         if log10:
             imarray = np.log10(imarray)        
+ 
+        if subplot:
+            host = host_subplot(111,axes_class=AA.Axes)
+            plt.subplots_adjust(right=0.8)       
+            host.imshow(imarray, cmap=cmap, origin='lower') # vmin=val_stat[0], vmax=val_stat[1]    
+            #plt.colorbar(shrink=0.8, aspect=24)
+            for pixel in pixels:
+                host.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
         
-        #plt.imshow(imarray, extent=extent, cmap=cmap, origin='lower')     
-        host = host_subplot(111,axes_class=AA.Axes)
-        plt.subplots_adjust(right=0.8)       
-        host.imshow(imarray, cmap=cmap, origin='lower') # vmin=val_stat[0], vmax=val_stat[1]    
-        #plt.colorbar(shrink=0.8, aspect=24)
-        for pixel in pixels:
-            host.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
+            par2 = host.twinx()
+            new_fixed_axis = par2.get_grid_helper().new_fixed_axis
+            par2.axis["right"] = new_fixed_axis(loc="right",
+                                                axes=par2,
+                                                offset=(10, 0))
+            par2.axis["right"].toggle(all=True)
+            par2.set_ylabel("q ($\AA^{-1}$)", color='k')
+            par2.set_ylim(extent[2],extent[3])
+            par2.tick_params(axis='y', colors='k', grid_color='r', labelcolor='r')
+            par2.spines['left'].set_color('r')
+    
+            plt.figure(161)
+            plt.imshow(imarray, extent=extent, cmap=cmap, origin='lower') 
+        else:
+            plt.imshow(imarray, cmap=cmap, origin='lower')     
+            for pixel in pixels:
+                plt.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
         
-        par2 = host.twinx()
-        new_fixed_axis = par2.get_grid_helper().new_fixed_axis
-        par2.axis["right"] = new_fixed_axis(loc="right",
-                                            axes=par2,
-                                            offset=(10, 0))
-        par2.axis["right"].toggle(all=True)
-        par2.set_ylabel("q ($\AA^{-1}$)", color='k')
-        par2.set_ylim(extent[2],extent[3])
-        par2.tick_params(axis='y', colors='k', grid_color='r', labelcolor='r')
-        par2.spines['left'].set_color('r')
-
-        plt.figure(161)
-        plt.imshow(imarray, extent=extent, cmap=cmap, origin='lower') 
-        
+            
         result = imarray
         
     elif feature_id == 2: 
@@ -461,9 +475,12 @@ def plot_data(infile, **feature_args):
     elif feature_id == 4:
         feats = kwargs['targets']
         val, info = get_feature(infile, feature_args)
-        for line in info:
+        for ii, line in enumerate(info):
             I = np.log10(line.y)
-            plt.plot(line.x, I) 
+            if ii==0: 
+                plt.plot(line.x, I) 
+            else:            
+                plt.plot(line.x, I, '--') 
         
         ys = np.nanmin(I)
         yf = np.nanmax(I)
@@ -520,10 +537,14 @@ def plot_map(features_map, **kwargs):
         plot_interp = kwargs['plot_interp']
     else:
         plot_interp = [None, 1]
-    
+    if 'subplot' in kwargs:
+        subplot = kwargs['subplot']
+    else:
+        subplot = 0
+        
     N_maps = len(features)
     for idx, feature in enumerate(features):
-        ax = plt.subplot2grid((1, N_maps), (0, idx), colspan=1); 
+        if subplot: ax = plt.subplot2grid((1, N_maps), (0, idx), colspan=1); 
         feature = np.asarray(feature)
         if log10:
             feature = np.log10(feature)
