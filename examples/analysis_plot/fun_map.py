@@ -37,6 +37,8 @@ def extract_data(filename, col):
         q.append(float(data[col[0]]))
         I.append(float(data[col[1]]))
     infile.close()
+    q = np.asarray(q)
+    I = np.asarray(I)
     return q, I
 
 # =============================================================================
@@ -184,7 +186,7 @@ def get_feature(infile, feature_args):
         n = roi[0]
         q, I = extract_data(infile, data_col)
         line = DataLine(x=q, y=I)
-        
+       
         for q_target in q_targets:
             cen = get_target_idx(q, q_target)
             if roi[1]=='mean':
@@ -245,6 +247,7 @@ def get_feature(infile, feature_args):
         data_col = kwargs['data_col']
         feats = kwargs['targets']
         fit_range = kwargs['fit_range']
+        chi2_thr = kwargs['chi2_thr']
         q, I = extract_data(infile, data_col) 
         line = DataLine(x=q, y=I)
         run_args = {'fit_range': fit_range, 'sigma': 0.001, 'verbosity': 0}
@@ -260,8 +263,8 @@ def get_feature(infile, feature_args):
             else:
                 temp = lm_result.params[feat]  
             ## Threshold 
-            if chi2>1.0: # ususally this means good fitting
-                temp = np.asarray(temp)*(chi2>1.0) 
+            if chi2> chi2_thr or (feat is 'b') or (feat is 'prefactor1'): 
+                temp = np.asarray(temp)
             else:
                 temp = np.nan
             val.append(temp)
@@ -329,7 +332,8 @@ def get_map(infiles, match_re, feature_args):
     
             val, info = get_feature(infile, feature_args) # val can be an array
             features.append(val)
-            if info: info_map.append(info)
+            if info: 
+                info_map.append(info)
 
     features = np.asarray(features)
     features = (features.T).tolist()
@@ -664,19 +668,28 @@ def plot_overlay(features_map_list, **kwargs):
             else: 
                 overlay += image_channel
             plt.imshow(image_channel, extent=extent, origin='lower') 
-            plt.title('({}) id={}, {}'.format(rgb[channel], ids[ii], tags[ii]))
+            plt.title('({}) id={}, {}, [min, max]=[{:.3f}, {:.3f}]'.format(rgb[channel], ids[ii], tags[ii], np.nanmin(feature), np.nanmax(feature)))
             channel += 1
         
         ## Plot with imshow
         ax = plt.subplot2grid((3, 7), (0, 2), rowspan=3, colspan=4); ax.cla()
         ax.set_facecolor('k')
         plt.imshow(overlay, extent=extent,origin='lower')        
-        plt.title('normalize_each {}'.format(normalize_each))
-        plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
+        plt.title('normalize_each={}, log10={}'.format(normalize_each,log10))
+        #plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3)
         plt.axis('tight')
         plt.axis('equal')
         plt.xlabel('x (mm)')
         #plt.ylabel('y (mm)')
+        if 0:
+            plt.plot([-3.26, -3.26], [-7.46, -7.07],color='w')
+            plt.plot([-3.26, -2.87], [-7.46, -7.46],color='w')
+            
+            plt.plot([-3.16, -3.16], [-6.96, -6.57],color='w')
+            plt.plot([-3.16, -2.77], [-6.96, -6.96],color='w')
+            # medium_G1_13mgml finegrid
+        plt.plot([-3.116, -3.116], [-6.715, -6.568],color='w')
+        plt.plot([-3.116, -2.98], [-6.715, -6.715],color='w')
         
         ## Plot the colorcone
         ax2 = plt.subplot2grid((3, 7), (0, 6), colspan=1); ax2.cla()
@@ -851,6 +864,7 @@ def fold_line(x, y, N, verbose):
             plt.grid()
     
     return x_fold, y_fold
+
 
 
 # =============================================================================
