@@ -19,6 +19,7 @@ from skimage import io
 
 from fun_ky import *
 import lmfit
+from scipy.signal import find_peaks
 
 from mpl_toolkits.axes_grid1 import host_subplot
 import mpl_toolkits.axisartist as AA
@@ -207,7 +208,8 @@ def get_feature(infile, feature_args):
             N_fold = int(np.asarray(angle_roi[0]))
             stat = angle_roi[1]
         else:
-            N_fold = 0
+            N_fold = 0           
+            
         angle, I = extract_data(infile, data_col)        
         line_orig = DataLine(x=angle, y=I)
         info.append(line_orig)
@@ -402,6 +404,7 @@ def plot_data(infile, **feature_args):
     elif feature_id == 2: 
         q_targets = kwargs['targets']
         data_col = kwargs['data_col']
+        N_peaks_find = kwargs['N_peaks_find']
         if 'roi' in kwargs:
             n = kwargs['roi'][0]
         else:
@@ -409,25 +412,31 @@ def plot_data(infile, **feature_args):
         q = info[0].x
         I = info[0].y
         if log10: I = np.log10(I)
-        plt.plot(q, I)     
+        y_lim = [np.nanmin(I), np.nanmax(I)]
+        y_range = y_lim[1] - y_lim[0]
+        #plt.plot(q, I)     
+        plot_peaks(DataLine(x=q,y=I), N_peaks_find)
         for idx, q_target in enumerate(q_targets):
             if type(q_target) is not str:
-                plt.plot([q_target, q_target], [-1, 4])
-                plt.text(q_target, -0.9+idx*0.5, '('+str(q_target)+')')
+                plt.plot([q_target, q_target], y_lim)
+                plt.text(q_target, y_lim[0]-y_range*0.05, '('+str(q_target)+')')
                 # plot integration region
                 cen = get_target_idx(q, q_target)
-            plt.plot([q[cen-n], q[cen+n]], [-1, -1]) 
+            plt.plot([q[cen-n], q[cen+n]], [y_lim[0], y_lim[0]]) 
+        
         plt.xlabel('q ($\AA$^-1)')
         plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)  
-        if log10: 
-            plt.ylabel('log10(I)')
-        else:
-            plt.ylabel('Intensity (a.u.)')
+        if subplot: 
+            if log10: 
+                plt.ylabel('log10(I)')
+            else:
+                plt.ylabel('Intensity (a.u.)')
    
     elif feature_id == 3:  
         data_col = kwargs['data_col']
         angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
+        N_peaks_find = kwargs['N_peaks_find']
         if type(angle_roi[1]) is str:
             N_fold = int(np.asarray(angle_roi[0]))
             stat = angle_roi[1]
@@ -439,36 +448,48 @@ def plot_data(infile, **feature_args):
         if N_fold:
             angle_fold = info[1].x
             I_fold = info[1].y
-            if log10: I_fold = np.log10(I_fold)
-            ax2 = plt.subplot2grid((2, 1), (1, 0), colspan=1) 
-            for nn in np.arange(-N_fold/2,N_fold/2):
-                plt.plot(angle_fold+nn*360/N_fold, I_fold)   
-            plt.xlim([np.min(angle), np.max(angle)])
-            ax2.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
+            if log10: 
+                I_fold = np.log10(I_fold)
+            if subplot: 
+                ax2 = plt.subplot2grid((2, 1), (1, 0), colspan=1) 
+                for nn in np.arange(-N_fold/2*subplot,N_fold/2*subplot):
+                    plt.plot(angle_fold+nn*360/N_fold, I_fold)  
+                    if nn==0:
+                        line = DataLine(x=angle_fold, y=I_fold)
+                        plot_peaks(line, fit_prom)
+                plt.xlim([np.min(angle), np.max(angle)])
+            else:
+                plt.plot(angle_fold, I_fold) 
+                line = DataLine(x=angle_fold, y=I_fold)
+                plot_peaks(line, N_peaks_find)
+                plt.xlim([np.min(angle_fold), np.max(angle_fold)])
+            plt.xlabel('$\chi$ (degree)')
+            plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
 
         y_lim = [np.nanmin(I), np.nanmax(I)]
-        ax1 = plt.subplot2grid((2, 1), (0, 0), colspan=1) 
-        plt.plot(angle, I) 
-        plt.xlim([np.min(angle), np.max(angle)])
-        for idx, angle_target in enumerate(angle_targets):
-            if angle_target =='argmax':
-                if N_fold==0:                    
-                    ax1.plot([val[idx], val[idx]], y_lim,'--')
-                    ax1.plot(angle_roi, [y_lim[0], y_lim[0]])
-                    ax1.text(val[idx], y_lim[1], 'argmax=('+str(np.round(val[idx],2))+')')
-                else:
-                    ax2.plot([val[idx], val[idx]], y_lim,'--')
-                    ax2.text(val[idx], y_lim[1], 'argmax='+str(np.round(val,2)))
-            elif type(angle_target) is not str:
-                plt.plot([angle_target, angle_target], [y_lim[0], y_lim[0]])
-                plt.plot([angle_target, angle_target], y_lim,'--')
-                plt.text(angle_target, y_lim[0]+idx*0.1, '('+str(angle_target)+')')
-        ax1.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
-        plt.xlabel('$\chi$ (degree)')
-        if log10: 
-            plt.ylabel('log10(I)')
-        else:
-            plt.ylabel('Intensity (a.u.)')
+        if subplot: 
+            ax1 = plt.subplot2grid((2, 1), (0, 0), colspan=1) 
+            plt.plot(angle, I) 
+            plt.xlim([np.min(angle), np.max(angle)])
+            for idx, angle_target in enumerate(angle_targets):
+                if angle_target =='argmax':
+                    if N_fold==0:                    
+                        ax1.plot([val[idx], val[idx]], y_lim,'--')
+                        ax1.plot(angle_roi, [y_lim[0], y_lim[0]])
+                        ax1.text(val[idx], y_lim[1], 'argmax=('+str(np.round(val[idx],2))+')')
+                    else:
+                        ax2.plot([val[idx], val[idx]], y_lim,'--')
+                        ax2.text(val[idx], y_lim[1], 'argmax='+str(np.round(val,2)))
+                elif type(angle_target) is not str:
+                    plt.plot([angle_target, angle_target], [y_lim[0], y_lim[0]])
+                    plt.plot([angle_target, angle_target], y_lim,'--')
+                    plt.text(angle_target, y_lim[0]+idx*0.1, '('+str(angle_target)+')')
+            ax1.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
+            plt.xlabel('$\chi$ (degree)')
+            if log10: 
+                plt.ylabel('log10(I)')
+            else:
+                plt.ylabel('Intensity (a.u.)')
             
     elif feature_id == 4:
         feats = kwargs['targets']
@@ -632,7 +653,7 @@ def plot_overlay(features_map_list, **kwargs):
     
     ## Take three channels for plotting
     overlay = []; overlay_legend = [] ; channel = 0; rgb = 'RGB'
-    if feature_array!=[]:
+    if feature_array!=[] and len(feature_array)>=len(rgb):
         fig = plt.figure(500, figsize=[10, 8]); plt.clf()
         
         ## Get max and min for normalization 
@@ -688,16 +709,22 @@ def plot_overlay(features_map_list, **kwargs):
             plt.plot([-3.16, -3.16], [-6.96, -6.57],color='w')
             plt.plot([-3.16, -2.77], [-6.96, -6.96],color='w')
             # medium_G1_13mgml finegrid
-        plt.plot([-3.116, -3.116], [-6.715, -6.568],color='w')
-        plt.plot([-3.116, -2.98], [-6.715, -6.715],color='w')
-        
+            plt.plot([-3.116, -3.116], [-6.715, -6.568],color='w')
+            plt.plot([-3.116, -2.98], [-6.715, -6.715],color='w')
+            # [-1.375, -0.655] [-6.375, -5.655]
+        if 0:
+            plt.plot([-1.375, -1.375], [-6.375, -5.655],color='w')
+            plt.plot([-1.375, -0.655], [-6.375, -6.375],color='w')
+            plt.plot([-1.375, -0.655], [-5.655, -5.655],color='w')
+            plt.plot([-0.655, -0.655], [-6.375, -5.655],color='w')
+            
         ## Plot the colorcone
         ax2 = plt.subplot2grid((3, 7), (0, 6), colspan=1); ax2.cla()
         colorbar = Image.open('hsl_cone_graphic.jpg')
         plt.imshow(colorbar)
         plt.axis('off')
     else:
-        print('feature_array is empty!\n')
+        print('feature_array is empty or too short! No overlay plotted\n')
     return overlay
 
 # =============================================================================
@@ -719,7 +746,7 @@ def image_RGB(image, rgb):
 # =============================================================================
 # Extract maps from all feature_ids
 # Example:
-#    features_map, legends = extract_maps(features_map_list)
+#    features_map = extract_maps(features_map_list)
 # Input:
 #   features_map_list: list of feautres_maps, with len = # of feature ids
 #       features = feature_map['features']: 1D or 2D array, axes are [postision, feature]
@@ -814,7 +841,25 @@ def math_features(features_map_list, **kwargs):
     
     return feature_c
 
-
+# =============================================================================
+# Plot peaks
+# =============================================================================
+def plot_peaks(line, N_peaks_find):
+    plt.plot(line.x, line.y); 
+    fit_prom = 0.01
+    peaks, _ = find_peaks(line.y, height=0, width=2, prominence=(fit_prom, None))
+    while len(peaks)>N_peaks_find:
+        #print('  N_peaks = {}, increase fit_prom to reduce N_peaks'.format(len(peaks)))
+        fit_prom = fit_prom*1.1
+        peaks, _ = find_peaks(line.y, height=0, width=2, prominence=(fit_prom, None)) 
+    print('Peaks found at {}'.format(np.round(line.x[peaks],3)) +' for fit_prom {:.2f}'.format(fit_prom))
+    ylim = [np.nanmin(line.y), np.nanmax(line.y)]
+    yrange = ylim[1]-ylim[0]
+    for idx, peak in enumerate(peaks):
+        plt.plot([line.x[peak],line.x[peak]], ylim, '--', color=rand_color(0.3, 0.9))
+        if idx<15: plt.text(line.x[peak], ylim[0]+idx*yrange*0.08, str(np.round(line.x[peak],3)))
+    plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3) 
+        
 # =============================================================================
 # Count # of feature maps
 # =============================================================================
@@ -868,7 +913,7 @@ def fold_line(x, y, N, verbose):
 
 
 # =============================================================================
-# Generate a random color, each channel with range (a,b)
+# Generate a random color, each channel with range (a,b), 0 dark
 # =============================================================================
 def rand_color(a, b):
     r = b-a
