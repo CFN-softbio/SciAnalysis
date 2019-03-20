@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import time, datetime
 from databroker import list_configs
 #print( list_configs() )
@@ -11,16 +12,23 @@ from databroker import Broker
 
 # Select the experiment to consider
 beamline = 'cms'
-start_time, stop_time = '2017-11-27', '2017-12-01'
-user = 'RVerduzco'
-alias_dir = '/GPFS/xf11bm/data/2017_3/{}'.format(user)
+start_time, stop_time = '2019-01-01', '2019-01-30'
+#alias_dir = '/GPFS/xf11bm/data/2019_1/UShell'
+alias_dir = os.path.abspath('./')
+
+
 
 # Select what kinds of scans to consider
 measure_type = 'measure'
 
 # Select the meta-data (md) to output
 md_required = []
-md_optional = ['mfc', 'film_thickness']
+md_optional = []
+
+
+#md_required = ['scan_id', 'sample_x', 'sample_y', 'sample_th']
+#md_optional = ['sample_clock', 'sample_temperature']
+#md_optional = ['mfc', 'film_thickness']
 
 
 
@@ -44,7 +52,8 @@ db = Broker.named(beamline)
 
 print("Scans (of type '{}') in directory:".format(measure_type))
 print("    {}".format(alias_dir))
-headers = db(start_time=start_time, stop_time=stop_time, measure_type=measure_type, experiment_alias_directory=alias_dir)
+#headers = db(start_time=start_time, stop_time=stop_time, measure_type=measure_type, experiment_alias_directory=alias_dir)
+headers = db(since=start_time, until=stop_time, measure_type=measure_type, experiment_alias_directory=alias_dir)
 
 
 if verbosity>=3:
@@ -57,7 +66,7 @@ else:
 
 with open(outfile, 'w') as fout:
     
-    fields = ['datetime', 'name']
+    fields = ['datetime', 'timestamp', 'name']
     for mdc in md_required:
         fields.append(mdc)
     for mdc in md_optional:
@@ -74,7 +83,14 @@ with open(outfile, 'w') as fout:
                 else:
                     print(' Record {} of {} ({:.1f}% done after {:.2f}s)'.format(ih, num_scans, 100.0*ih/num_scans, time.time()-execution_start ))
         
-        #print(header.table()['det'].mean())
+        
+        
+        if verbosity>=5:
+            # Print out diagnostic info
+            #print(header)
+            #print(header.table()['det'].mean())
+            for k, v in header.items():
+                print(k, v)
 
         section = header['start']
 
@@ -86,7 +102,7 @@ with open(outfile, 'w') as fout:
         #seqID = section['detector_sequence_ID']
         #sID = section['sample_measurement_ID']
 
-        fields = [time_str, name]
+        fields = [time_str, unixtime, name]
 
         for mdc in md_required:
             fields.append(section[mdc])
