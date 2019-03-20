@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Jan 15 13:51:10 2019
 
-@author: etsai
-"""
+from fun_ky import * # SciAnalysis_PATH defined here, TEMP solution
 
 import time, io, os, sys, re, glob, random, copy, gc
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+
 from scipy import ndimage
 from scipy import interpolate
 from scipy.interpolate import griddata
@@ -17,7 +16,6 @@ import PIL.Image as Image
 from skimage import color
 import skimage.io as skiio
 
-from fun_ky import *
 import lmfit
 from scipy.signal import find_peaks
 
@@ -166,7 +164,7 @@ def calc_distance(p0, p1):
 #   lists: val and info
 # =============================================================================
 def get_feature(infile, feature_args):
-    direct = feature_args['direct']
+    direct = feature_args['direct']  # direct processing from .tif
     verbose = feature_args['verbose']
     feature_id = feature_args['feature_id']
     verbose = feature_args['verbose']
@@ -181,7 +179,6 @@ def get_feature(infile, feature_args):
         result = process.run([infile], protocols, output_dir='./', force=True, store=False)
         if verbose: 
             sys.stdout = sys.__stdout__       
-        
     
     val = []; info = [] # additional info to store 
     if feature_id == 1:
@@ -295,8 +292,14 @@ def get_feature(infile, feature_args):
         feats = kwargs['targets']
         fit_range = kwargs['fit_range']
         chi2_thr = kwargs['chi2_thr']
-        q, I = extract_data(infile, data_col) 
-        line = DataLine(x=q, y=I)
+        
+        if direct:
+            line = result[0]
+            q = line.x; I = line.y
+        else:
+            q, I = extract_data(infile, data_col)
+            line = DataLine(x=q, y=I)
+        
         run_args = {'fit_range': fit_range, 'sigma': 0.001, 'verbosity': 0}
         lm_result, fit_line, fit_line_extended = Protocols.circular_average_q2I_fit()._fit_peaks(line=line, q0=None, vary=True, **run_args)
         chi2 = lm_result.chisqr/lm_result.nfree
@@ -896,11 +899,11 @@ def math_features(features_map_list, **kwargs):
 def plot_peaks(line, N_peaks_find):
     plt.plot(line.x, line.y); 
     fit_prom = 0.01
-    peaks, _ = find_peaks(line.y, height=0, width=1, prominence=(fit_prom, None))
+    peaks, _ = find_peaks(line.y, height=0, width=2, prominence=(fit_prom, None))
     while len(peaks)>N_peaks_find:
         #print('  N_peaks = {}, increase fit_prom to reduce N_peaks'.format(len(peaks)))
         fit_prom = fit_prom*1.1
-        peaks, _ = find_peaks(line.y, height=0, width=1, prominence=(fit_prom, None)) 
+        peaks, _ = find_peaks(line.y, height=0, width=2, prominence=(fit_prom, None)) 
     print('Peaks found at {}'.format(np.round(line.x[peaks],3)) +' for fit_prom {:.2f}'.format(fit_prom))
     
     ylim = [np.nanmin(line.y[line.y != -np.inf]), np.nanmax(line.y)]

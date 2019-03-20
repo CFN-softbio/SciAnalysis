@@ -9,7 +9,7 @@ import sys, os, time
 #SciAnalysis_PATH='/home/xf11bm/software/SciAnalysis/'
 #SciAnalysis_PATH='/GPFS/xf12id1/analysis/CFN/SciAnalysis/SciAnalysis2018C3/'
 #SciAnalysis_PATH='/home/etsai/BNL/Users/software/SciAnalysis2018C3/'
-SciAnalysis_PATH='/home/etsai/BNL/Users/software/SciAnalysis_pr'
+SciAnalysis_PATH='/home/etsai/BNL/Users/software/SciAnalysis_pr/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob
@@ -18,6 +18,55 @@ from SciAnalysis.XSAnalysis.Data import *
 from SciAnalysis.XSAnalysis import Protocols
 
 
+# =============================================================================
+# 
+# =============================================================================
+class DataLines_current(DataLines):
+            
+    def _plot_extra(self, **plot_args):
+            
+        xi, xf, yi, yf = self.ax.axis()
+            
+        xstart, xend = self._run_args['fit_range']
+        line = self.lines[0].sub_range(xstart, xend)
+        #print(line.y)
+        #yf = np.max(line.y)*1.5
+        yf = np.max(self.results['fit_peaks_prefactor_total'])*1.5
+        self.ax.axis([xi, xf, yi, yf])                    
+            
+        v_spacing = (yf-yi)*0.10
+
+        yp = yf
+        s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_peaks_chi_squared'])
+        self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+
+        yp -= v_spacing
+        try:
+            s = '$f = \, {:.4f}, b = {:.4f}, slope = {:.4f}$'.format(self.results['fit_peaks_prefactor_total'], self.results['fit_peaks_b']['value'], self.results['fit_peaks_slope']['value'])
+        except:
+            s = '$f = \, {:.4f}, b = {:.4f}$'.format(self.results['fit_peaks_prefactor_total'], self.results['fit_peaks_b']['value'])
+        self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right') 
+       
+        yp -= v_spacing
+        try:
+            s = '$q_0 = \, {:.4f}, {:.4f}\, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center1']['value'],self.results['fit_peaks_x_center2']['value'])
+        except:
+            s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center1']['value'])
+        self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+
+        yp -= v_spacing
+        s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0'])
+        self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+
+        yp -= v_spacing
+        s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma1']['value'])
+        self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+        
+        yp -= v_spacing
+        s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size'])
+        self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+        
+        
 # =============================================================================
 # fit_result
 # =============================================================================

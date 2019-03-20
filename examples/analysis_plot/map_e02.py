@@ -1,33 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 18 18:13:21 2019
-
-"""
-
-import sys, os
-#SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
-#SciAnalysis_PATH='/home/xf11bm/software/SciAnalysis/'
-#SciAnalysis_PATH='/GPFS/xf12id1/analysis/CFN/SciAnalysis/SciAnalysis2018C3/'
-#SciAnalysis_PATH='/home/etsai/BNL/Users/software/SciAnalysis2018C3/'
-SciAnalysis_PATH='/home/etsai/BNL/Users/software/SciAnalysis_pr'
-SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
-
-import glob
-from SciAnalysis import tools
-from SciAnalysis.XSAnalysis.Data import *
-from SciAnalysis.XSAnalysis import Protocols
 
 from fun_map import *
+
 mpl.rcParams['font.size'] = 15
 mpl.rcParams['figure.titlesize'] = 12
 mpl.rcParams['lines.linewidth'] = 2 
 mpl.rcParams['axes.labelsize'] = 12
 mpl.rcParams['xtick.labelsize'] = 12
 mpl.rcParams['ytick.labelsize'] = 12
-#plt.rcParams['axes.facecolor']='k'
-
-gc.collect()
 
 
 # =============================================================================
@@ -40,10 +21,11 @@ dir_path = '/home/etsai/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/'
 feature_args = {
                 'source_dir': dir_path,
                 'filename'  : 'medium_as-synth_highC_f*10.00s', 
-                'filename'  : 'medium_G1_13mgml_*5.00s*7299', 
+                'filename'  : 'medium_G1_13mgml_*5.00s', 
                 #'filename'  : 'medium_G2-2G1_highC_m*10.00s',  
                 #'filename'  : 'medium_G2-3G1_20mgml_x*_y*5.00s', 
                 #'filename'  : '14_As-synthesized_DEG_Grid',  #x-0.350_y0.20 #14_As-synthesized_DEG_Grid',
+                'filename': '*076288*', 
                 'exclude': ['072641', '072729', '079729', '081511',  
                             '0698', '06996', '06997',
                             '074831', '074833'], 
@@ -72,7 +54,7 @@ feature_2_args = {'source_dir' : dir_path+'analysis/circular_average/', 'ext' : 
 feature_3_args = {'source_dir' : dir_path+'analysis/linecut_angle092/', 'ext' : '.dat', 'data_col' : [0, 1],
              'protocols': [Protocols.linecut_angle(q0=feature_2_args['targets'], dq=0.002)], 
               'angle_roi': [6, 'mean'], #[-61,  1], # range [0, 60] or N_fold [6, 'mean']
-             'targets': [], #['argmax','var'], #[6.6, 9.5, 12.6,32, 35, 49], #, 'var', 10, 26, 36, 42 , 57, 59, 69], #'max', #[21] # 'max', 'var', or specify angle 
+             'targets': ['argmax','var'], #['argmax','var'], #[6.6, 9.5, 12.6,32, 35, 49], #, 'var', 10, 26, 36, 42 , 57, 59, 69], #'max', #[21] # 'max', 'var', or specify angle 
              'normalize': True, # normalize by sum(I)
              'N_peaks_find': 15,
              }
@@ -86,11 +68,12 @@ feature_4_args = {'source_dir' : dir_path+'analysis/circular_average/', 'ext' : 
 
 feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args, feature_4_args=feature_4_args)
 
-feature_args.update(feature_1_args=feature_1_args, feature_2_args=feature_2_args, feature_3_args=feature_3_args, feature_4_args=feature_4_args)
-
 
 # =============================================================================
 # The usual: calibration, mask, and process args
+# 
+# The typical process.run([infile], protocols, output_dir='./', force=True)
+# is in function get_map -> get_feature
 # =============================================================================
 calibration = Calibration(wavelength_A=0.770088) # 16.1 keV
 calibration.set_image_size(981, height=1043) # Pilatus1M
@@ -101,10 +84,12 @@ mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
 mask = Mask(mask_dir+'Dectris/Pilatus1M_main_gaps-mask.png')
 mask.load(dir_path+'analysis/Pilatus1M_bad_pixel.png') 
 filename = feature_args['filename']
-if ('medium_G2=2G1' in filename) or ('medium_as-synth' in filename):
+if ('medium_G2-2G1' in filename) or ('medium_as-synth' in filename):
+    calibration.set_distance(5.300)
     calibration.set_beam_position(452.0, 566.0) # medium_G2; medium_as-synth (round2 samples)
     mask.load(dir_path+'analysis/Pilatus1M_current-mask.png') 
 else:
+    calibration.set_distance(2.300)
     calibration.set_beam_position(493.0, 560.0) # medium_G1_13mgml_; medium_G2-3G1_
     mask.load(dir_path+'analysis/Pilatus1M_current-mask2.png')
     
@@ -113,13 +98,13 @@ load_args = { 'calibration' : calibration,
              }
 run_args = { 'verbosity' : 0,
             'plot_save': False,
-            'threshold': 60000
+            'threshold': 65000
             }
 process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 if feature_args['direct']:
     feature_args['process'] = process
+        
     
-
 # =============================================================================
 # Feature maps
 # Get maps, plot, apply math, overlay
@@ -133,7 +118,7 @@ for idx in feature_ids:
     ## Find matching files   
     infiles, match_re = get_filematch(feature_args)  
     
-    ## Get map   
+    ## Get map
     features_map = get_map(infiles, match_re, feature_args)
     features_map_list.append(features_map)
     
