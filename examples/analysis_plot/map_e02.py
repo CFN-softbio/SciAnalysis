@@ -3,14 +3,6 @@
 
 from fun_map import *
 
-mpl.rcParams['font.size'] = 15
-mpl.rcParams['figure.titlesize'] = 12
-mpl.rcParams['lines.linewidth'] = 2 
-mpl.rcParams['axes.labelsize'] = 12
-mpl.rcParams['xtick.labelsize'] = 12
-mpl.rcParams['ytick.labelsize'] = 12
-
-
 # =============================================================================
 # Input files
 # 1) Do runXS.py to generate necessary files (eg qr_image, circular_average), make sure mask and beam center are correct

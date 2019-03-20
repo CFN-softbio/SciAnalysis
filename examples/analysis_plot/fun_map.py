@@ -26,6 +26,14 @@ from bqplot import *
 import bqplot.pyplot as bplt
 #import ipywidgets as widgets
 
+mpl.rcParams['font.size'] = 15
+#mpl.rcParams['font.weight'] = 'bold'
+mpl.rcParams['figure.titlesize'] = 12
+mpl.rcParams['lines.linewidth'] = 2 
+mpl.rcParams['axes.labelsize'] = 12
+mpl.rcParams['xtick.labelsize'] = 12
+mpl.rcParams['ytick.labelsize'] = 12
+
 # =============================================================================
 # Load data from .dat 
 # - Extract columns col[0] and col[1]
@@ -489,17 +497,19 @@ def plot_data(infile, **feature_args):
         angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
         N_peaks_find = kwargs['N_peaks_find']
+        protocols = kwargs['protocols']
         if type(angle_roi[1]) is str:
             N_fold = int(np.asarray(angle_roi[0]))
             stat = angle_roi[1]
         else:
             N_fold = 0
-        angle = info[0].x
-        I = info[0].y
+        angle = info[0].x   # the original curve
+        I = info[0].y       # the original curve
         if log10: I = np.log10(I)
+        
         if N_fold:
-            angle_fold = info[1].x
-            I_fold = info[1].y
+            angle_fold = info[1].x  # the folded curve
+            I_fold = info[1].y      # the folded curve
             if log10: 
                 I_fold = np.log10(I_fold)
             if subplot: 
@@ -515,12 +525,14 @@ def plot_data(infile, **feature_args):
                 line = DataLine(x=angle_fold, y=I_fold)
                 plot_peaks(line, N_peaks_find)
                 plt.xlim([np.min(angle_fold), np.max(angle_fold)])
-            plt.xlabel('$\chi$ (degree)')
+            plt.xlabel('$\chi$ (degree), q={:.3f}, qd={:.3g}'.format(protocols[0].run_args['q0'], protocols[0].run_args['dq']))
             plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
 
         y_lim = [np.nanmin(I), np.nanmax(I)]
         if subplot: 
             ax1 = plt.subplot2grid((2, 1), (0, 0), colspan=1) 
+        
+        if subplot or N_fold==0:
             plt.plot(angle, I) 
             plt.xlim([np.min(angle), np.max(angle)])
             for idx, angle_target in enumerate(angle_targets):
@@ -537,7 +549,7 @@ def plot_data(infile, **feature_args):
                     plt.plot([angle_target, angle_target], y_lim,'--')
                     plt.text(angle_target, y_lim[0]+idx*0.1, '('+str(angle_target)+')')
             ax1.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
-            plt.xlabel('$\chi$ (degree)')
+            plt.xlabel('$\chi$ (degree) at q={:.3f}, qd={:.3g}'.format(protocols[0].run_args['q0'][0], protocols[0].run_args['dq']))
             if log10: 
                 plt.ylabel('log10(I)')
             else:
@@ -911,8 +923,10 @@ def plot_peaks(line, N_peaks_find):
     for idx, peak in enumerate(peaks):
         plt.plot([line.x[peak], line.x[peak]], ylim, '--', color=rand_color(0.3, 0.9))
         if idx<15: 
-            plt.text(line.x[peak], ylim[0]+idx*yrange*0.08, str(np.round(line.x[peak],3)))
+            plt.text(line.x[peak], ylim[0]+idx*yrange*0.08, str(np.round(line.x[peak],3)),fontweight='bold')
     plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3) 
+    
+    return line.x[peak]
         
 # =============================================================================
 # Count # of feature maps
