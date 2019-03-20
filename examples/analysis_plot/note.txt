@@ -1,2 +1,0 @@
-files working at:
-/BNL/Users/SMI/CMurray/2018C3_CMurray_data/saxs/analysis/maps_offline

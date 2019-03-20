@@ -136,16 +136,19 @@ class circular_average(Protocol):
         
         line = data.circular_average_q_bin(error=True)
         #line.smooth(2.0, bins=10)
+        results = line
         
-        outfile = self.get_outfile(data.name, output_dir)
-        
-        try:
-            line.plot(save=outfile, **run_args)
-        except ValueError:
-            pass
-
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        plot_save = run_args['plot_save'] if 'plot_save' in run_args else True           
+        if plot_save:
+            outfile = self.get_outfile(data.name, output_dir)
+            
+            try:
+                line.plot(save=outfile, **run_args)
+            except ValueError:
+                pass
+    
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
         
         # TODO: Fit 1D data
         
@@ -296,21 +299,25 @@ class linecut_angle(Protocol):
         
         #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
         line = data.linecut_angle(**run_args)
-        
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        results = line
         
         
-        #line.smooth(2.0, bins=10)
-        
-        outfile = self.get_outfile(data.name, output_dir)
-        line.plot(save=outfile, **run_args)
-
-        #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
-        #line.plot_polar(save=outfile, **run_args)
-
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        plot_save = run_args['plot_save'] if 'plot_save' in run_args else True           
+        if plot_save:
+            if 'show_region' in run_args and run_args['show_region']:
+                data.plot(show=True)
+            
+            
+            #line.smooth(2.0, bins=10)
+            
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
+    
+            #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+            #line.plot_polar(save=outfile, **run_args)
+    
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
         
         return results
                                 
@@ -1741,36 +1748,38 @@ class qr_image(Protocol):
             data.blur(run_args['blur'])
         
         q_data = data.remesh_qr_bin(**run_args)
+        results = q_data
         
-        
-        if 'file_extension' in run_args and run_args['file_extension'] is not None:
-            outfile = self.get_outfile(data.name, output_dir, ext=run_args['file_extension'])
-        else:
-            outfile = self.get_outfile(data.name, output_dir)
-
-        if 'q_max' in run_args and run_args['q_max'] is not None:
-            q_max = run_args['q_max']
-            run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
-        
-        q_data.set_z_display([None, None, 'gamma', 0.3])
-        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
-                                    'xtick.labelsize': 40,
-                                    'ytick.labelsize': 40,
-                                    'xtick.major.pad': 10,
-                                    'ytick.major.pad': 10,
-                                    },
-                            } 
-        q_data.x_label = 'qr'
-        q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
-
-        if 'plot_buffers' not in run_args:
-            run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
-        q_data.plot(outfile, **run_args)
-        
-        if 'save_data' in run_args and run_args['save_data']:
-            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
-            q_data.save_data(outfile)
-       
+        plot_save = run_args['plot_save'] if 'plot_save' in run_args else True           
+        if plot_save:                
+            if 'file_extension' in run_args and run_args['file_extension'] is not None:
+                outfile = self.get_outfile(data.name, output_dir, ext=run_args['file_extension'])
+            else:
+                outfile = self.get_outfile(data.name, output_dir)
+    
+            if 'q_max' in run_args and run_args['q_max'] is not None:
+                q_max = run_args['q_max']
+                run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
+            
+            q_data.set_z_display([None, None, 'gamma', 0.3])
+            q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
+                                        'xtick.labelsize': 40,
+                                        'ytick.labelsize': 40,
+                                        'xtick.major.pad': 10,
+                                        'ytick.major.pad': 10,
+                                        },
+                                } 
+            q_data.x_label = 'qr'
+            q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
+    
+            if 'plot_buffers' not in run_args:
+                run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
+            q_data.plot(outfile, **run_args)
+            
+            if 'save_data' in run_args and run_args['save_data']:
+                outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+                q_data.save_data(outfile)
+           
         
         return results
         

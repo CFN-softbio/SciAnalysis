@@ -155,7 +155,7 @@ class Processor(object):
         return output_dir
 
         
-    def run(self, infiles=None, protocols=None, output_dir=None, force=False, ignore_errors=False, sort=False, load_args={}, run_args={}, **kwargs):
+    def run(self, infiles=None, protocols=None, output_dir=None, force=False, store=True, ignore_errors=False, sort=False, load_args={}, run_args={}, **kwargs):
         '''Process the specified files using the specified protocols.'''
         
         l_args = self.load_args.copy()
@@ -179,7 +179,7 @@ class Processor(object):
             
             try:
                 data = self.load(infile, **l_args)
-                #results_list= []
+                results_list= []
                 for protocol in protocols:
                     
                     output_dir_current = self.access_dir(output_dir, protocol.name)
@@ -192,15 +192,17 @@ class Processor(object):
                         print('Running {} for {}'.format(protocol.name, data.name))
                         
                         results = protocol.run(data, output_dir_current, **r_args)
-                        #results_list.append(results)
-                        md = {}
-                        md['infile'] = data.infile
-                        if 'full_name' in l_args:
-                            md['full_name'] = l_args['full_name']
-                        try:
-                            self.store_results(results, output_dir, infile, protocol, **md)
-                        except:
-                            print('In tools.py: store_results did not work.')
+                        results_list.append(results)
+                        
+                        if store:
+                            md = {}
+                            md['infile'] = data.infile
+                            if 'full_name' in l_args:
+                                md['full_name'] = l_args['full_name']
+                            try:
+                                self.store_results(results, output_dir, infile, protocol, **md)
+                            except:
+                                print('In tools.py: store_results did not work.')
                         
 
             except Exception as exception:
@@ -210,7 +212,7 @@ class Processor(object):
                 else:
                     raise
                     
-        #return results_list
+        return results_list
 
     def load(self, infile, **kwargs):
         
