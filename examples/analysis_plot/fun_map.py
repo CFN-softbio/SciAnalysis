@@ -6,7 +6,7 @@ Created on Tue Jan 15 13:51:10 2019
 @author: etsai
 """
 
-import time, os, sys, re, glob, random, copy
+import time, io, os, sys, re, glob, random, copy, gc
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import ndimage
@@ -15,7 +15,7 @@ from scipy.interpolate import griddata
 from matplotlib.colors import ListedColormap
 import PIL.Image as Image
 from skimage import color
-from skimage import io
+import skimage.io as skiio
 
 from fun_ky import *
 import lmfit
@@ -24,6 +24,10 @@ from scipy.signal import find_peaks
 from mpl_toolkits.axes_grid1 import host_subplot
 import mpl_toolkits.axisartist as AA
         
+from bqplot import *
+import bqplot.pyplot as bplt
+#import ipywidgets as widgets
+
 # =============================================================================
 # Load data from .dat 
 # - Extract columns col[0] and col[1]
@@ -51,10 +55,16 @@ def get_filematch(feature_args):
     filename = feature_args['filename']  
     exclude = feature_args['exclude']
     feature_id = feature_args['feature_id']
-    verbose = feature_args['verbose']
-    kwargs = feature_args['feature_{}_args'.format(feature_id)]        
-    source_dir = kwargs['source_dir']
-    ext = kwargs['ext']
+    verbose = feature_args['verbose'] 
+    
+    direct = feature_args['direct']
+    if direct:
+        source_dir = feature_args['source_dir']
+        ext = '.tif'
+    else:
+        kwargs = feature_args['feature_{}_args'.format(feature_id)]       
+        source_dir = kwargs['source_dir']
+        ext = kwargs['ext']
 
     pattern = filename+'*'+ext
     print(pattern)
@@ -74,7 +84,6 @@ def get_filematch(feature_args):
         
     match_re = re.compile(parse_re)    
     if verbose>0:
-        print(pattern)
         print('Considering {} files...'.format(len(infiles)))   
     
     # Exclude some files
@@ -109,8 +118,15 @@ def find_file(xf, yf, feature_args):
     filename = feature_args['filename']
     feature_id = feature_args['feature_id']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
-    source_dir = kwargs['source_dir']
-    ext = kwargs['ext']
+
+    direct = feature_args['direct']
+    if direct:
+        source_dir = feature_args['source_dir']
+        ext = '.tif'
+    else:
+        kwargs = feature_args['feature_{}_args'.format(feature_id)]       
+        source_dir = kwargs['source_dir']
+        ext = kwargs['ext']
     
     n = filename.find('*') # assume before this is the sample name
     
@@ -150,23 +166,43 @@ def calc_distance(p0, p1):
 #   lists: val and info
 # =============================================================================
 def get_feature(infile, feature_args):
-    #log10 = feature_args['log10']
+    direct = feature_args['direct']
+    verbose = feature_args['verbose']
     feature_id = feature_args['feature_id']
     verbose = feature_args['verbose']
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
+ 
+    if direct:
+        process = feature_args['process']
+        protocols = kwargs['protocols']
+        if verbose<=1: # Suppress output, temporary solution
+            text_trap = io.StringIO()
+            sys.stdout = text_trap
+        result = process.run([infile], protocols, output_dir='./', force=True, store=False)
+        if verbose: 
+            sys.stdout = sys.__stdout__       
+        
     
     val = []; info = [] # additional info to store 
     if feature_id == 1:
         pixels = kwargs['targets']
         roi = kwargs['roi']
         n = roi[0]
-        #im = color.rgb2gray(io.imread(infile)); imarray = np.array(im)
-        im = np.load(infile).items()
-        imarray = np.array(im[0][1])   
-        x_axis = im[1][1] 
-        y_axis = im[2][1] 
-        x_scale = im[3][1] 
-        y_scale = im[4][1] 
+        
+        if direct:
+            imarray = np.array(result[0].data)  
+            x_axis = result[0].x_axis
+            y_axis = result[0].y_axis
+            x_scale = result[0].x_scale
+            y_scale = result[0].y_scale
+        else:
+            #im = color.rgb2gray(skiio.imread(infile)); imarray = np.array(im)
+            im = np.load(infile).items()
+            imarray = np.array(im[0][1])   
+            x_axis = im[1][1] 
+            y_axis = im[2][1] 
+            x_scale = im[3][1] 
+            y_scale = im[4][1]            
         image_dict = {'image': imarray, 'x_axis': x_axis, 'y_axis': y_axis, 'x_scale': x_scale, 'y_scale':y_scale}
         
         for pixel in pixels:
@@ -184,9 +220,14 @@ def get_feature(infile, feature_args):
         data_col = kwargs['data_col']
         q_targets = kwargs['targets']
         roi = kwargs['roi']
-        n = roi[0]
-        q, I = extract_data(infile, data_col)
-        line = DataLine(x=q, y=I)
+        n = roi[0]      
+        
+        if direct:
+            line = result[0]
+            q = line.x; I = line.y
+        else:
+            q, I = extract_data(infile, data_col)
+            line = DataLine(x=q, y=I)
        
         for q_target in q_targets:
             cen = get_target_idx(q, q_target)
@@ -209,9 +250,13 @@ def get_feature(infile, feature_args):
             stat = angle_roi[1]
         else:
             N_fold = 0           
-            
-        angle, I = extract_data(infile, data_col)        
-        line_orig = DataLine(x=angle, y=I)
+        
+        if direct:
+            line_orig = result[0]
+            angle = line_orig.x; I = line_orig.y
+        else:
+            angle, I = extract_data(infile, data_col)        
+            line_orig = DataLine(x=angle, y=I)
         info.append(line_orig)
         
         if N_fold:
@@ -274,7 +319,6 @@ def get_feature(infile, feature_args):
         info.append(fit_line)
             
     return val, info
-
 
 # =============================================================================
 # Get the index (for array q) closest to q_target
@@ -351,6 +395,7 @@ def plot_data(infile, **feature_args):
     font = {'family' : 'normal',
         'weight' : 'bold',
         'size'   : 12}    
+    direct = feature_args['direct']
     if 'log10' in feature_args:
         log10 = feature_args['log10']
     else:
@@ -372,13 +417,15 @@ def plot_data(infile, **feature_args):
     if 'cmap' in feature_args and feature_args['cmap']:
         cmap = feature_args['cmap']
     else:
-        cmap = 'viridis'
+        cmap = 'jet'
        
     val, info = get_feature(infile, feature_args)  
     if feature_id == 1:
         pixels = kwargs['targets']
         imarray = info[0]['image']
-        if log10: imarray = np.log10(imarray)
+        if log10: 
+            imarray[imarray<=0] = 1e-1
+            imarray = np.log10(imarray)
         x_axis = info[0]['x_axis']
         y_axis = info[0]['y_axis']
         extent = (np.nanmin(x_axis), np.nanmax(x_axis), np.nanmin(y_axis), np.nanmax(y_axis)) 
@@ -394,12 +441,14 @@ def plot_data(infile, **feature_args):
             par2.set_ylabel("q ($\AA^{-1}$)", color='k')
             par2.set_ylim(extent[2],extent[3]) 
         else:
-            plt.imshow(imarray, cmap=cmap, origin='lower')     
+            plt.imshow(imarray, cmap=cmap, extent=extent, origin='lower') 
+            ax = plt.gca()
+            ax.set_facecolor('k')
         for pixel in pixels: # Label pixels of interest
             plt.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
         if verbose>1: # Extra plot with q-axes
             plt.figure(161)
-            plt.imshow(imarray, extent=extent, cmap=cmap, origin='lower') 
+            plt.imshow(imarray, cmap=cmap, origin='lower') 
     
     elif feature_id == 2: 
         q_targets = kwargs['targets']
@@ -412,7 +461,7 @@ def plot_data(infile, **feature_args):
         q = info[0].x
         I = info[0].y
         if log10: I = np.log10(I)
-        y_lim = [np.nanmin(I), np.nanmax(I)]
+        y_lim = [np.nanmin(I[I!=-np.inf]), np.nanmax(I)]
         y_range = y_lim[1] - y_lim[0]
         #plt.plot(q, I)     
         plot_peaks(DataLine(x=q,y=I), N_peaks_find)
@@ -456,7 +505,7 @@ def plot_data(infile, **feature_args):
                     plt.plot(angle_fold+nn*360/N_fold, I_fold)  
                     if nn==0:
                         line = DataLine(x=angle_fold, y=I_fold)
-                        plot_peaks(line, fit_prom)
+                        plot_peaks(line, N_peaks_find)
                 plt.xlim([np.min(angle), np.max(angle)])
             else:
                 plt.plot(angle_fold, I_fold) 
@@ -847,17 +896,19 @@ def math_features(features_map_list, **kwargs):
 def plot_peaks(line, N_peaks_find):
     plt.plot(line.x, line.y); 
     fit_prom = 0.01
-    peaks, _ = find_peaks(line.y, height=0, width=2, prominence=(fit_prom, None))
+    peaks, _ = find_peaks(line.y, height=0, width=1, prominence=(fit_prom, None))
     while len(peaks)>N_peaks_find:
         #print('  N_peaks = {}, increase fit_prom to reduce N_peaks'.format(len(peaks)))
         fit_prom = fit_prom*1.1
-        peaks, _ = find_peaks(line.y, height=0, width=2, prominence=(fit_prom, None)) 
+        peaks, _ = find_peaks(line.y, height=0, width=1, prominence=(fit_prom, None)) 
     print('Peaks found at {}'.format(np.round(line.x[peaks],3)) +' for fit_prom {:.2f}'.format(fit_prom))
-    ylim = [np.nanmin(line.y), np.nanmax(line.y)]
+    
+    ylim = [np.nanmin(line.y[line.y != -np.inf]), np.nanmax(line.y)]
     yrange = ylim[1]-ylim[0]
     for idx, peak in enumerate(peaks):
-        plt.plot([line.x[peak],line.x[peak]], ylim, '--', color=rand_color(0.3, 0.9))
-        if idx<15: plt.text(line.x[peak], ylim[0]+idx*yrange*0.08, str(np.round(line.x[peak],3)))
+        plt.plot([line.x[peak], line.x[peak]], ylim, '--', color=rand_color(0.3, 0.9))
+        if idx<15: 
+            plt.text(line.x[peak], ylim[0]+idx*yrange*0.08, str(np.round(line.x[peak],3)))
     plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.3) 
         
 # =============================================================================
