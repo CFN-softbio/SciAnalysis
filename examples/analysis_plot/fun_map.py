@@ -530,13 +530,13 @@ def plot_data(infile, **feature_args):
             plt.xlim([np.min(angle), np.max(angle)])
             for idx, angle_target in enumerate(angle_targets):
                 if angle_target =='argmax':
-                    if N_fold==0:                    
-                        ax1.plot([val[idx], val[idx]], y_lim,'--')
-                        ax1.plot(angle_roi, [y_lim[0], y_lim[0]])
-                        ax1.text(val[idx], y_lim[1], 'argmax=('+str(np.round(val[idx],2))+')')
-                    else:
-                        ax2.plot([val[idx], val[idx]], y_lim,'--')
-                        ax2.text(val[idx], y_lim[1], 'argmax='+str(np.round(val,2)))
+                    #if N_fold==0:                    
+                    plt.plot([val[idx], val[idx]], y_lim,'--')
+                    plt.plot(angle_roi, [y_lim[0], y_lim[0]])
+                    plt.text(val[idx], y_lim[1], 'argmax=('+str(np.round(val[idx],2))+')')
+                    #else:
+                    #    ax2.plot([val[idx], val[idx]], y_lim,'--')
+                    #    ax2.text(val[idx], y_lim[1], 'argmax='+str(np.round(val,2)))
                 elif type(angle_target) is not str:
                     plt.plot([angle_target, angle_target], [y_lim[0], y_lim[0]])
                     plt.plot([angle_target, angle_target], y_lim,'--')
