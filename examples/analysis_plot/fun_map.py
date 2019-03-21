@@ -179,15 +179,13 @@ def get_feature(infile, feature_args):
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
  
     if direct==1:
-        if verbose:
-            print('Processing {}'.format(infile))
         process = feature_args['process']
         protocols = kwargs['protocols']
         if verbose<=1: # Suppress output, temporary solution
             text_trap = io.StringIO()
             sys.stdout = text_trap
         result = process.run([infile], protocols, output_dir='./', force=True, store=False)
-        if verbose: 
+        if verbose<=1:
             sys.stdout = sys.__stdout__       
     
     val = []; info = [] # additional info to store 
@@ -440,7 +438,6 @@ def plot_data(infile, **feature_args):
             plt.subplots_adjust(right=0.8)       
             host.imshow(imarray, cmap=cmap, origin='lower', vmin=val_stat[0], vmax=val_stat[1])  
             host.set_facecolor('k')
-            host.colorbar()
             par2 = host.twinx()
             new_fixed_axis = par2.get_grid_helper().new_fixed_axis
             par2.axis["right"] = new_fixed_axis(loc="right", axes=par2, offset=(10, 0))
