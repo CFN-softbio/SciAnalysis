@@ -12,7 +12,7 @@ from scipy import ndimage
 from scipy import interpolate
 from scipy.interpolate import griddata
 from matplotlib.colors import ListedColormap
-import PIL.Image as Image
+import PIL.Image as PILImage
 from skimage import color
 import skimage.io as skiio
 
@@ -61,7 +61,7 @@ def get_filematch(feature_args):
     filename = feature_args['filename']  
     exclude = feature_args['exclude']
     feature_id = feature_args['feature_id']
-    verbose = feature_args['verbose'] 
+    verbose = feature_args['verbose']  if 'verbose' in feature_args else 0
     
     direct = feature_args['direct']
     if direct:
@@ -408,23 +408,12 @@ def plot_data(infile, **feature_args):
     font = {'family' : 'normal',
         'weight' : 'bold',
         'size'   : 12}    
-    direct = feature_args['direct']
-    if 'log10' in feature_args:
-        log10 = feature_args['log10']
-    else:
-        log10 = 0
-    if 'feature_id' in feature_args:
-        feature_id = feature_args['feature_id']
-    else:
-        feature_id = 1
-    if 'subplot' in feature_args:
-        subplot = feature_args['subplot']
-    else:
-        subplot = 0
-    if 'verbose' in feature_args:
-        verbose = feature_args['verbose']  
-    else:
-        verbose = 0
+    direct = feature_args['direct']  
+    val_stat = feature_args['val_stat'] if 'val_stat' in feature_args else 'auto'
+    log10 = feature_args['log10'] if 'log10' in feature_args else 0
+    feature_id = feature_args['feature_id'] if 'feature_id' in feature_args else 1
+    subplot = feature_args['subplot'] if 'subplot' in feature_args else 0
+    verbose = feature_args['verbose']   if 'verbose' in feature_args else 0
         
     kwargs = feature_args['feature_{}_args'.format(feature_id)] 
     if 'cmap' in feature_args and feature_args['cmap']:
@@ -439,14 +428,19 @@ def plot_data(infile, **feature_args):
         if log10: 
             imarray[imarray<=0] = 1e-1
             imarray = np.log10(imarray)
+
+        if val_stat=='auto':
+            val_stat = [np.nanmin(imarray), np.nanmax(imarray)]   
+
         x_axis = info[0]['x_axis']
         y_axis = info[0]['y_axis']
         extent = (np.nanmin(x_axis), np.nanmax(x_axis), np.nanmin(y_axis), np.nanmax(y_axis)) 
         if subplot==1: # Plot also the q-axis
             host = host_subplot(111,axes_class=AA.Axes)
             plt.subplots_adjust(right=0.8)       
-            host.imshow(imarray, cmap=cmap, origin='lower') # vmin=val_stat[0], vmax=val_stat[1]  
+            host.imshow(imarray, cmap=cmap, origin='lower', vmin=val_stat[0], vmax=val_stat[1])  
             host.set_facecolor('k')
+            host.colorbar()
             par2 = host.twinx()
             new_fixed_axis = par2.get_grid_helper().new_fixed_axis
             par2.axis["right"] = new_fixed_axis(loc="right", axes=par2, offset=(10, 0))
@@ -454,9 +448,10 @@ def plot_data(infile, **feature_args):
             par2.set_ylabel("q ($\AA^{-1}$)", color='k')
             par2.set_ylim(extent[2],extent[3]) 
         else:
-            plt.imshow(imarray, cmap=cmap, extent=extent, origin='lower') 
+            plt.imshow(imarray, cmap=cmap, extent=extent, origin='lower', vmin=val_stat[0], vmax=val_stat[1])   
             ax = plt.gca()
             ax.set_facecolor('k')
+            plt.colorbar()
         for pixel in pixels: # Label pixels of interest
             plt.plot(pixel[0],pixel[1], 'o', markersize=8, markeredgewidth=1, markeredgecolor='w', markerfacecolor='None')
         if verbose>1: # Extra plot with q-axes
@@ -588,43 +583,25 @@ def plot_data(infile, **feature_args):
 # =============================================================================
 # Plot map based on feature
 # =============================================================================       
-def plot_map(features_map, **kwargs):
-    if 'filename' in features_map:
-        filename = features_map['filename']
+def plot_map(features_map, **feature_args):
+    val_stat = feature_args['val_stat'] if 'val_stat' in feature_args else 'auto'
+    log10 = feature_args['log10'] if 'log10' in feature_args else 0
+    subplot = feature_args['subplot'] if 'subplot' in feature_args else 0
+    verbose = feature_args['verbose']   if 'verbose' in feature_args else 0
+    if 'cmap' in feature_args and feature_args['cmap']:
+        cmap = feature_args['cmap']
     else:
-        filename = ''
-    if 'ids' in features_map:
-        ids = features_map['ids']
-    else:
-        print('WHY no ids?')
-        return
-    if 'tags' in features_map:
-        tags = features_map['tags']
-    else:
-        print('WHY no tags?')
-        return
+        cmap = plt.get_cmap('viridis')
+    
+    ids = features_map['ids'] 
+    tags = features_map['tags']
     x_pos = features_map['x_pos']
     y_pos = features_map['y_pos']
     features = features_map['features']
-    
-    if 'log10' in kwargs:
-        log10 = kwargs['log10']
-    else:
-        log10 = 0
-    if 'val_stat' in kwargs:
-        val_stat = kwargs['val_stat']
-    if 'cmap' in kwargs and kwargs['cmap']:
-        cmap = kwargs['cmap'];
-    else:
-        cmap = plt.get_cmap('viridis')
-    if 'plot_interp' in kwargs and len(x_pos)>1:
-        plot_interp = kwargs['plot_interp']
+    if 'plot_interp' in feature_args and len(x_pos)>1:
+        plot_interp = feature_args['plot_interp'] 
     else:
         plot_interp = [None, 1]
-    if 'subplot' in kwargs:
-        subplot = kwargs['subplot']
-    else:
-        subplot = 0
         
     N_maps = len(features)
     for idx, feature in enumerate(features):
@@ -633,9 +610,9 @@ def plot_map(features_map, **kwargs):
         feature = np.asarray(feature)
         if log10:
             feature = np.log10(feature)
-        if 'val_stat' not in kwargs:
-            val_stat = [0.1*np.nanmedian(feature)+0.9*np.nanmin(feature), 0.1*np.nanmedian(feature)+0.9*np.nanmax(feature) ]
-            #val_stat = [np.nanmin(feature), np.nanmax(feature)]
+        #if val_stat == 'auto':
+        val_stat = [0.1*np.nanmedian(feature)+0.9*np.nanmin(feature), 0.1*np.nanmedian(feature)+0.9*np.nanmax(feature) ]
+        #val_stat = [np.nanmin(feature), np.nanmax(feature)]
         if plot_interp[0] is not None:
             #print('Plotting map using imshow')
             x_pos_fine, y_pos_fine, feature = interp_map(x_pos, y_pos, feature, plot_interp) 
@@ -690,17 +667,18 @@ def interp_map(x_pos, y_pos, feature, plot_interp):
 # =============================================================================       
 def plot_overlay(features_map_list, **kwargs):
     if 'overlay_rgb' in kwargs:
-        overlay_rgb = kwargs['overlay_rgb']
+        overlay_rgb = kwargs['overlay_rgb'] 
     else:
-        overlay_rgb = [0, 1, 2]
+        overlay_rgb = [0, 1, 2]  
+    if 'rgb' in kwargs:
+        rgb = kwargs['rgb'] 
+    else:
+        rgb = 'RGB'       
     if 'normalize_each' in kwargs:
-        normalize_each = kwargs['normalize_each']
+        normalize_each = kwargs['normalize_each'] 
     else:
         normalize_each = True
-    if 'log10' in kwargs:
-        log10 = kwargs['log10']    
-    else:
-        log10 = 0
+    log10 = kwargs['log10'] 
     if 'plot_interp' in kwargs:
         plot_interp = kwargs['plot_interp']
         if plot_interp[0] is None:
@@ -717,7 +695,7 @@ def plot_overlay(features_map_list, **kwargs):
     tags = features_map['tags']
     
     ## Take three channels for plotting
-    overlay = []; overlay_legend = [] ; channel = 0; rgb = 'RGB'
+    overlay = []; overlay_legend = [] ; channel = 0; #rgb = 'RGB'
     if feature_array!=[] and len(feature_array)>=len(rgb):
         fig = plt.figure(500, figsize=[10, 8]); plt.clf()
         
@@ -785,8 +763,8 @@ def plot_overlay(features_map_list, **kwargs):
             
         ## Plot the colorcone
         ax2 = plt.subplot2grid((3, 7), (0, 6), colspan=1); ax2.cla()
-        colorbar = Image.open('hsl_cone_graphic.jpg')
-        plt.imshow(colorbar)
+        colorcone = PILImage.open(SciAnalysis_PATH+'examples/analysis_plot/hsl_cone_graphic.jpg')
+        plt.imshow(colorcone)
         plt.axis('off')
     else:
         print('feature_array is empty or too short! No overlay plotted\n')
@@ -856,15 +834,11 @@ def math_features(features_map_list, **kwargs):
     print('Apply math to features...')
     print('  - Current features_map_list len = {}'.format(len(features_map_list)))
     print('  - Current N_maps = {}'.format(count_maps(features_map_list)))
-    feature_array = []; legends = []
+    feature_array = []; 
     if 'math_ab' in kwargs:
-        math_ab = kwargs['math_ab']
-    else:
+        math_ab = kwargs['math_ab'] 
+    else: 
         math_ab = [1, 2, 'divide']
-    if 'log10' in kwargs:
-        log10 = kwargs['log10'] 
-    else:
-        log10 = 0
     if 'plot_interp' in kwargs:
         plot_interp = kwargs['plot_interp']
         if plot_interp[0] is None:
