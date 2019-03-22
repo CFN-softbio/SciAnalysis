@@ -123,7 +123,7 @@ import time
 donefiles = []
 while False:
 
-    infiles = glob.glob(os.path.join(source_dir, '*.tiff'))
+    infiles = glob.glob(os.path.join(source_dir, '*.tif'))
 
     for infile in infiles:
         if infile in donefiles:

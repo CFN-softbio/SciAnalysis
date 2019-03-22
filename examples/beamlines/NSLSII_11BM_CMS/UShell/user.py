@@ -136,10 +136,10 @@ cms.SAXS.setCalibration([764, 1680-579], 2.0, [-60, -71]) # 13.5 keV
 
 RE.md['experiment_group'] = 'User group (University)'
 RE.md['experiment_alias_directory'] = '/GPFS/xf11bm/data/2019_1/UShell/'
-RE.md['experiment_proposal_number'] = '302046'
-RE.md['experiment_SAF_number'] = '303514'
+RE.md['experiment_proposal_number'] = 'TBD'
+RE.md['experiment_SAF_number'] = 'TBD'
 RE.md['experiment_user'] = 'TBD'
-RE.md['experiment_type'] = 'GISAXS'
+RE.md['experiment_type'] = 'GISAXS' # TSAXS, GISAXS, GIWAXS, etc.
 RE.md['experiment_project'] = 'TBD'
 
 
