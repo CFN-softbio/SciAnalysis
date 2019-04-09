@@ -174,12 +174,11 @@ class Processor(object):
         if output_dir is None:
             output_dir = self.output_dir
             
-            
+        results_list= []    
         for infile in infiles:
             
             try:
                 data = self.load(infile, **l_args)
-                results_list= []
                 for protocol in protocols:
                     
                     output_dir_current = self.access_dir(output_dir, protocol.name)
