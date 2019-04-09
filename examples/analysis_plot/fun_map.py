@@ -136,14 +136,14 @@ def find_file(xf, yf, feature_args):
     
     n = filename.find('*') # assume before this is the sample name
     
-    temp = '*x{:.3f}*_y{:.3f}*'.format(xf, yf) 
+    temp = '*x{:.4f}*_y{:.4f}*'.format(xf, yf) 
     temp = filename[0:n-3]+temp+ext  # ignore some char
     pattern = os.path.join(source_dir, temp) 
     infiles = get_filematch_s(pattern)
     return infiles
 
 # =============================================================================
-# Given x,y and a list of data positions, find the closest point with data
+# Given pos and a list of data positions, find the closest point with data
 # =============================================================================
 def get_closest(pos, post_list):# pos_list is 2 by N
     r_min = 1e10;
@@ -181,12 +181,12 @@ def get_feature(infile, feature_args):
     if direct==1:
         process = feature_args['process']
         protocols = kwargs['protocols']
-        if verbose<=1: # Suppress output, temporary solution
-            text_trap = io.StringIO()
-            sys.stdout = text_trap
+        #if verbose<=1: # Suppress output, temporary solution
+            #text_trap = io.StringIO()
+            #sys.stdout = text_trap
         result = process.run([infile], protocols, output_dir='./', force=True, store=False)
-        if verbose<=1:
-            sys.stdout = sys.__stdout__       
+        #if verbose<=1:
+            #sys.stdout = sys.__stdout__  
     
     val = []; info = [] # additional info to store 
     if feature_id == 1:
@@ -202,12 +202,20 @@ def get_feature(infile, feature_args):
             y_scale = result[0].y_scale
         else:
             #im = color.rgb2gray(skiio.imread(infile)); imarray = np.array(im)
+            '''
             im = np.load(infile).items()
             imarray = np.array(im[0][1])   
             x_axis = im[1][1] 
             y_axis = im[2][1] 
             x_scale = im[3][1] 
-            y_scale = im[4][1]            
+            y_scale = im[4][1] 
+            '''
+            temp = np.load(infile)
+            imarray = temp['image']
+            x_axis = temp['x_axis']
+            y_axis = temp['y_axis']
+            x_scale = temp['x_scale']
+            y_scale = temp['y_scale'] 
         image_dict = {'image': imarray, 'x_axis': x_axis, 'y_axis': y_axis, 'x_scale': x_scale, 'y_scale':y_scale}
         
         for pixel in pixels:
@@ -491,7 +499,7 @@ def plot_data(infile, **feature_args):
         angle_targets = kwargs['targets']
         angle_roi = kwargs['angle_roi']
         N_peaks_find = kwargs['N_peaks_find']
-        protocols = kwargs['protocols']
+        if direct: protocols = kwargs['protocols']
         if type(angle_roi[1]) is str:
             N_fold = int(np.asarray(angle_roi[0]))
             stat = angle_roi[1]
@@ -517,7 +525,10 @@ def plot_data(infile, **feature_args):
                 #plt.plot(angle_fold, I_fold) 
                 plot_peaks(DataLine(x=angle_fold, y=I_fold), N_peaks_find, 1)
                 plt.xlim([np.min(angle_fold), np.max(angle_fold)])
-            plt.xlabel('$\chi$ (degree), q={:.3f}, dq={:.3g}'.format(protocols[0].run_args['q0'], protocols[0].run_args['dq']))
+            if direct:
+                plt.xlabel('$\chi$ (degree), q={:.3f}, dq={:.3g}'.format(protocols[0].run_args['q0'], protocols[0].run_args['dq']))
+            else:
+                plt.xlabel('$\chi$ (degree)')
             plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
 
         y_lim = [np.nanmin(I), np.nanmax(I)]
@@ -542,7 +553,7 @@ def plot_data(infile, **feature_args):
                     plt.plot([angle_target, angle_target], y_lim,'--')
                     plt.text(angle_target, y_lim[0]+idx*0.1, '('+str(angle_target)+')')
             plt.grid(b=True, which='major', color='k', linestyle='-', alpha=0.25)
-            plt.xlabel('$\chi$ (degree) at q={:.3f}, dq={:.3g}'.format(protocols[0].run_args['q0'], protocols[0].run_args['dq']))
+            if direct: plt.xlabel('$\chi$ (degree) at q={:.3f}, dq={:.3g}'.format(protocols[0].run_args['q0'], protocols[0].run_args['dq']))
             if log10: 
                 plt.ylabel('log10(I)')
             else:
@@ -729,7 +740,7 @@ def plot_overlay(features_map_list, **kwargs):
             else: 
                 overlay += image_channel
             plt.imshow(image_channel, extent=extent, origin='lower') 
-            plt.title('({}) id={}, {}, [min, max]=[{:.3f}, {:.3f}]'.format(rgb[channel], ids[ii], tags[ii], np.nanmin(feature), np.nanmax(feature)))
+            plt.title('({})id={}, {}'.format(rgb[channel], ids[ii], tags[ii])+',[{:.2f},{:.2f}]'.format(np.nanmin(feature), np.nanmax(feature)))
             channel += 1
         
         ## Plot with imshow
@@ -743,20 +754,10 @@ def plot_overlay(features_map_list, **kwargs):
         plt.xlabel('x (mm)')
         #plt.ylabel('y (mm)')
         if 0:
-            plt.plot([-3.26, -3.26], [-7.46, -7.07],color='w')
-            plt.plot([-3.26, -2.87], [-7.46, -7.46],color='w')
-            
-            plt.plot([-3.16, -3.16], [-6.96, -6.57],color='w')
-            plt.plot([-3.16, -2.77], [-6.96, -6.96],color='w')
-            # medium_G1_13mgml finegrid
-            plt.plot([-3.116, -3.116], [-6.715, -6.568],color='w')
-            plt.plot([-3.116, -2.98], [-6.715, -6.715],color='w')
-            # [-1.375, -0.655] [-6.375, -5.655]
-        if 0:
-            plt.plot([-1.375, -1.375], [-6.375, -5.655],color='w')
-            plt.plot([-1.375, -0.655], [-6.375, -6.375],color='w')
-            plt.plot([-1.375, -0.655], [-5.655, -5.655],color='w')
-            plt.plot([-0.655, -0.655], [-6.375, -5.655],color='w')
+            plot_box([-2.2003, -1.9023], [-4.15, -3.88])
+            xrange = [-1.675, -1.6024]
+            yrange = [-3.755, -3.575]
+            plot_box(xrange, yrange)
             
         ## Plot the colorcone
         ax2 = plt.subplot2grid((3, 7), (0, 6), colspan=1); ax2.cla()
@@ -767,8 +768,19 @@ def plot_overlay(features_map_list, **kwargs):
         print('feature_array is empty or too short! No overlay plotted\n')
     return overlay
 
+
 # =============================================================================
-# 
+# Plot box
+# =============================================================================
+def plot_box(xrange, yrange):
+    plt.plot(xrange, [yrange[0], yrange[0]], color='w')
+    plt.plot(xrange, [yrange[1], yrange[1]], color='w')
+    plt.plot([xrange[0], xrange[0]], yrange, color='w')
+    plt.plot([xrange[1], xrange[1]], yrange, color='w')
+
+
+# =============================================================================
+# Return image stack with RGB channels
 # =============================================================================
 def image_RGB(image, rgb):
     dim = image.shape
@@ -882,11 +894,11 @@ def math_features(features_map_list, **kwargs):
 # =============================================================================
 def plot_peaks(line, N_peaks_find, verbose):
     plt.plot(line.x, line.y); 
-    fit_prom = 0.01
+    fit_prom = 0.005
     peaks, _ = find_peaks(line.y, height=0, width=2, prominence=(fit_prom, None))
     while len(peaks)>N_peaks_find:
         #print('  N_peaks = {}, increase fit_prom to reduce N_peaks'.format(len(peaks)))
-        fit_prom = fit_prom*1.1
+        fit_prom = fit_prom*1.05
         peaks, _ = find_peaks(line.y, height=0, width=2, prominence=(fit_prom, None)) 
     print('Peaks found at {}'.format(np.round(line.x[peaks],3)) +' for fit_prom {:.2f}'.format(fit_prom))
     
