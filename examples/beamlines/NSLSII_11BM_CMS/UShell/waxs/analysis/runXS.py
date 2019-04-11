@@ -6,7 +6,7 @@
 
 import sys, os
 #SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
-SciAnalysis_PATH='/home/xf11bm/software/SciAnalysis/'
+SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob
@@ -25,18 +25,32 @@ from SciAnalysis.XSAnalysis import Protocols
 # Experimental parameters
 ########################################
 
-from SciAnalysis.XSAnalysis.DataRQconv import *
-calibration = CalibrationRQconv(wavelength_A=0.9184) # 13.5 keV
-calibration.set_image_size(1042) # psccd Photonic Sciences CCD
-calibration.set_pixel_size(pixel_size_um=101.7)
-calibration.set_distance(0.232) # Bigger number moves theory rings outwards (larger spacing)
-calibration.set_beam_position(22.0, 1042-22.0)
-calibration.set_angles(det_orient=45, det_tilt=-21, det_phi=0, incident_angle=0., sample_normal=0.)
-print('ratio Dw = {:.3f}'.format(calibration.get_ratioDw()))
+if True:
+    # PhotonicSciences CCD
+    from SciAnalysis.XSAnalysis.DataRQconv import *
+    calibration = CalibrationRQconv(wavelength_A=0.9184) # 13.5 keV
+    calibration.set_image_size(1042) # psccd Photonic Sciences CCD
+    calibration.set_pixel_size(pixel_size_um=101.7)
+    calibration.set_distance(0.232) # Bigger number moves theory rings outwards (larger spacing)
+    calibration.set_beam_position(22.0, 1042-22.0)
+    calibration.set_angles(det_orient=45, det_tilt=-21, det_phi=0, incident_angle=0., sample_normal=0.)
+    print('ratio Dw = {:.3f}'.format(calibration.get_ratioDw()))
 
+    mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
+    mask = Mask(mask_dir+'CCD/psccd_generic-mask.png')
+    
+else:
+    # Custom Dectris Pilatus 800k (lower-left modules removed)
+    calibration = Calibration(wavelength_A=0.9184) # 13.5 keV
+    calibration.set_image_size(981, height=1043) # Pilatus1M
+    calibration.set_pixel_size(pixel_size_um=172.0)
+    calibration.set_beam_position(50.0, 1680-1000)
 
-mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
-mask = Mask(mask_dir+'CCD/psccd_generic-mask.png')
+    calibration.set_distance(0.232)
+
+    mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
+    mask = Mask(mask_dir+'Dectris/Pilatus800kcustom-mask.png')
+    #mask.load('./Pilatus800k_current-mask.png')
 
 
 

@@ -22,13 +22,17 @@ alias_dir = os.path.abspath('./')
 measure_type = 'measure'
 
 # Select the meta-data (md) to output
-md_required = []
+md_required = ['scan_id']
 md_optional = []
 
 
 #md_required = ['scan_id', 'sample_x', 'sample_y', 'sample_th']
 #md_optional = ['sample_clock', 'sample_temperature']
 #md_optional = ['mfc', 'film_thickness']
+#md_optional = ['sample_x', 'sample_y', 'sample_th', 'sample_motor_x', 'sample_motor_y', 'sample_motor_th', 'sample_clock', 'T_actual']
+
+
+
 
 
 
