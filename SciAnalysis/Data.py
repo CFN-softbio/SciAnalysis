@@ -1655,6 +1655,18 @@ class Data2D(object):
             self.ax.set_yticks(kwargs['yticks'])
         
         
+        if 'colorbar' in plot_args and plot_args['colorbar']:
+            if 'colorbar_labels' in plot_args:
+                colorbar_labels = plot_args['colorbar_labels']
+            else:
+                colorbar_labels = [ zmin + i*(zmax-zmin)/4 for i in range(5) ]
+            
+            tick_positions = self._plot_z_transform(data=colorbar_labels, set_Z=False)
+            cbar = plt.colorbar(ticks=tick_positions, fraction=0.045, pad=0.02)
+            colorbar_labels = ["{:.0f}".format(c) for c in colorbar_labels]
+            cbar.ax.set_yticklabels(colorbar_labels, size=20)
+        
+        
         if 'plot_range' in plot_args:
             plot_range = plot_args['plot_range']
             # Axis scaling
@@ -1694,37 +1706,45 @@ class Data2D(object):
         pass
         
         
-    def _plot_z_transform(self):
+    def _plot_z_transform(self, data=None, set_Z=True):
         '''Rescales the data according to the internal z_display setting.'''
+        
+        if data is None:
+            data = self.data
+        else:
+            data = np.asarray(data)
         
         zmin, zmax, zmode, zadj = self.z_display
         
         if zmode=='log':
-            #Z = np.log( (self.data-zmin)/(zmax-zmin) )
-            
-            #Z = np.log(self.data)/np.log(zmax)
+            #Z = np.log( (data-zmin)/(zmax-zmin) )
+            #Z = np.log(data)/np.log(zmax)
             
             zmin = max(zmin,0.5)
-            Z = (np.log(self.data)-np.log(zmin))/(np.log(zmax)-np.log(zmin))
+            Z = (np.log(data)-np.log(zmin))/(np.log(zmax)-np.log(zmin))
             
         elif zmode=='gamma':
             log_gamma = zadj
             c = np.exp(1/log_gamma) - 1
-            Z = (self.data-zmin)/(zmax-zmin)
+            Z = (data-zmin)/(zmax-zmin)
             Z = log_gamma*np.log(Z*c + 1)
             
         elif zmode=='r':
-            Z = self.data*np.power( self.r_map(), zadj )
+            Z = data*np.power( self.r_map(), zadj )
             Z = (Z-zmin)/(zmax-zmin)
             
         elif zmode=='linear':
-            Z = (self.data-zmin)/(zmax-zmin)
+            Z = (data-zmin)/(zmax-zmin)
             
         else:
             print('Warning: z_display mode %s not recognized.'%(zmode))
-            Z = (self.data-zmin)/(zmax-zmin)
+            Z = (data-zmin)/(zmax-zmin)
             
-        self.Z = np.nan_to_num(Z)
+        Z = np.nan_to_num(Z)
+        if set_Z:
+            self.Z = Z
+        
+        return Z
         
         
     def process_plot_args(self, **plot_args):

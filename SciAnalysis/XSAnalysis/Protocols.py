@@ -38,6 +38,17 @@ class ProcessorXS(Processor):
         
         data.threshold_pixels(4294967295-1) # Eiger inter-module gaps
         
+        if 'background' in kwargs:
+            if isinstance(kwargs['background'], (int, float)):
+                # Constant background to be subtracted from whole image
+                data.data -= kwargs['background']
+            elif isinstance(kwargs['background'], (list, np.ndarray)):
+                # TODO: Subtract whole image as background
+                pass
+            else:
+                print("ProcessorXS.load: Specified background type not recognized.")
+                
+        
         if 'dezing' in kwargs and kwargs['dezing']:
             data.dezinger()
         
@@ -119,6 +130,7 @@ class circular_average(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
+            'bins_relative' : 1.0,
             'markersize' : 0,
             'linewidth' : 1.5,
             }
@@ -134,7 +146,7 @@ class circular_average(Protocol):
             data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
         
         
-        line = data.circular_average_q_bin(error=True)
+        line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
         #line.smooth(2.0, bins=10)
         
         outfile = self.get_outfile(data.name, output_dir)
@@ -600,8 +612,8 @@ class linecut_qr_fit(linecut_qr):
 
         if True:
             # Linear background
-            params.add('m', value=m, min=0, max=abs(m)*+4, vary=False) # Slope must be positive
-            params.add('b', value=b, min=0, max=np.max(line.y)*100, vary=False)
+            params.add('m', value=m, min=abs(m)*-4, max=abs(m)*+4+1e-12, vary=False)
+            params.add('b', value=b, min=0, max=np.max(line.y)*100+1e-12, vary=False)
             
             params.add('qp', value=0, vary=False)
             params.add('qalpha', value=1.0, vary=False)
@@ -985,7 +997,7 @@ class linecut_qz_fit(linecut_qz):
         #params.add('m', value=0)
         #params.add('b', value=np.min(line.y), min=0, max=np.max(line.y))
         #params.add('m', value=m, min=abs(m)*-10, max=abs(m)*+10)
-        params.add('m', value=m, min=abs(m)*-5, max=0) # Slope must be negative
+        params.add('m', value=m, min=abs(m)*-5, max=1e-12) # Slope must be negative
         params.add('b', value=b, min=0)
         
         
@@ -1496,6 +1508,7 @@ class q_image(Protocol):
             
             # WARNING: These outputs are not to be trusted.
             # The maps are oriented relative to data.data (not q_data.data)
+            # These are for diagnostic purposes only.
             data_temp = Data2DReciprocal()
             
             data_temp.data = data.calibration.qx_map()
@@ -1993,6 +2006,9 @@ class export_STL(Protocol):
 
         if run_args['verbosity']>=4:
             print('        data.data from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(data.data), np.max(data.data), np.average(data.data), np.std(data.data)))
+
+        if 'clip' in run_args:
+            data.data = np.clip(data.data, run_args['clip'][0], run_args['clip'][1])
                                                                                       
         data._plot_z_transform()
         
