@@ -1037,7 +1037,7 @@ class Data2DScattering(Data2D):
         
         This version allows explicit control of the remesh matrix, and returns
         the corresponding mask. (This can be useful, e.g. for stitching/tiling 
-        images together into a combined/total reciprocal-space).'''
+        images together into a combined/total reciprocal-space.)'''
         
         
         
@@ -1314,6 +1314,9 @@ class Calibration(object):
         return self.q_per_pixel
     
     def set_angles(self, sample_normal=0):
+        
+        self.clear_maps() # Any change to the detector position will presumptively invalidate cached maps
+        
         self.sample_normal = sample_normal
     
     
@@ -1330,6 +1333,22 @@ class Calibration(object):
         kpre = 2.0*self.get_k()
         return kpre*np.sin(np.radians(angle/2))    
     
+    def compute_qy(self, QX, QZ):
+        '''Compute the (sometimes ignored!) qy component for the given (QX,QZ) matrices.'''
+        
+        k = self.get_k()
+        
+        
+        alpha_f = np.arcsin(QZ/k)
+        theta_f = np.arcsin( QX/(k*np.cos(alpha_f)) )
+        
+        QY = k*( np.cos(theta_f)*np.cos(alpha_f) - 1 )
+        
+        # Alternate computation:
+        #QZk2 = (1 - np.square(QZ/k))
+        #QY = k*( np.sqrt( 1 - np.square(QX/k)*(1/QZk2) )*np.sqrt(QZk2) - 1 )
+        
+        return QY
     
     # Maps
     ########################################

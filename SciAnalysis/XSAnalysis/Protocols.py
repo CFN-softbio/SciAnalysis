@@ -60,6 +60,9 @@ class ProcessorXS(Processor):
         if 'rotCCW' in kwargs and kwargs['rotCCW']:
             data.data = np.rot90(data.data) # rotate CCW
 
+        if 'rotCW' in kwargs and kwargs['rotCW']:
+            data.data = np.rot90(data.data, k=3) # rotate CW
+
         if 'rot180' in kwargs and kwargs['rot180']:
             data.data = np.flipud(data.data) # Flip up/down
             data.data = np.fliplr(data.data) # Flip left/right
@@ -2250,7 +2253,7 @@ class _deprecated_sum_images(Protocol):
     
     
     
-class merge_images_tiling(Protocol):
+class _deprecated_merge_images_tiling(Protocol):
     
     def __init__(self, name='merge_images', **kwargs):
         
@@ -2388,7 +2391,7 @@ class merge_images_tiling(Protocol):
         return results
             
     
-class merge_images_gonio_phi(Protocol):
+class _deprecated_merge_images_gonio_phi(Protocol):
     
     def __init__(self, name='merge_images', **kwargs):
         

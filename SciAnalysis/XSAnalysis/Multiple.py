@@ -24,7 +24,7 @@ from .Data import *
 from ..tools import *
 from .Protocols import *
 
-class ProtocolMultiple(Protocol):
+class _deprecated_ProtocolMultiple(Protocol):
  
     def preliminary(self, infiles, output_dir, **run_args):
 
@@ -35,6 +35,12 @@ class ProtocolMultiple(Protocol):
         if len(infiles)<1:
             print('ERROR: {} needs 1 or more files ({} files supplied)).'.format(self.name, len(infiles)))
             return None
+
+        # Make sure all the requested infiles actually exist
+        for infile in infiles:
+            if infile is not os.path.isfile(infile):
+                print('ERROR: {}; not all infiles exist ({} not found)'.format(self.name, infile))
+                return None
         
         
         # Identify name_base (for saving output)
@@ -77,15 +83,12 @@ class sum_images(ProtocolMultiple):
         
         self.name = self.__class__.__name__ if name is None else name
         
-        self.default_ext = '.jpg'
+        self.default_ext = '.npy'
         self.run_args = {
                         'crop' : None,
                         'blur' : None,
                         'resize' : None,
-                        'ztrim' : [0.05, 0.005],
-                        'pattern_re' : '^.+\/([a-zA-Z0-9_]+_)(\d+)(\.+)$',
                         'file_extension' : '-sum.npy',
-                        'processor' : None,
                         'append_protocol_name' : True,
                         'force' : False,
                         'verbosity' : 3,
@@ -94,30 +97,20 @@ class sum_images(ProtocolMultiple):
         
 
     @run_default
-    def run(self, infiles, output_dir, **run_args):
+    def run(self, datas, output_dir, basename, **run_args):
         
         results = {}
         
-        outfile = self.preliminary(infiles, output_dir, **run_args)
-        if outfile is None:
-            return {}
+        outfile = self.get_outfile(basename, output_dir, ext=run_args['file_extension'])
+
+
+        for data in datas:
+            self.transform(data, **run_args)
         
-        processor = run_args['processor']
-        load_args = processor.load_args
+        for data in datas[1:]:
+            datas[0].data += data.data
         
         
-        # Load first image
-        data = processor.load(infiles[0], **load_args)
-        data = self.transform(data, **run_args)
-        
-        # Iterate through remaining images
-        for infile in infiles[1:]:
-            # Add this new image to the data
-            newdata = run_args['processor'].load(infile, **load_args)
-            newdata = self.transform(newdata, **run_args)
-            data.data += newdata.data
-                
-            
         
         results['files_saved'] = [
             { 'filename': '{}'.format(outfile) ,
@@ -143,4 +136,146 @@ class sum_images(ProtocolMultiple):
             
         return data
     
+    
+    
+class merge_images_gonio_phi(ProtocolMultiple):
+    
+    def __init__(self, name='merge_images', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.npy'
+        self.run_args = {
+                        'file_extension' : '-merged.npy',
+                        'verbosity' : 3,
+                        'phi_scaling' : -1.0,
+                        'det_theta_g' : 0.0,
+                        'save_axes' : True,
+                        'save_mask' : True,
+                        'save_maps' : True,
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, datas, output_dir, basename, **run_args):
+        
+        results = {}
+        
+        outfile = self.get_outfile(basename, output_dir, ext=run_args['file_extension'])
+
+        # Prepare a large-area q matrix
+        q_range = run_args['q_range']
+        dq = run_args['dq']
+        qxs = np.arange(q_range[0], q_range[1], dq)
+        qzs = np.arange(q_range[2], q_range[3], dq)
+        QXs, QZs = np.meshgrid(qxs, qzs)
+        
+        Intensity_map = np.zeros( (len(qzs), len(qxs)) )
+        count_map = np.zeros( (len(qzs), len(qxs)) )
+        
+        if run_args['verbosity']>=5:
+            print('      Expecting array size num_qx = {}, num_qz = {}'.format(len(qxs), len(qzs)))
+            print('      Coordinate matrices sized {}'.format(QXs.shape))
+            #print('      Coordinate matrices sized {}'.format(QZs.shape))
+            print('      Data matrices sized {}'.format(Intensity_map.shape))
+            #print('      Data matrices sized {}'.format(count_map.shape))
+
+
+
+        
+        for data in datas:
+            phi = self.get_phi(data, **run_args)*run_args['phi_scaling']
+            data.calibration.set_angles(det_phi_g=phi, det_theta_g=run_args['det_theta_g'])
+            
+            remesh_data, num_per_pixel = data.remesh_q_bin_explicit(qx_min=q_range[0], qx_max=q_range[1], num_qx=len(qxs), qz_min=q_range[2], qz_max=q_range[3], num_qz=len(qzs), **run_args)
+
+            if run_args['verbosity']>=5:
+                print('      remesh_data matrix sized {}'.format(remesh_data.shape))
+            
+            Intensity_map += remesh_data
+            count_map += num_per_pixel
+            
+            
+
+        Intensity_map = np.nan_to_num( Intensity_map/count_map )
+        
+        results['files_saved'] = [
+            { 'filename': '{}'.format(outfile) ,
+             'description' : 'merging of multiple images into common q-space (npy format)' ,
+             'type' : 'data' # 'data', 'plot'
+            } ,
+            ]
+        np.save(outfile, Intensity_map)
+        
+        if False:
+            # Old method: save using pkl format
+            import pickle
+            outfile = self.get_outfile(basename, output_dir, ext='-axes.pkl')
+            
+            results['files_saved'].append( 
+                { 'filename': '{}'.format(outfile) ,
+                'description' : 'qx and qz axes of output data (Python pickle format)' ,
+                'type' : 'metadata' , # 'data', 'plot', 'metadata'
+                'comment' : "reload using: qxs, qzs = pickle.load(open('{}{}','rb'))".format(basename, '-axes.pkl')
+                } , )
+            with open(outfile, 'wb') as fout:
+                pickle.dump([qxs, qzs], fout)
+                
+            # Reload using:
+            #qxs, qzs = pickle.load(open('infile.pkl','rb'))        
+
+        if run_args['save_axes']:
+            outfile = self.get_outfile(basename, output_dir, ext='-axes.npz')
+            
+            results['files_saved'].append( 
+                { 'filename': '{}'.format(outfile) ,
+                'description' : 'qx and qz axes of output data (npz format)' ,
+                'type' : 'metadata' , # 'data', 'plot', 'metadata'
+                'comment' : "reload using: npzfile = np.load('{}{}')".format(basename, '-axes.npz')
+                } , )
+            np.savez_compressed(outfile, qxs=qxs, qzs=qzs)
+
+        if run_args['save_maps']:
+            QYs = datas[0].calibration.compute_qy(QXs, QZs)
+            outfile = self.get_outfile(basename, output_dir, ext='-maps.npz')
+            np.savez_compressed(outfile, QX=QXs, QY=QYs, QZ=QZs)
+            
+
+        if run_args['save_mask']:
+            
+            mask = np.where(count_map==0, np.zeros_like(count_map), np.ones_like(count_map))
+            
+            outfile = self.get_outfile(basename, output_dir, ext='-mask.png')
+            #np.save(outfile, mask)
+            import scipy.misc
+            scipy.misc.imsave(outfile, mask)            
+
+            results['files_saved'].append( 
+                { 'filename': '{}'.format(outfile) ,
+                'description' : 'mask file for the data (PNG file)' ,
+                'type' : 'metadata' , # 'data', 'plot', 'metadata'
+                } , )
+            
+        
+        
+        return results
+        
+        
+    def get_phi(self, data, **run_args):
+        
+        pattern_re = re.compile(run_args['pattern_re'])
+        m = pattern_re.match(data.name)
+        if m:
+            phi = float(m.groups()[0])
+            if run_args['verbosity']>=5:
+                print('    Extracted phi = {} from {}'.format(phi, data.name))
+            return phi
+        else:
+            if run_args['verbosity']>=1:
+                print('ERROR: Could not extract phi for {}'.format(data.name))
+            return None
+        
+        
+        
     

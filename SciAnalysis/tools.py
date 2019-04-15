@@ -145,6 +145,7 @@ class Processor(object):
         
         self.output_dir = output_dir
 
+
     def access_dir(self, base, extra=''):
         '''Returns a string which is the desired output directory.
         Creates the directory if it doesn't exist.'''
@@ -155,7 +156,7 @@ class Processor(object):
         return output_dir
 
         
-    def run(self, infiles=None, protocols=None, output_dir=None, force=False, ignore_errors=False, sort=False, load_args={}, run_args={}, **kwargs):
+    def run(self, infiles=None, protocols=None, output_dir=None, force=False, ignore_errors=False, sort=False, load_args={}, run_args={}, verbosity=3, **kwargs):
         '''Process the specified files using the specified protocols.'''
         
         l_args = self.load_args.copy()
@@ -186,10 +187,12 @@ class Processor(object):
                     
                     if not force and protocol.output_exists(data.name, output_dir_current):
                         # Data already exists
-                        print('Skipping {} for {}'.format(protocol.name, data.name))
+                        if verbosity>=2:
+                            print('Skipping {} for {}'.format(protocol.name, data.name))
                         
                     else:
-                        print('Running {} for {}'.format(protocol.name, data.name))
+                        if verbosity>=2:
+                            print('Running {} for {}'.format(protocol.name, data.name))
                         
                         results = protocol.run(data, output_dir_current, **r_args)
                         
@@ -201,9 +204,10 @@ class Processor(object):
                         
 
             except Exception as exception:
-                if SUPPRESS_EXCEPTIONS:
+                if SUPPRESS_EXCEPTIONS or ignore_errors:
                     # Ignore errors, so that execution doesn't get stuck on a single bad file
-                    print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
+                    if verbosity>=1:
+                        print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
                 else:
                     raise
 
@@ -276,7 +280,7 @@ class Processor(object):
 
 
 
-    def rundirs(self, indir, pattern='*', protocols=None, output_dir=None, force=False, check_timestamp=False, ignore_errors=False, sort=True, load_args={}, run_args={}, **kwargs):
+    def rundirs(self, indir, pattern='*', protocols=None, output_dir=None, force=False, check_timestamp=False, ignore_errors=False, sort=True, load_args={}, run_args={}, verbosity=3, **kwargs):
         
         import glob
         
@@ -287,7 +291,8 @@ class Processor(object):
         
         
         for directory in dirs:
-            print('Running directory {}'.format(directory))
+            if verbosity>=2:
+                print('Running directory {}'.format(directory))
             
             #infiles = glob.glob('{}/{}'.format(os.path.join(indir, directory), pattern))
             infiles = glob.glob(os.path.join(indir, directory, pattern))
@@ -298,7 +303,7 @@ class Processor(object):
 
 
 
-    def run_alternate_inner(self, infiles=None, protocols=None, output_dir=None, force=False, ignore_errors=False, sort=False, load_args={}, run_args={}, **kwargs):
+    def run_alternate_inner(self, infiles=None, protocols=None, output_dir=None, force=False, ignore_errors=False, sort=False, load_args={}, run_args={}, verbosity=3, **kwargs):
         '''Process the specified files using the specified protocols.
         This version defers loading data until necessary. If running multiple
         protocols, the data is reloaded many times (inefficient), but if
@@ -334,12 +339,14 @@ class Processor(object):
                     
                     if not force and protocol.output_exists(data_name, output_dir_current):
                         # Data already exists
-                        print('Skipping {} for {}'.format(protocol.name, data_name))
+                        if verbosity>=2:
+                            print('Skipping {} for {}'.format(protocol.name, data_name))
                         
                     else:
                         data = self.load(infile, **l_args)
                         
-                        print('Running {} for {}'.format(protocol.name, data.name))
+                        if verbosity>=2:
+                            print('Running {} for {}'.format(protocol.name, data.name))
                         
                         results = protocol.run(data, output_dir_current, **r_args)
                         
@@ -352,10 +359,130 @@ class Processor(object):
 
             except (OSError, ValueError):
                 if SUPPRESS_EXCEPTIONS:
-                    print('  ERROR with file {}.'.format(infile))
+                    if verbosity>=1:
+                        print('  ERROR with file {}.'.format(infile))
                 else:
                     raise
                 
+                
+    def monitor_loop(self, source_dir, pattern, protocols, output_dir=None, force=False, sleep_time=4, load_args={}, run_args={}, **kwargs):
+        
+        import glob
+
+        if protocols is None:
+            protocols = self.protocols
+
+        if output_dir is None:
+            output_dir = self.output_dir
+        
+        donefiles = []
+        while True:
+
+            infiles = glob.glob(os.path.join(source_dir, pattern))
+
+            for infile in infiles:
+                if infile in donefiles:
+                    pass
+
+                else:
+                    self.run([infile], protocols, output_dir=output_dir, force=force, load_args=load_args, run_args=run_args, **kwargs)
+
+                    donefiles.append(infile)
+
+            time.sleep(sleep_time)
+            
+            
+            
+    def run_multiple(self, pattern_re, infiles=None, protocols=None, output_dir=None, minimum_number=None, force=False, ignore_errors=False, sort=False, load_args={}, run_args={}, verbosity=3, **kwargs):
+        '''Process the specified file sets using the specified protocols. The protocols must be able to operate on sets of datas.'''
+        
+        l_args = self.load_args.copy()
+        l_args.update(load_args)
+        r_args = self.run_args.copy()
+        r_args.update(run_args)
+        
+        if infiles is None:
+            infiles = self.infiles
+        if sort:
+            infiles.sort()
+                
+        if protocols is None:
+            protocols = self.protocols
+            
+        if output_dir is None:
+            output_dir = self.output_dir
+            
+            
+        import re
+        pattern_re = re.compile(pattern_re)
+            
+        donefiles = []
+            
+        for infile in infiles:
+
+            # Determine basename, from which we identify other files in the group/set
+            m = pattern_re.match(infile)
+            if m:
+                if verbosity>=5:
+                    print('    RE match for: {}'.format(infile))
+                
+                basename = m.groups()[0]
+                basename = Filename(basename).get_filename()
+                
+                if basename in donefiles:
+                    # Processing for this set of files already completed
+                    pass
+                
+                else:
+                    
+                    setfiles = [s for s in infiles if basename in s]
+                    if minimum_number is None or len(setfiles)>=minimum_number:
+                        
+                        try:
+                        
+                            # Load all the files into data-objects
+                            datas = []
+                            for setfile in setfiles:
+                                datas.append( self.load(setfile, **l_args) )
+                                
+                                
+                            for protocol in protocols:
+                                
+                                #outfile = protocol.get_outfile(basename, output_dir)
+                                output_dir_current = self.access_dir(output_dir, protocol.name)
+
+                                if not force and protocol.output_exists(basename, output_dir_current):
+                                    # Data already exists
+                                    if verbosity>=2:
+                                        print('Skipping {} for {}'.format(protocol.name, basename))
+                                else:
+                                    if verbosity>=2:
+                                        print('Running {} for {}'.format(protocol.name, basename))
+                                        
+                                    results = protocol.run(datas, output_dir_current, basename=basename, **r_args)
+
+                                    md = {}
+                                    md['basename'] = basename
+                                    self.store_results(results, output_dir, infile, protocol, **md)
+                                    
+                            donefiles.append(basename)
+                                    
+                                    
+                        except Exception as exception:
+                            if SUPPRESS_EXCEPTIONS or ignore_errors:
+                                # Ignore errors, so that execution doesn't get stuck on a single bad file
+                                if verbosity>=1:
+                                    print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
+                            else:
+                                raise                        
+                            
+                    
+            else:
+                if verbosity>=3:
+                    print('    RE did not match for: {}'.format(infile))
+
+
+
                 
 
     # class Processor(object)
@@ -442,6 +569,22 @@ class Protocol(object):
     # End class Protocol(object)
     ########################################
 
+
+class ProtocolMultiple(Protocol):
+    
+    @run_default
+    def run(self, datas, output_dir, basename, **run_args):
+        
+        outfile = self.get_outfile(basename, output_dir)
+        
+        results = {}
+        
+        return results
+    
+    
+    # End class ProtocolMultiple(Protocol)
+    ########################################
+    
 
 
 # get_result

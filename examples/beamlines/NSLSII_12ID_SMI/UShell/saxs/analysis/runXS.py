@@ -6,8 +6,8 @@
 
 import sys, os
 #SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
-#SciAnalysis_PATH='/home/xf11bm/software/SciAnalysis/'
-SciAnalysis_PATH='/GPFS/xf12id1/analysis/CFN/SciAnalysis/SciAnalysis2018C3/'
+#SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
+SciAnalysis_PATH='/GPFS/xf12id1/analysis/CFN/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob
@@ -25,6 +25,7 @@ from SciAnalysis.XSAnalysis import Protocols
 
 
 calibration = Calibration(wavelength_A=0.770088) # 16.1 keV
+#calibration = Calibration(wavelength_A=0.619920987) # 20.0 keV
 calibration.set_image_size(981, height=1043) # Pilatus1M
 calibration.set_pixel_size(pixel_size_um=172.0)
 calibration.set_distance(5.300)
@@ -62,8 +63,6 @@ run_args = { 'verbosity' : 3,
 process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 
 # Examples:
-
-
 protocols = [
     #Protocols.calibration_check(show=False, AgBH=True, q0=0.010, num_rings=4, ztrim=[0.05, 0.005], ) ,
     #Protocols.circular_average(ylog=True, plot_range=[0, 0.12, None, None]) ,
@@ -81,26 +80,5 @@ process.run(infiles, protocols, output_dir=output_dir, force=False)
 
 # Loop
 ########################################
-# This code is typically only used at the beamline (it loops forever, watching for new files).
-import time
-donefiles = []
-while True:
-
-    infiles = glob.glob(os.path.join(source_dir, '*.tif'))
-
-    for infile in infiles:
-        if infile in donefiles:
-            pass
-
-        else:
-            process.run([infile], protocols, output_dir=output_dir, force=False)
-
-        donefiles.append(infile)
-
-    time.sleep(4)
-
-
-
-
-
-
+# This is typically only used at the beamline (it loops forever, watching for new files).
+process.monitor_loop(source_dir=source_dir, pattern='*.tif', protocols=protocols, output_dir=output_dir, force=False)

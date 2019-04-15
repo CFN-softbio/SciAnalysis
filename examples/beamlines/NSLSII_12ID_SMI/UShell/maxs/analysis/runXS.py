@@ -6,8 +6,8 @@
 
 import sys, os
 #SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
-#SciAnalysis_PATH='/home/xf11bm/software/SciAnalysis/'
-SciAnalysis_PATH='/GPFS/xf12id1/analysis/CFN/SciAnalysis/SciAnalysis2018C3/'
+#SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
+SciAnalysis_PATH='/GPFS/xf12id1/analysis/CFN/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob
@@ -24,8 +24,7 @@ from SciAnalysis.XSAnalysis import Protocols
 
 
 calibration = Calibration(wavelength_A=0.770088) # 16.1 keV
-#calibration.set_energy(16.1)
-#print(calibration.get_wavelength())
+#calibration = Calibration(wavelength_A=0.619920987) # 20.0 keV
 binning = 2
 calibration.set_image_size(3840/binning) # RayonixMAXS3840
 calibration.set_pixel_size(width_mm=210.0)
@@ -91,26 +90,5 @@ process.run(infiles, protocols, output_dir=output_dir, force=False)
 
 # Loop
 ########################################
-# This code is typically only used at the beamline (it loops forever, watching for new files).
-import time
-donefiles = []
-while True:
-
-    infiles = glob.glob(os.path.join(source_dir, '*.tif'))
-
-    for infile in infiles:
-        if infile in donefiles:
-            pass
-
-        else:
-            process.run([infile], protocols, output_dir=output_dir, force=False)
-
-        donefiles.append(infile)
-
-    time.sleep(4)
-
-
-
-
-
-
+# This is typically only used at the beamline (it loops forever, watching for new files).
+process.monitor_loop(source_dir=source_dir, pattern='*.tif', protocols=protocols, output_dir=output_dir, force=False)
