@@ -77,7 +77,7 @@ process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 from SciAnalysis.XSAnalysis import Multiple
 pattern_re = '^(.+deg)_waxs.+\.tif$'
 #protocols = [ Multiple.sum_images() ]
-protocols = [ Multiple.merge_images_gonio_phi(q_range=[-.10, 7.5, -1.0, 5.5], dq=0.015, pattern_re='.+_waxs(-?\d+\.\d+)_.+', save_axes=False, save_mask=False, save_maps=False) ]
+protocols = [ Multiple.merge_images_gonio_phi(q_range=[-.10, 7.5, -1.0, 5.5], dq=0.015, phi_re='.+_waxs(-?\d+\.\d+)_.+', save_axes=False, save_mask=False, save_maps=False) ]
 
 
 

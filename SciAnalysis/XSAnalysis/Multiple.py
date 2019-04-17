@@ -264,8 +264,8 @@ class merge_images_gonio_phi(ProtocolMultiple):
         
     def get_phi(self, data, **run_args):
         
-        pattern_re = re.compile(run_args['pattern_re'])
-        m = pattern_re.match(data.name)
+        phi_re = re.compile(run_args['phi_re'])
+        m = phi_re.match(data.name)
         if m:
             phi = float(m.groups()[0])
             if run_args['verbosity']>=5:
