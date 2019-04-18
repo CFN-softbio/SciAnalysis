@@ -28,14 +28,13 @@ import matplotlib as mpl
 mpl.rcParams['mathtext.fontset'] = 'cm'
 
 
-
 from scipy import signal # For gaussian smoothing
 from scipy import ndimage # For resize, etc.
 from scipy import stats # For skew
 #from scipy.optimize import leastsq
 #import scipy.special
 
-import PIL # Python Image Library (for opening PNG, etc.)
+import PIL # Python Image Library (for opening PNGs, etc.)
 
 from . import tools
  
