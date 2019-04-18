@@ -109,7 +109,7 @@ class DataLine(object):
             self.y = data[:,1]
             
         else:
-            print("Couldn't identify data format for %s."%(infile))
+            print("Couldn't identify data format for {}.".format(infile))
             
             
     def load_custom(self, infile, **kwargs):
