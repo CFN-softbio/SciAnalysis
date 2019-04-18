@@ -34,7 +34,7 @@ from scipy import stats # For skew
 #from scipy.optimize import leastsq
 #import scipy.special
 
-import PIL # Python Image Library (for opening PNGs, etc.)
+import PIL # Python Image Library (for opening PNG, etc.)
 
 from . import tools
  
