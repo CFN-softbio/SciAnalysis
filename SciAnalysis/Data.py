@@ -1584,60 +1584,29 @@ class Data2D(object):
         fig_height = 1.0-top_buf-bottom_buf
         self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
         
-        
-        
-        # Set zmin and zmax. Top priority is given to a kwarg to this plot function.
-        # If that is not set, the value set for this object is used. If neither are
-        # specified, a value is auto-selected using ztrim.
-        
-        values = np.sort( self.data.flatten() )
-        if 'zmin' in plot_args and plot_args['zmin'] is not None:
-            zmin = plot_args['zmin']
-        elif self.z_display[0] is not None:
-            zmin = self.z_display[0]
-        else:
-            zmin = values[ +int( len(values)*ztrim[0] ) ]
-            
-        if 'zmax' in plot_args and plot_args['zmax'] is not None:
-            zmax = plot_args['zmax']
-        elif self.z_display[1] is not None:
-            zmax = self.z_display[1]
-        else:
-            idx = -int( len(values)*ztrim[1] )
-            if idx>=0:
-                idx = -1
-            zmax = values[idx]
-            
-        if zmax==zmin:
-            zmax = max(values)
-            
-        print( '        data: %.2f to %.2f\n        z-scaling: %.2f to %.2f\n' % (np.min(self.data), np.max(self.data), zmin, zmax) )
-        
+        zmin, zmax = self._plot_z_range(ztrim=ztrim, **plot_args)
         self.z_display[0] = zmin
         self.z_display[1] = zmax
         self._plot_z_transform()
-            
         
-        shading = 'flat'
-        #shading = 'gouraud'
-        
-        if 'cmap' in plot_args:
-            cmap = plot_args['cmap']
-            
-        else:
-            # http://matplotlib.org/examples/color/colormaps_reference.html
-            #cmap = mpl.cm.RdBu
-            #cmap = mpl.cm.RdBu_r
-            #cmap = mpl.cm.hot
-            #cmap = mpl.cm.gist_heat
-            cmap = mpl.cm.jet
+        # http://matplotlib.org/examples/color/colormaps_reference.html
+        cmap = plot_args['cmap'] if 'cmap' in plot_args else 'jet'
          
         x_axis, y_axis = self.xy_axes()
         extent = [x_axis[0], x_axis[-1], y_axis[0], y_axis[-1]]
         
-        # TODO: Handle 'origin' correctly. (E.g. allow it to be set externally.)
-        self.im = plt.imshow(self.Z, vmin=0, vmax=1, cmap=cmap, interpolation='nearest', extent=extent, origin='lower')
-        #plt.pcolormesh( self.x_axis, self.y_axis, self.Z, cmap=cmap, vmin=zmin, vmax=zmax, shading=shading )
+        if 'plot_2D_type' in plot_args and plot_args['plot_2D_type']=='pcolormesh':
+            if 'shading' in plot_args:
+                shading = plot_args['shading']
+            else:
+                shading = 'flat'
+                #shading = 'gouraud'
+            self.im = self.ax.pcolormesh( self.x_axis, self.y_axis, self.Z, cmap=cmap, vmin=0, vmax=1, shading=shading )
+            
+        else:
+            # TODO: Handle 'origin' correctly. (E.g. allow it to be set externally.)
+            self.im = plt.imshow(self.Z, vmin=0, vmax=1, cmap=cmap, interpolation='nearest', extent=extent, origin='lower')
+        
         
         if self.regions is not None:
             for region in self.regions:
@@ -1646,8 +1615,8 @@ class Data2D(object):
 
         x_label = self.x_rlabel if self.x_rlabel is not None else self.x_label
         y_label = self.y_rlabel if self.y_rlabel is not None else self.y_label
-        plt.xlabel(x_label)
-        plt.ylabel(y_label)
+        plt.xlabel(x_label) # self.ax.set_xlabel(x_label)
+        plt.ylabel(y_label) # self.ax.set_ylabel(y_label)
         
         if 'xticks' in kwargs and kwargs['xticks'] is not None:
             self.ax.set_xticks(kwargs['xticks'])
@@ -1678,8 +1647,8 @@ class Data2D(object):
             self.ax.axis( [xi, xf, yi, yf] )
         
         if 'title' in plot_args:
-            #size = plot_args['rcParams']['axes.labelsize']
-            size = plot_args['rcParams']['xtick.labelsize']
+            size = plot_args['rcParams']['axes.labelsize']
+            #size = plot_args['rcParams']['xtick.labelsize']
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         self._plot_extra(**plot_args)
@@ -1704,7 +1673,41 @@ class Data2D(object):
         plotting behavior.'''
         
         pass
-        
+
+
+    def _plot_z_range(self, ztrim, verbosity=3, **plot_args):
+        # Set zmin and zmax. Top priority is given to a kwarg to this plot function.
+        # If that is not set, the value set for this object is used. If neither are
+        # specified, a value is auto-selected using ztrim.
+        values = np.sort( self.data.flatten() )
+        if np.ma.is_masked(values):
+            values = values.compressed() # Ignored masked values (if any)
+        if 'zmin' in plot_args and plot_args['zmin'] is not None:
+            zmin = plot_args['zmin']
+        elif self.z_display[0] is not None:
+            zmin = self.z_display[0]
+        else:
+            zmin = values[ +int( len(values)*ztrim[0] ) ]
+            
+        if 'zmax' in plot_args and plot_args['zmax'] is not None:
+            zmax = plot_args['zmax']
+        elif self.z_display[1] is not None:
+            zmax = self.z_display[1]
+        else:
+            idx = -int( len(values)*ztrim[1] )
+            if idx>=0:
+                idx = -1
+            zmax = values[idx]
+            
+        if zmax<=zmin:
+            zmax = max(values)
+            
+        if verbosity>=3:
+            print('        data: {:.3g} to {:.3g}'.format(np.min(self.data), np.max(self.data)))
+            print('        z-scaling: {:.3g} to {:.3g}'.format(zmin, zmax) )
+            
+        return zmin, zmax
+    
         
     def _plot_z_transform(self, data=None, set_Z=True):
         '''Rescales the data according to the internal z_display setting.'''
@@ -1752,8 +1755,107 @@ class Data2D(object):
         if 'rcParams' in plot_args:
             for param, value in plot_args['rcParams'].items():
                 plt.rcParams[param] = value
-                
 
+
+    def plot3D(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.15,0.05,0.15,0.05], elev=30, azim=30, **kwargs):
+        self._plot3D(save=save, show=show, ztrim=ztrim, size=size, plot_buffers=plot_buffers, elev=elev, azim=azim, **kwargs)
+        
+    def _plot3D(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.1,0.1,0.1,0.1], elev=30, azim=30, **kwargs):
+        # Data2D._plot3D()
+        
+        plot_args = self.plot_args.copy()
+        plot_args.update(kwargs)
+        self.process_plot_args(**plot_args)
+        
+        self.fig = plt.figure( figsize=(size,size), facecolor='white' )
+        left_buf, right_buf, bottom_buf, top_buf = plot_buffers
+        fig_width = 1.0-right_buf-left_buf
+        fig_height = 1.0-top_buf-bottom_buf
+        
+        from mpl_toolkits import mplot3d
+        self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height], projection='3d')
+        
+        zmin, zmax = self._plot_z_range(ztrim=ztrim, **plot_args)
+        self.z_display[0] = zmin
+        self.z_display[1] = zmax
+        self._plot_z_transform()
+            
+        # http://matplotlib.org/examples/color/colormaps_reference.html
+        cmap = plot_args['cmap'] if 'cmap' in plot_args else 'jet'
+         
+        x_axis, y_axis = self.xy_axes()
+        extent = [x_axis[0], x_axis[-1], y_axis[0], y_axis[-1]]
+
+        # Clip out-of-range data
+        #Z = np.where( (self.data>=zmin) & (self.data<=zmax), self.data, np.nan) # Ignore
+        Z = np.clip(self.data, zmin, zmax) # Set to boundary values
+        
+        self.surf = self.ax.plot_surface(self.X, self.Y, Z, rstride=1, cstride=1, cmap=cmap, edgecolor='none', vmin=zmin, vmax=zmax)
+        self.ax.set_zlim(zmin, zmax)
+        
+        self.ax.view_init(elev=elev, azim=azim)
+        
+
+        x_label = self.x_rlabel if self.x_rlabel is not None else self.x_label
+        y_label = self.y_rlabel if self.y_rlabel is not None else self.y_label
+        self.ax.set_xlabel(x_label, labelpad=20)
+        self.ax.set_ylabel(y_label, labelpad=20)
+        
+        self.ax.zaxis.set_tick_params(pad=20)
+        
+        if 'xticks' in kwargs and kwargs['xticks'] is not None:
+            self.ax.set_xticks(kwargs['xticks'])
+        if 'yticks' in kwargs and kwargs['yticks'] is not None:
+            self.ax.set_yticks(kwargs['yticks'])
+        
+        
+        if 'colorbar' in plot_args and plot_args['colorbar']:
+            if 'colorbar_labels' in plot_args:
+                colorbar_labels = plot_args['colorbar_labels']
+            else:
+                colorbar_labels = [ zmin + i*(zmax-zmin)/4 for i in range(5) ]
+            
+            tick_positions = self._plot_z_transform(data=colorbar_labels, set_Z=False)
+            cbar = plt.colorbar(ticks=tick_positions, fraction=0.045, pad=0.02)
+            colorbar_labels = ["{:.0f}".format(c) for c in colorbar_labels]
+            cbar.ax.set_yticklabels(colorbar_labels, size=20)
+        
+        
+        if 'plot_range' in plot_args:
+            plot_range = plot_args['plot_range']
+            # Axis scaling
+            xi, xf, yi, yf = self.ax.axis()
+            if plot_range[0] != None: xi = plot_range[0]
+            if plot_range[1] != None: xf = plot_range[1]
+            if plot_range[2] != None: yi = plot_range[2]
+            if plot_range[3] != None: yf = plot_range[3]
+            self.ax.axis( [xi, xf, yi, yf] )
+        
+        if 'title' in plot_args:
+            size = plot_args['rcParams']['axes.labelsize']
+            #size = plot_args['rcParams']['xtick.labelsize']
+            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+        
+        self._plot_extra3D(**plot_args)
+        
+        if save:
+            if 'transparent' not in plot_args:
+                plot_args['transparent'] = True
+            if 'dpi' in plot_args:
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=plot_args['transparent'])
+            else:
+                plt.savefig(save, transparent=plot_args['transparent'])
+        
+        if show:
+            self._plot_interact()
+            plt.show()
+            
+        plt.close(self.fig.number)
+        
+    def _plot_extra3D(self, **plot_args):
+        pass
+        
+        
         
     # Plot interaction
     ########################################

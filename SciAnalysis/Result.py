@@ -21,7 +21,7 @@
 #  Search for "TODO" below.
 ################################################################################
  
-
+import numpy as np
 
 
 
@@ -80,9 +80,9 @@ class Results(object):
         return results
             
             
-    def extract_multi_save_txt(self, outfile, infiles, extractions, delimeter='__'):
+    def extract_multi_save_txt(self, outfile, infiles, extractions, delimeter='__', verbosity=3):
         
-        results = self.extract_multi(infiles, extractions)
+        results = self.extract_multi(infiles, extractions, verbosity=verbosity)
         print('Generated {} results.'.format(len(results)))
         
         result_names_all = []
@@ -104,7 +104,7 @@ class Results(object):
     
     
             
-    def extract_multi(self, infiles, extractions):
+    def extract_multi(self, infiles, extractions, verbosity=3):
         
         results = []
         for i, infile in enumerate(infiles):
@@ -112,25 +112,36 @@ class Results(object):
         
         for i, infile in enumerate(infiles):
             
-            if len(infiles)>250 and i%100==0:
+            if verbosity>=5 or (verbosity>=3 and len(infiles)>250 and i%100==0):
                 print( '    Extracting file {} ({:.1f}% done)'.format(i+1, 100.*i/len(infiles)) )
-            
-            for protocol, result_names in extractions:
-                
-                result_names_e, results_e = self.extract_results_from_xml(infile, protocol)
-                
-                for result_name in result_names:
-                    if result_name in result_names_e:
-                        idx = result_names_e.index(result_name)
-                        results[i].append(results_e[idx])
-                    else:
-                        results[i].append('-')
+            if verbosity>=5:
+                print( '     filename: {}'.format(infile))
+
+            try:
+                for protocol, result_names in extractions:
+                    if verbosity>=5:
+                        print('      Procotol {} (looking for {} results)'.format(protocol, len(result_names)))
                     
+                    result_names_e, results_e = self.extract_results_from_xml(infile, protocol, verbosity=verbosity)
+
+                    if verbosity>=5:
+                        print('        (found {} results)'.format(len(result_names_e)))
+                    
+                    for result_name in result_names:
+                        if result_name in result_names_e:
+                            idx = result_names_e.index(result_name)
+                            results[i].append(results_e[idx])
+                        else:
+                            results[i].append('-')
+                            
+            except:
+                if verbosity>=1:
+                    print( '    ERROR: Extraction failed for {}'.format(infile))
                 
         return results                  
             
         
-    def extract_results_from_xml(self, infile, protocol):
+    def extract_results_from_xml(self, infile, protocol, verbosity=3):
         
         parser = self.etree.XMLParser(remove_blank_text=True)
         root = self.etree.parse(infile, parser).getroot()
@@ -188,7 +199,8 @@ class Results(object):
                     
             
             else:
-                print('    Errror: result has no usable data ({})'.format(element))
+                if verbosity>=1:
+                    print('    Errror: result has no usable data ({})'.format(element))
             
         
         return result_names, results

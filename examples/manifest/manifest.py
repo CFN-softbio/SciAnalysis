@@ -23,10 +23,9 @@ measure_type = 'measure'
 
 # Select the meta-data (md) to output
 md_required = ['scan_id']
-md_optional = []
-
-
 #md_required = ['scan_id', 'sample_x', 'sample_y', 'sample_th']
+
+md_optional = []
 #md_optional = ['sample_clock', 'sample_temperature']
 #md_optional = ['mfc', 'film_thickness']
 #md_optional = ['sample_x', 'sample_y', 'sample_th', 'sample_motor_x', 'sample_motor_y', 'sample_motor_th', 'sample_clock', 'T_actual']
@@ -54,8 +53,9 @@ if verbosity>=1:
 execution_start = time.time()
 db = Broker.named(beamline)
 
-print("Scans (of type '{}') in directory:".format(measure_type))
-print("    {}".format(alias_dir))
+if verbosity>=1:
+    print("Scans (of type '{}') in directory:".format(measure_type))
+    print("    {}".format(alias_dir))
 #headers = db(start_time=start_time, stop_time=stop_time, measure_type=measure_type, experiment_alias_directory=alias_dir)
 headers = db(since=start_time, until=stop_time, measure_type=measure_type, experiment_alias_directory=alias_dir)
 

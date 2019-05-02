@@ -112,6 +112,12 @@ class Filename(object):
     def append(self, text):
         self.full_filepath = os.path.join(self.path, self.filebase + text + self.ext)
         self._update()
+        return self.get_filepath()
+        
+    def path_append(self, path):
+        self.full_filepath = os.path.join(self.path, path, self.filename)
+        self._update()
+        return self.get_filepath()
 
     # End class Filename(object)
     ########################################
