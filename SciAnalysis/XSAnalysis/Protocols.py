@@ -38,17 +38,6 @@ class ProcessorXS(Processor):
         
         data.threshold_pixels(4294967295-1) # Eiger inter-module gaps
         
-        if 'background' in kwargs:
-            if isinstance(kwargs['background'], (int, float)):
-                # Constant background to be subtracted from whole image
-                data.data -= kwargs['background']
-            elif isinstance(kwargs['background'], (list, np.ndarray)):
-                # TODO: Subtract whole image as background
-                pass
-            else:
-                print("ProcessorXS.load: Specified background type not recognized.")
-                
-        
         if 'dezing' in kwargs and kwargs['dezing']:
             data.dezinger()
         
@@ -59,9 +48,6 @@ class ProcessorXS(Processor):
 
         if 'rotCCW' in kwargs and kwargs['rotCCW']:
             data.data = np.rot90(data.data) # rotate CCW
-
-        if 'rotCW' in kwargs and kwargs['rotCW']:
-            data.data = np.rot90(data.data, k=3) # rotate CW
 
         if 'rot180' in kwargs and kwargs['rot180']:
             data.data = np.flipud(data.data) # Flip up/down
@@ -133,9 +119,9 @@ class circular_average(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-            'bins_relative' : 1.0,
             'markersize' : 0,
             'linewidth' : 1.5,
+            'bins_relative' : 1.0,
             }
         self.run_args.update(kwargs)
     
@@ -615,8 +601,8 @@ class linecut_qr_fit(linecut_qr):
 
         if True:
             # Linear background
-            params.add('m', value=m, min=abs(m)*-4, max=abs(m)*+4+1e-12, vary=False)
-            params.add('b', value=b, min=0, max=np.max(line.y)*100+1e-12, vary=False)
+            params.add('m', value=m, min=abs(m)*-4, max=abs(m)*+4, vary=False) # Slope must be positive
+            params.add('b', value=b, min=0, max=np.max(line.y)*100, vary=False)
             
             params.add('qp', value=0, vary=False)
             params.add('qalpha', value=1.0, vary=False)
@@ -1000,7 +986,7 @@ class linecut_qz_fit(linecut_qz):
         #params.add('m', value=0)
         #params.add('b', value=np.min(line.y), min=0, max=np.max(line.y))
         #params.add('m', value=m, min=abs(m)*-10, max=abs(m)*+10)
-        params.add('m', value=m, min=abs(m)*-5, max=1e-12) # Slope must be negative
+        params.add('m', value=m, min=abs(m)*-5, max=0) # Slope must be negative
         params.add('b', value=b, min=0)
         
         
@@ -1511,7 +1497,6 @@ class q_image(Protocol):
             
             # WARNING: These outputs are not to be trusted.
             # The maps are oriented relative to data.data (not q_data.data)
-            # These are for diagnostic purposes only.
             data_temp = Data2DReciprocal()
             
             data_temp.data = data.calibration.qx_map()
@@ -1576,6 +1561,7 @@ class qr_image(Protocol):
                         'blur' : None,
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
+                        'save_data' : True,
                         }
         self.run_args.update(kwargs)
         
@@ -1883,7 +1869,8 @@ class q_phi_image(Protocol):
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
                         'yticks' : [-180, -90, 0, 90, 180],
-                        'save_data_pickle': True,
+                        'save_data_pickle': False,
+                        'save_data_img':True
                         }
         self.run_args.update(kwargs)
         
@@ -1922,7 +1909,15 @@ class q_phi_image(Protocol):
                 out_data = q_data.data, q_data.x_axis, q_data.y_axis
                 pickle.dump(out_data, fout)
             
-        
+        q_data.x_label = 'q'
+        q_data.x_rlabel = '$q \, (\mathrm{\AA{-1]})$'
+        q_data.y_label = 'phi'
+        q_data.y_rlabel = '$phi \, (\mathrm{\deg})$'
+       
+        if 'save_data_img' in run_args and run_args['save_data_img']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)       
+
         return results
 
 
@@ -2009,9 +2004,6 @@ class export_STL(Protocol):
 
         if run_args['verbosity']>=4:
             print('        data.data from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(data.data), np.max(data.data), np.average(data.data), np.std(data.data)))
-
-        if 'clip' in run_args:
-            data.data = np.clip(data.data, run_args['clip'][0], run_args['clip'][1])
                                                                                       
         data._plot_z_transform()
         
@@ -2083,68 +2075,6 @@ class export_STL(Protocol):
 
 
 
-
-
-
-class metadata_extract(Protocol):
-    
-    def __init__(self, name='metadata_extract', **kwargs):
-        
-        self.name = self.__class__.__name__ if name is None else name
-        
-        self.default_ext = '.dat'
-        
-        patterns = [
-                    ['theta', '.+_th(\d+\.\d+)_.+'] ,
-                    ['x_position', '.+_x(-?\d+\.\d+)_.+'] ,
-                    ['y_position', '.+_y(-?\d+\.\d+)_.+'] ,
-                    ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
-                    ['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
-                    ['exposure_time', '.+_(\d+\.\d+)c_\d+_?axs.+'] ,
-                    ['sequence_ID', '.+_(\d+)_?axs.+'] ,
-                    ]            
-            
-        self.run_args = { 'patterns' : patterns }
-        self.run_args.update(kwargs)
-    
-        
-    @run_default
-    def run(self, data, output_dir, **run_args):
-        
-        results = {}
-        
-        infile = data.infile
-        f = tools.Filename(infile)
-        filepath, filename, filebase, ext = f.split()
-        
-        results['infile'] = infile
-        results['filepath'] = filepath
-        results['filename'] = filename
-        results['filebase'] = filebase
-        results['fileext'] = ext
-        
-        results['sample_name'] = data.name
-        results['file_ctime'] = os.path.getctime(infile)
-        results['file_modification_time'] = os.path.getmtime(infile)
-        results['file_access_time'] = os.path.getatime(infile)
-        results['file_size'] = os.path.getsize(infile)
-        
-        patterns = run_args['patterns']
-        
-        for pattern_name, pattern_string in patterns:
-            pattern = re.compile(pattern_string)
-            m = pattern.match(filename)
-            if m:
-                if run_args['verbosity']>=5:
-                    print('  matched: {} = {}'.format(pattern_name, m.groups()[0]))
-                results[pattern_name] = float(m.groups()[0])
-        
-        
-        outfile = self.get_outfile(data.name, output_dir, ext='.npy')
-        np.save(outfile, results)
-        
-        
-        return results
 
 
 
@@ -2253,7 +2183,7 @@ class _deprecated_sum_images(Protocol):
     
     
     
-class _deprecated_merge_images_tiling(Protocol):
+class merge_images_tiling(Protocol):
     
     def __init__(self, name='merge_images', **kwargs):
         
@@ -2391,7 +2321,7 @@ class _deprecated_merge_images_tiling(Protocol):
         return results
             
     
-class _deprecated_merge_images_gonio_phi(Protocol):
+class merge_images_gonio_phi(Protocol):
     
     def __init__(self, name='merge_images', **kwargs):
         
