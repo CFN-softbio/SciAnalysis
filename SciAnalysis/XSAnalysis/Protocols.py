@@ -1930,7 +1930,7 @@ class q_phi_image(Protocol):
         q_data.y_label = 'phi'
         q_data.y_rlabel = '$phi \, (\mathrm{\deg})$'
 
-         if 'save_data_img' in run_args and run_args['save_data_img']:
+        if 'save_data_img' in run_args and run_args['save_data_img']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)       
         
