@@ -80,6 +80,7 @@ protocols = [
 
 # Run
 ########################################
+print('Processing {} infiles...'.format(len(infiles)))
 process.run(infiles, protocols, output_dir=output_dir, force=False)
 
 

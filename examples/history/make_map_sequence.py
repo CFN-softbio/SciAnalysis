@@ -1,6 +1,17 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+
+# This generates a map (2D false-color plot or 3D height plot) for a set of
+# experiments (that are presumptively defined in some (x,y) space). The code
+# assumes you've already used SciAnalysis to process your data, such that you
+# have XML files in your "results" sub-folder with the analysis results of
+# interest. This code then compiles that data and generates the plot.
+
+# The code can also be used to generate an animation of the sequence of
+# measurements during the experiment.
+
+
 # Imports
 ########################################
 
@@ -22,6 +33,7 @@ from SciAnalysis.Data import *
 ########################################
 verbosity = 3
 pattern = 'PWM_sample_AM3' # Files to consider
+#pattern = 'PWM_sample_AM2' # Files to consider
 source_dir = '../' # The location of the SciAnalysis outputs
 output_dir = './{}/'.format(pattern)
 tools.make_dir(output_dir)
@@ -55,6 +67,20 @@ def val_stats(values, name='z'):
     span = np.max(values)-np.min(values)
     print("  {} = {:.2g} ± {:.2g} (span {:.2g}, from {:.2g} to {:.2g})".format(name, np.average(values), np.std(values), span, np.min(values), np.max(values)))
     
+    
+def power_N_list(N_max, N_min=3, num=40, exponent=3.0):
+    '''Generates a list of integers that are spread out more logarithmically.
+    That is, the list starts with small increments between integers, but finishes
+    with large increments.'''
+    
+    #N_list = ( (np.exp( np.linspace(0, 1, num=40) ) - 1)/(np.exp(1)-1) )*len(z_vals)
+    x = np.linspace(0, 1, num=num)
+    N_list = np.power(x, exponent)*(N_max-N_min) + N_min
+    N_list = np.unique(N_list.astype(int))
+    #N_list = N_list[ (N_list>=N_min) & (N_list<=N_max) ] # Unnecessary
+    
+    return N_list
+    
 
 
 # Extract results from xml files
@@ -74,50 +100,55 @@ def extract_results(infiles, outfile, verbosity=3):
 
 
 
-# Plot
+# Results
 ########################################
 
-def load_results(infile, x_coord, y_coord, z_signal, sequence, verbosity=3):
+def load_file(infile, verbosity=3):
+    if verbosity>=3:
+        print(" Loading data from file: {}".format(infile))
+    if verbosity>=4:
+        print('Saved data has {} columns:'.format(len(names)))
+        print(names)
+    
+    with open(infile, 'r') as fin:
+        names = fin.readline().split()
+        lines = fin.readlines()
+        
+    return names, lines
+
+def load_results(names, lines, x_coord, y_coord, z_signal, sequence, verbosity=3):
     
     # Load results
     x_vals = []
     y_vals = []
     z_vals = []
     seq_vals = []
-    with open(infile) as fin:
-        names = fin.readline().split()
+    
+    signal_idx = names.index(z_signal)
+    x_idx = names.index(x_coord)
+    y_idx = names.index(y_coord)
+    sequence_idx = names.index(sequence)
+    
+    if verbosity>=3:
+        print(" Plot signal: {} (column index {})".format(z_signal, signal_idx))
+        print(" Plot x: {} (column index {})".format(x_coord, x_idx))
+        print(" Plot y: {} (column index {})".format(y_coord, y_idx))
+        print(" Sorting: {} (column index {})".format(sequence, sequence_idx))
         
-        if verbosity>=3:
-            print(" Loading data from file: {}".format(infile))
-        if verbosity>=4:
-            print('Saved data has {} columns:'.format(len(names)))
-            print(names)
-            
-        signal_idx = names.index(z_signal)
-        x_idx = names.index(x_coord)
-        y_idx = names.index(y_coord)
-        sequence_idx = names.index(sequence)
-        
-        if verbosity>=3:
-            print(" Plot signal: {} (column index {})".format(z_signal, signal_idx))
-            print(" Plot x: {} (column index {})".format(x_coord, x_idx))
-            print(" Plot y: {} (column index {})".format(y_coord, y_idx))
-            print(" Sorting: {} (column index {})".format(sequence, sequence_idx))
-            
-        
-        for line in fin.readlines():
-            els = line.split()
-            if len(els)==len(names) and els[0][0]!='#':
-                x_vals.append(float(els[x_idx]))
-                y_vals.append(float(els[y_idx]))
-                z_vals.append(float(els[signal_idx]))
-                seq_vals.append(int(float(els[sequence_idx])))
-            else:
-                if verbosity>=3:
-                    print('  Skipping line: {}'.format(line.strip()))
+    
+    for line in lines:
+        els = line.split()
+        if len(els)==len(names) and els[0][0]!='#':
+            x_vals.append(float(els[x_idx]))
+            y_vals.append(float(els[y_idx]))
+            z_vals.append(float(els[signal_idx]))
+            seq_vals.append(int(float(els[sequence_idx])))
+        else:
+            if verbosity>=3:
+                print('  Skipping line: {}'.format(line.strip()))
                 
         
-    if verbosity>=3:
+    if verbosity>=4:
         print(" Nx, Ny, Nz = {}, {}, {}".format(len(x_vals), len(y_vals), len(z_vals)))
         val_stats(z_vals, name='z')
 
@@ -144,6 +175,9 @@ def trim_vals(vals_list, N_max, verbosity=3):
         
     return trimmed_vals_list
     
+    
+# Plot
+########################################
     
 import SciAnalysis.colormaps as cmaps
 plt.register_cmap(name='viridis', cmap=cmaps.viridis)
@@ -176,15 +210,36 @@ class Data2D_current(Data2D):
         tick_positions = self._plot_z_transform(data=colorbar_labels, set_Z=False)
         cbar = self.fig.colorbar(self.im, ax=self.ax, ticks=tick_positions, fraction=0.056, pad=0.02)
         colorbar_labels = ["{:.3g}".format(c) for c in colorbar_labels]
-        cbar.ax.set_yticklabels(colorbar_labels, size=20)                
+        cbar.ax.set_yticklabels(colorbar_labels, size=18)
+        
+        # Titles
+        size = plot_args['rcParams']['axes.labelsize']
+        #size = plot_args['rcParams']['xtick.labelsize']
+        plt.figtext(0, 1, '$N = {:,d}$'.format(len(self.z_vals)), size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+        z_label = self.z_rlabel if self.z_rlabel is not None else self.z_label
+        if z_label is not None:
+            plt.figtext(1, 1, z_label, size=size, weight='bold', verticalalignment='top', horizontalalignment='right')
+        
         
     def _plot_extra3D(self, **plot_args):
+        # Colorbar
         cbar = self.fig.colorbar(self.surf, ax=self.ax, aspect=40, fraction=0.02, pad=0.0)
         cbar.ax.yaxis.set_tick_params(labelsize=15)
+
+        # Titles
+        size = plot_args['rcParams']['axes.labelsize']
+        #size = plot_args['rcParams']['xtick.labelsize']
+        plt.figtext(0, 1, '$N = {:,d}$'.format(len(self.z_vals)), size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+        z_label = self.z_rlabel if self.z_rlabel is not None else self.z_label
+        if z_label is not None:
+            plt.figtext(1, 1, z_label, size=size, weight='bold', verticalalignment='top', horizontalalignment='right')
     
     
     
-def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, grid=None, dgrid=None, title=None, cmap='viridis', alpha=0.5, verbosity=3):
+def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, grid=None, dgrid=None, title=None, cmap='viridis', alpha=0.5, x_label='$x$', y_label='$y$', z_label=None, verbosity=3):
+    
+    if verbosity>=3:
+        print("Plotting for {}".format(outfile))
     
     # Define grid for interpolation
     if grid is None:
@@ -203,13 +258,13 @@ def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, gri
     import scipy.interpolate
     POINTS = np.column_stack((x_vals,y_vals))
     VALUES = z_vals
-    if verbosity>=3:
+    if verbosity>=4:
         print("Interpolating {:,} points to {:,}×{:,} = {:,} points".format(len(VALUES), len(xi), len(yi), len(xi)*len(yi)))    
         
     ZI = scipy.interpolate.griddata(POINTS, VALUES, (XI, YI), method='linear') # method='nearest' 'linear' 'cubic'
     ZI_mask = np.ma.masked_where( np.isnan(ZI), ZI)
 
-    if verbosity>=3:
+    if verbosity>=4:
         val_stats(ZI, name='ZI')
         val_stats(ZI_mask, name='ZI_mask')
     
@@ -224,8 +279,9 @@ def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, gri
 
 
     d.set_z_display([None, None, 'linear', 1.0])
-    d.x_rlabel = '$x \, (\mathrm{mm})$'
-    d.y_rlabel = '$y \, (\mathrm{mm})$'
+    d.x_rlabel = x_label
+    d.y_rlabel = y_label
+    d.z_rlabel = z_label
     
     if plot2d:
         d.plot_args['rcParams'] = { 
@@ -247,18 +303,25 @@ def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, gri
                         }    
         d.X = XI
         d.Y = YI
+        
+        elev = 30
+        azim = 30
+        azim = 30-90
+        
         #outfile = outfile[:-4]+'-3D.png'
         outfile = tools.Filename(outfile).path_append('3D')
-        d.plot3D(save=outfile, show=False, cmap=cmap, zmin=zmin, zmax=zmax, title=title, plot_buffers=[0.05, 0.10, 0.05, 0.05], plot_range=grid, elev=30, azim=30-90, dpi=150, transparent=False)
+        d.plot3D(save=outfile, show=False, cmap=cmap, zmin=zmin, zmax=zmax, title=title, plot_buffers=[0.05, 0.10, 0.05, 0.05], plot_range=grid, elev=elev, azim=azim, dpi=150, transparent=False)
     
 
-def plot_grids(results, N_list, n_grid=200, plot2d=True, plot3d=False, cmap='viridis', verbosity=3):
+def plot_grids(results, N_list, grid=[None, None, None, None], n_grid=200, plot2d=True, plot3d=False, cmap='viridis', x_label='$x \, (\mathrm{mm})$', y_label='$y \, (\mathrm{mm})$', z_label='$z$', verbosity=3):
     
     x_vals, y_vals, z_vals, seq_vals = results
     
-    # Set size/shape of interpolation grid based on the full dataset
+    if grid[0] is None: grid[0] = np.min(x_vals)
+    if grid[1] is None: grid[1] = np.max(x_vals)
+    if grid[2] is None: grid[2] = np.min(y_vals)
+    if grid[3] is None: grid[3] = np.max(y_vals)
     n_grid = [n_grid, n_grid]
-    grid = [np.min(x_vals), np.max(x_vals), np.min(y_vals), np.max(y_vals)]
     dgrid = [ (grid[1]-grid[0])/n_grid[0] , (grid[3]-grid[2])/n_grid[1] ]
     
     
@@ -266,12 +329,11 @@ def plot_grids(results, N_list, n_grid=200, plot2d=True, plot3d=False, cmap='vir
     
     for N in N_list:
         x_vals, y_vals, z_vals, seq_vals = trim_vals(results, N_max=N, verbosity=verbosity)
-        if verbosity>=3:
+        if verbosity>=4:
             val_stats(z_vals, name='z_reduced')    
             
         outfile = os.path.join(output_dir, signal, '{}-{}-N{:04d}.png'.format(pattern, signal, N))
-        title = '$N = {:,d}$'.format(N)
-        plot_results(x_vals, y_vals, z_vals, outfile=outfile, plot2d=plot2d, plot3d=plot3d, grid=grid, dgrid=dgrid, title=title, cmap=cmap, alpha=0.2, verbosity=verbosity)
+        plot_results(x_vals, y_vals, z_vals, outfile=outfile, plot2d=plot2d, plot3d=plot3d, grid=grid, dgrid=dgrid, cmap=cmap, alpha=0.2, x_label=x_label, y_label=y_label, z_label=z_label, verbosity=verbosity)
     
         
 
@@ -332,63 +394,84 @@ outfile = os.path.join(output_dir, '{}-extracted.txt'.format(pattern))
 
 
 # Plot results
-x_coord = 'metadata_extract__x_position'
-y_coord = 'metadata_extract__y_position'
-#z_signal, zmin, zmax, cmap = 'circular_average_q2I__fit_peaks_x_center1', 0.0129, 0.0138, 'viridis'
-#z_signal, zmin, zmax, cmap = 'circular_average_q2I__fit_peaks_d0', 44, 49, 'viridis'
-#z_signal, zmin, zmax, cmap = 'circular_average_q2I__fit_peaks_grain_size', 50, 300, 'inferno'
-z_signal, zmin, zmax, cmap = 'circular_average_q2I__fit_peaks_prefactor1', 0.0005, 0.002, cmap_vge
+x_coord, x_label = 'metadata_extract__x_position', '$x \, (\mathrm{mm})$'
+y_coord, y_label = 'metadata_extract__y_position', '$y \, (\mathrm{mm})$'
 sequence = 'metadata_extract__sequence_ID'
 
-protocol, signal = z_signal.split('__')
+
+signals = [
+    #[ 'circular_average_q2I__fit_peaks_x_center1', '$q_0 \, (\mathrm{\AA^{-1}})$', 0.0129, 0.0138, 'viridis' ],
+    #[ 'circular_average_q2I__fit_peaks_d0', '$d_0 \, (\mathrm{nm})$', 44, 49, 'viridis' ],
+    #[ 'circular_average_q2I__fit_peaks_sigma1', r'$\sigma_0 \, (\mathrm{\AA^{-1}})$', 0.001, 0.005, 'inferno' ],
+    [ 'circular_average_q2I__fit_peaks_grain_size', r'$\xi \, (\mathrm{nm})$', 50, 300, 'inferno' ],
+    #[ 'circular_average_q2I__fit_peaks_prefactor1', '$p \, (\mathrm{a.u.})$', 0.0005, 0.002, cmap_vge ],
+    ]
 
 
-def power_N_list(N_max, N_min=3, num=40, exponent=3.0):
+# Transform coordinates
+def coord_transform(results, x_label, y_label):
+    return results, x_label, y_label
+
+def coord_transform(results, x_label, y_label):
+    x_vals, y_vals, z_vals, seq_vals = results
     
-    #N_list = ( (np.exp( np.linspace(0, 1, num=40) ) - 1)/(np.exp(1)-1) )*len(z_vals)
-    x = np.linspace(0, 1, num=num)
-    N_list = np.power(x, exponent)*(N_max-N_min) + N_min
-    N_list = np.unique(N_list.astype(int))
-    #N_list = N_list[ (N_list>=N_min) & (N_list<=N_max) ] # Unnecessary
-    print(N_list)
+    x_vals = (x_vals/50)*(200-140) + 140 # thickness
+    y_vals = ((y_vals+50)/50)*(200-30) + 30 # Temperature
     
-    return N_list
+    results = x_vals, y_vals, z_vals, seq_vals
+    return results, '$T \, (\mathrm{^{\circ}C})$', '$h \, (\mathrm{nm})$'
 
-if False:
+
+names, lines = load_file(outfile, verbosity=verbosity)
+
+for signal in signals:
+    
+    z_signal, z_label, zmin, zmax, cmap = signal
+    protocol, signal = z_signal.split('__')
+
+    grid = [None, None, None, None]
+    #grid = [None, None, None, 130]
+
     if verbosity>=3:
-        print("Plotting...")
-        
+        print("========================================")
+        print("Plotting signal {}...".format(signal))
+        print("========================================")
+
     tools.make_dir(os.path.join(output_dir,signal))
     tools.make_dir(os.path.join(output_dir,signal,'3D'))
     
-    results = load_results(outfile, x_coord=x_coord, y_coord=y_coord, z_signal=z_signal, sequence=sequence, verbosity=verbosity)
+    results = load_results(names, lines, x_coord=x_coord, y_coord=y_coord, z_signal=z_signal, sequence=sequence, verbosity=verbosity)
+    results, x_label, y_label = coord_transform(results, x_label, y_label)
     x_vals, y_vals, z_vals, seq_vals = results
-    
+        
+        
     # Single result
-    #plot_grids(results, [len(z_vals)], n_grid=200, plot2d=True, plot3d=False, cmap=cmap, verbosity=verbosity)
-    #plot_grids(results, [len(z_vals)], n_grid=40, plot2d=False, plot3d=True, cmap=cmap, verbosity=verbosity)
-
-    # 2D plots
-    N_spacing = 50
-    N_list = np.arange(N_spacing, len(z_vals), N_spacing)
-    #N_list = power_N_list(len(z_vals), num=40, exponent=5.0)
-    plot_grids(results, N_list, n_grid=200, plot2d=True, plot3d=False, cmap=cmap, verbosity=verbosity)
-    
-    # 3D plots
-    #plot_grids(results, N_list, n_grid=40, plot2d=False, plot3d=True, cmap=cmap, verbosity=verbosity)
-    
-    
-    
-
-    
-if True:
-    outfile = os.path.join(output_dir, '{}-{}.gif'.format(pattern, signal))
-    animated_gif(source_dir=os.path.join(output_dir, signal), outfile=outfile, verbosity=verbosity)
-
-    outfile = os.path.join(output_dir, '{}-{}-3D.gif'.format(pattern, signal))
-    #animated_gif(source_dir=os.path.join(output_dir, signal, '3D'), outfile=outfile, verbosity=verbosity)
+    if True:
+        plot_grids(results, [len(z_vals)], grid=grid, n_grid=200, plot2d=True, plot3d=False, cmap=cmap, x_label=x_label, y_label=y_label, z_label=z_label, verbosity=verbosity)
+        plot_grids(results, [len(z_vals)], grid=grid, n_grid=40, plot2d=False, plot3d=True, cmap=cmap, x_label=x_label, y_label=y_label, z_label=z_label, verbosity=verbosity)
 
 
+    # Sequence of results
+    if True:
+        # 2D plots
+        N_spacing = 50
+        N_list = np.arange(N_spacing, len(z_vals), N_spacing)
+        N_list = power_N_list(len(z_vals), num=140, exponent=5.0)
+        plot_grids(results, N_list, grid=grid, n_grid=200, plot2d=True, plot3d=False, cmap=cmap, x_label=x_label, y_label=y_label, z_label=z_label, verbosity=verbosity)
+        
+        # 3D plots
+        plot_grids(results, N_list, grid=grid, n_grid=40, plot2d=False, plot3d=True, cmap=cmap, x_label=x_label, y_label=y_label, z_label=z_label, verbosity=verbosity)
+        
+        
+    # Animated gif
+    if True:
+        outfile = os.path.join(output_dir, '{}-{}.gif'.format(pattern, signal))
+        animated_gif(source_dir=os.path.join(output_dir, signal), outfile=outfile, verbosity=verbosity)
+
+        outfile = os.path.join(output_dir, '{}-{}-3D.gif'.format(pattern, signal))
+        animated_gif(source_dir=os.path.join(output_dir, signal, '3D'), outfile=outfile, verbosity=verbosity)
 
 
-    
+
+
+        

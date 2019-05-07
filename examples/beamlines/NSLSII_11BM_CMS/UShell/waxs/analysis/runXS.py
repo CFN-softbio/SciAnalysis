@@ -25,7 +25,7 @@ from SciAnalysis.XSAnalysis import Protocols
 # Experimental parameters
 ########################################
 
-if True:
+if False:
     # PhotonicSciences CCD
     from SciAnalysis.XSAnalysis.DataRQconv import *
     calibration = CalibrationRQconv(wavelength_A=0.9184) # 13.5 keV
@@ -44,9 +44,9 @@ else:
     calibration = Calibration(wavelength_A=0.9184) # 13.5 keV
     calibration.set_image_size(981, height=1043) # Pilatus1M
     calibration.set_pixel_size(pixel_size_um=172.0)
-    calibration.set_beam_position(50.0, 1680-1000)
+    calibration.set_beam_position(237, 1043-379)
 
-    calibration.set_distance(0.232)
+    calibration.set_distance(0.355)
 
     mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
     mask = Mask(mask_dir+'Dectris/Pilatus800kcustom-mask.png')

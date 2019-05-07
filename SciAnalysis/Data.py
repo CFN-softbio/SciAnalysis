@@ -987,6 +987,7 @@ class Data2D(object):
         
         self.x_label = kwargs['x_label'] if 'x_label' in kwargs else 'x'
         self.y_label = kwargs['y_label'] if 'y_label' in kwargs else 'y'
+        self.z_label = kwargs['z_label'] if 'z_label' in kwargs else 'z'
         
         self.x_rlabel = kwargs['x_rlabel'] if 'x_rlabel' in kwargs else self.x_label
         self.y_rlabel = kwargs['y_rlabel'] if 'y_rlabel' in kwargs else self.y_label
@@ -1646,7 +1647,7 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
-        if 'title' in plot_args:
+        if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
@@ -1702,7 +1703,7 @@ class Data2D(object):
         if zmax<=zmin:
             zmax = max(values)
             
-        if verbosity>=3:
+        if verbosity>=4:
             print('        data: {:.3g} to {:.3g}'.format(np.min(self.data), np.max(self.data)))
             print('        z-scaling: {:.3g} to {:.3g}'.format(zmin, zmax) )
             
@@ -1831,7 +1832,7 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
-        if 'title' in plot_args:
+        if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
@@ -2210,6 +2211,16 @@ color_list_cyclic_spectrum = [
     [ 1.0, 0.0, 0.0 ]
 ]
 cmap_cyclic_spectrum = mpl.colors.LinearSegmentedColormap.from_list('cmap_cyclic_spectrum', color_list_cyclic_spectrum)
+
+# Cyclic
+color_list_cyclic_rb = [
+    [ 0.0, 0.0, 0.0 ],
+    [ 1.0, 0.0, 0.0 ],
+    [ 1.0, 1.0, 1.0 ],    
+    [ 0.0, 0.0, 1.0 ],
+    [ 0.0, 0.0, 0.0 ],
+]
+cmap_cyclic_rb = mpl.colors.LinearSegmentedColormap.from_list('cmap_cyclic_rb', color_list_cyclic_rb)
 
 # classic jet, slightly tweaked
 # (bears some similarity to mpl.cm.nipy_spectral)
