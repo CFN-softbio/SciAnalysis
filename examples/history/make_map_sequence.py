@@ -33,7 +33,6 @@ from SciAnalysis.Data import *
 ########################################
 verbosity = 3
 pattern = 'PWM_sample_AM3' # Files to consider
-#pattern = 'PWM_sample_AM2' # Files to consider
 source_dir = '../' # The location of the SciAnalysis outputs
 output_dir = './{}/'.format(pattern)
 tools.make_dir(output_dir)
@@ -86,13 +85,10 @@ def power_N_list(N_max, N_min=3, num=40, exponent=3.0):
 # Extract results from xml files
 ########################################
 from SciAnalysis.Result import * # Results() object
-def extract_results(infiles, outfile, verbosity=3):
+def extract_results(infiles, extractions, outfile, verbosity=3):
     if verbosity>=3:
         print("Extracting results for {} infiles...".format(len(infiles)))
     
-    extractions = [ [ 'metadata_extract', ['x_position', 'y_position', 'sequence_ID'] ] ,
-                ['circular_average_q2I', ['fit_peaks_prefactor1', 'fit_peaks_x_center1', 'fit_peaks_sigma1', 'fit_peaks_chi_squared', 'fit_peaks_d0', 'fit_peaks_grain_size' ] ],
-                ]    
     results = Results().extract_multi_save_txt(outfile, infiles, extractions, verbosity=verbosity)
     
     return results
@@ -138,7 +134,7 @@ def load_results(names, lines, x_coord, y_coord, z_signal, sequence, verbosity=3
     
     for line in lines:
         els = line.split()
-        if len(els)==len(names) and els[0][0]!='#':
+        if len(els)==len(names) and els[0][0]!='#' and els[signal_idx]!='-':
             x_vals.append(float(els[x_idx]))
             y_vals.append(float(els[y_idx]))
             z_vals.append(float(els[signal_idx]))
@@ -219,6 +215,8 @@ class Data2D_current(Data2D):
         z_label = self.z_rlabel if self.z_rlabel is not None else self.z_label
         if z_label is not None:
             plt.figtext(1, 1, z_label, size=size, weight='bold', verticalalignment='top', horizontalalignment='right')
+            
+        #self.ax.set_aspect('equal', 'datalim')
         
         
     def _plot_extra3D(self, **plot_args):
@@ -236,10 +234,11 @@ class Data2D_current(Data2D):
     
     
     
-def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, grid=None, dgrid=None, title=None, cmap='viridis', alpha=0.5, x_label='$x$', y_label='$y$', z_label=None, verbosity=3):
+def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, grid=None, dgrid=None, title=None, cmap='viridis', alpha=0.5, x_label='$x$', y_label='$y$', z_label=None, interpolate_cyclic=None, verbosity=3):
     
     if verbosity>=3:
         print("Plotting for {}".format(outfile))
+        val_stats(z_vals, name='z_vals')
     
     # Define grid for interpolation
     if grid is None:
@@ -261,8 +260,19 @@ def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, gri
     if verbosity>=4:
         print("Interpolating {:,} points to {:,}×{:,} = {:,} points".format(len(VALUES), len(xi), len(yi), len(xi)*len(yi)))    
         
-    ZI = scipy.interpolate.griddata(POINTS, VALUES, (XI, YI), method='linear') # method='nearest' 'linear' 'cubic'
-    ZI_mask = np.ma.masked_where( np.isnan(ZI), ZI)
+        
+    if interpolate_cyclic is not None:
+        xlike = np.cos(VALUES*2*np.pi/interpolate_cyclic)
+        ylike = np.sin(VALUES*2*np.pi/interpolate_cyclic)
+        XLIKE = scipy.interpolate.griddata(POINTS, xlike, (XI, YI), method='linear')
+        YLIKE = scipy.interpolate.griddata(POINTS, ylike, (XI, YI), method='linear')
+        
+        ZI = ( np.arctan2(YLIKE, XLIKE)/(2*np.pi) )*interpolate_cyclic
+        ZI_mask = np.ma.masked_where( np.isnan(ZI), ZI)
+        
+    else:        
+        ZI = scipy.interpolate.griddata(POINTS, VALUES, (XI, YI), method='linear') # method='nearest' 'linear' 'cubic'
+        ZI_mask = np.ma.masked_where( np.isnan(ZI), ZI)
 
     if verbosity>=4:
         val_stats(ZI, name='ZI')
@@ -313,7 +323,7 @@ def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, gri
         d.plot3D(save=outfile, show=False, cmap=cmap, zmin=zmin, zmax=zmax, title=title, plot_buffers=[0.05, 0.10, 0.05, 0.05], plot_range=grid, elev=elev, azim=azim, dpi=150, transparent=False)
     
 
-def plot_grids(results, N_list, grid=[None, None, None, None], n_grid=200, plot2d=True, plot3d=False, cmap='viridis', x_label='$x \, (\mathrm{mm})$', y_label='$y \, (\mathrm{mm})$', z_label='$z$', verbosity=3):
+def plot_grids(results, N_list, grid=[None, None, None, None], n_grid=200, plot2d=True, plot3d=False, cmap='viridis', x_label='$x \, (\mathrm{mm})$', y_label='$y \, (\mathrm{mm})$', z_label='$z$', interpolate_cyclic=None, verbosity=3):
     
     x_vals, y_vals, z_vals, seq_vals = results
     
@@ -333,11 +343,15 @@ def plot_grids(results, N_list, grid=[None, None, None, None], n_grid=200, plot2
             val_stats(z_vals, name='z_reduced')    
             
         outfile = os.path.join(output_dir, signal, '{}-{}-N{:04d}.png'.format(pattern, signal, N))
-        plot_results(x_vals, y_vals, z_vals, outfile=outfile, plot2d=plot2d, plot3d=plot3d, grid=grid, dgrid=dgrid, cmap=cmap, alpha=0.2, x_label=x_label, y_label=y_label, z_label=z_label, verbosity=verbosity)
+        plot_results(x_vals, y_vals, z_vals, outfile=outfile, plot2d=plot2d, plot3d=plot3d, grid=grid, dgrid=dgrid, cmap=cmap, alpha=0.2, x_label=x_label, y_label=y_label, z_label=z_label, interpolate_cyclic=interpolate_cyclic, verbosity=verbosity)
     
         
 
 def animated_gif(source_dir='./', pattern='*.png', outfile=None, skip=None, verbosity=3):
+    
+    # If you get a 'cache resources exhausted' error, you can increase the cache sizes:
+    # sudo nano /etc/ImageMagick-6/policy.xml    
+    
     if verbosity>=3:
         print('Generating animated gif for {}/{}'.format(source_dir, pattern))
         
@@ -390,7 +404,15 @@ results_dir = source_dir + '/results/' # Location of xml files
 infiles = glob.glob(os.path.join(results_dir, '{}*.xml'.format(pattern)))
 outfile = os.path.join(output_dir, '{}-extracted.txt'.format(pattern))
 
-#results = extract_results(infiles, outfile=outfile, verbosity=verbosity)
+
+extractions = [ [ 'metadata_extract', ['x_position', 'y_position', 'sequence_ID'] ] ,
+            ['linecut_angle_fit', ['fit_eta_eta', 'orientation_factor', 'orientation_angle', 'fit_eta_span_prefactor'] ],
+            ]
+extractions = [ [ 'metadata_extract', ['x_position', 'y_position', 'sequence_ID'] ] ,
+            ['circular_average_q2I', ['fit_peaks_prefactor1', 'fit_peaks_x_center1', 'fit_peaks_sigma1', 'fit_peaks_chi_squared', 'fit_peaks_d0', 'fit_peaks_grain_size' ] ],
+            ]    
+
+results = extract_results(infiles, extractions, outfile=outfile, verbosity=verbosity)
 
 
 # Plot results
@@ -399,12 +421,22 @@ y_coord, y_label = 'metadata_extract__y_position', '$y \, (\mathrm{mm})$'
 sequence = 'metadata_extract__sequence_ID'
 
 
+
+signals = [
+    [ 'linecut_angle_fit__fit_eta_eta', r'$\eta$', 0, 1, 'inferno' ],
+    [ 'linecut_angle_fit__orientation_factor', r'$f_{\mathrm{ori}}$', -1, 1, 'gray' ],
+    [ 'linecut_angle_fit__orientation_angle', r'$\chi \, (\mathrm{^{\circ}})$', -90, 90, cmap_cyclic_rb ],
+    [ 'linecut_angle_fit__fit_eta_span_prefactor', r'$p \, (\mathrm{a.u.})$', 10, 120, cmap_vge ],
+    ]
+
+
 signals = [
     #[ 'circular_average_q2I__fit_peaks_x_center1', '$q_0 \, (\mathrm{\AA^{-1}})$', 0.0129, 0.0138, 'viridis' ],
-    #[ 'circular_average_q2I__fit_peaks_d0', '$d_0 \, (\mathrm{nm})$', 44, 49, 'viridis' ],
+    #[ 'circular_average_q2I__fit_peaks_d0', '$d_0 \, (\mathrm{nm})$', 35, 62, 'viridis' ],
     #[ 'circular_average_q2I__fit_peaks_sigma1', r'$\sigma_0 \, (\mathrm{\AA^{-1}})$', 0.001, 0.005, 'inferno' ],
-    [ 'circular_average_q2I__fit_peaks_grain_size', r'$\xi \, (\mathrm{nm})$', 50, 300, 'inferno' ],
-    #[ 'circular_average_q2I__fit_peaks_prefactor1', '$p \, (\mathrm{a.u.})$', 0.0005, 0.002, cmap_vge ],
+    [ 'circular_average_q2I__fit_peaks_grain_size', r'$\xi \, (\mathrm{nm})$', 100, 300, 'inferno' ],
+    #[ 'circular_average_q2I__fit_peaks_prefactor1', '$p \, (\mathrm{a.u.})$', 0.0, 0.003, cmap_vge ],
+    #[ 'circular_average_q2I__fit_peaks_chi_squared', '$\chi^2\, (\mathrm{a.u.})$', 0.000, 1e-6, 'plasma' ],
     ]
 
 
@@ -412,7 +444,7 @@ signals = [
 def coord_transform(results, x_label, y_label):
     return results, x_label, y_label
 
-def coord_transform(results, x_label, y_label):
+def _coord_transform(results, x_label, y_label):
     x_vals, y_vals, z_vals, seq_vals = results
     
     x_vals = (x_vals/50)*(200-140) + 140 # thickness

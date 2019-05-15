@@ -1067,5 +1067,5 @@ viridis = cmaps['viridis']
 #plt.register_cmap(name='magma', cmap=cmaps.magma)
 #plt.register_cmap(name='inferno', cmap=cmaps.inferno)
 #plt.register_cmap(name='plasma', cmap=cmaps.plasma)
-#plt.set_cmap(cmaps.viridis)
+##plt.set_cmap(cmaps.viridis)
 

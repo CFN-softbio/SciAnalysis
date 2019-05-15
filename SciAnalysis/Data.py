@@ -396,8 +396,6 @@ class DataLine(object):
         self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
         
         
-        
-        
         p_args = dict([(i, plot_args[i]) for i in self.plot_valid_keys if i in plot_args])
         self._plot_main(error=error, error_band=error_band, dashes=dashes, **p_args)
         
@@ -413,6 +411,11 @@ class DataLine(object):
             self.ax.set_xticks(xticks)
         if yticks is not None:
             self.ax.set_yticks(yticks)
+        
+        if 'title' in plot_args and plot_args['title'] is not None:
+            size = plot_args['rcParams']['axes.labelsize']
+            #size = plot_args['rcParams']['xtick.labelsize']
+            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         
         # Axis scaling
@@ -438,6 +441,7 @@ class DataLine(object):
         plt.close(self.fig.number)
         
         
+
     def _plot_main(self, error=False, error_band=False, dashes=None, **plot_args):
         
         if error_band:
@@ -1787,9 +1791,13 @@ class Data2D(object):
         x_axis, y_axis = self.xy_axes()
         extent = [x_axis[0], x_axis[-1], y_axis[0], y_axis[-1]]
 
+        #self.data = ndimage.gaussian_filter(self.data, sigma=1.0) # Blur
+
         # Clip out-of-range data
-        #Z = np.where( (self.data>=zmin) & (self.data<=zmax), self.data, np.nan) # Ignore
-        Z = np.clip(self.data, zmin, zmax) # Set to boundary values
+        if 'clip_remove' in plot_args and plot_args['clip_remove']:
+            Z = np.where( (self.data>=zmin) & (self.data<=zmax), self.data, np.nan) # Ignore
+        else:
+            Z = np.clip(self.data, zmin, zmax) # Set to boundary values
         
         self.surf = self.ax.plot_surface(self.X, self.Y, Z, rstride=1, cstride=1, cmap=cmap, edgecolor='none', vmin=zmin, vmax=zmax)
         self.ax.set_zlim(zmin, zmax)
