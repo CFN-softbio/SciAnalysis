@@ -541,8 +541,6 @@ class fft(Protocol):
             line.plot_polar(save=outfile)
             
             
-        # TODO: Obtain order parameter from line
-        # TODO: Add line.stats() to results
         
             
         data.data = orig_data
@@ -1693,12 +1691,13 @@ class grain_size_hex(Protocol):
         
         if run_args['verbosity']>=3:
             outfile = self.get_outfile('orientation', output_dir, ext='.png', ir=True)
-            plot_range = [0, 360.0/run_args['symmetry'], 0, np.max(line.y)*1.2]
+            r = 360.0/run_args['symmetry']
+            plot_range = [-r/2, +r/2, 0, np.max(line.y)*1.2]
             lines.plot(save=outfile, plot_range=plot_range)
 
         if run_args['verbosity']>=3:
             outfile = self.get_outfile('orientation_polar', output_dir, ext='.png', ir=True)
-            line.plot_polar(save=outfile, assumed_symmetry=run_args['symmetry'])
+            line.plot_polar(save=outfile, assumed_symmetry=run_args['symmetry'], symmetry_copy=True)
             
         # TODO: Obtain order parameter from line
         # TODO: Add line.stats() to results
@@ -1778,6 +1777,7 @@ class grain_size(grain_size_hex):
                         'blur_orientation_image_size_rel' : 0.25,
                         'correlation_edge_exclusion' : 10,
                         'correlation_step_size_points' : 5,
+                        'preprocess' : 'default',
                         }
         self.run_args.update(kwargs)
             
@@ -1805,18 +1805,22 @@ class grain_size(grain_size_hex):
         #data.lowkill(run_args['q0']*0.1)
         
         
-        # Typical processing for SEM images:
-        if True:
+        if run_args['preprocess']=='None':
+            pass
+        
+        elif run_args['preprocess']=='AFM':
+            # Typical processing for AFM images:
+            data.equalize()
+            data.maximize_intensity_spread()
+            
+        else:
+            # Typical processing for SEM images:
             data.blur(2.0) # lowpass
             data.enhance(contrast=1.3, contrast_passes=2, resharpen_passes=2)
             data.equalize()
             data.maximize_intensity_spread()
 
         
-        # Typical processing for AFM images:
-        if False:
-            data.equalize()
-            data.maximize_intensity_spread()
         
 
         if run_args['verbosity']>=4:
@@ -1863,6 +1867,8 @@ class grain_size(grain_size_hex):
 
 
         # Compute correlation function
+        if 'scale' not in run_args:
+            run_args['scale'] = data.get_scale()
         new_results = self.correlation_function(angles, output_dir=output_dir, **run_args)
         results.update(new_results)
 
@@ -1891,7 +1897,7 @@ class grain_size(grain_size_hex):
         one_field = np.ones( (h,w) )
         
         for ix in range(ex, w-ex, step):
-            if run_args['verbosity']>=4:
+            if run_args['verbosity']>=3:
                 print( '        Correlation analysis {:.1f}%'.format (100.*ix/w))
             for iy in range(ex, h-ex, step):
                 
@@ -1920,7 +1926,7 @@ class grain_size(grain_size_hex):
             for ix in range(0, w*2):
                 
                 if count_accumulator[iy,ix]>0:
-                    r = r_dist[iy,ix]
+                    r = int( r_dist[iy,ix] )
                     g_of_r[r] += accumulator[iy,ix]
                     count_list[r] += count_accumulator[iy,ix]
         
@@ -1938,17 +1944,16 @@ class grain_size(grain_size_hex):
                 
                 
         line = DataLine(x=r_nm_list_final, y=g_of_r_final)
-
+        
+        # Remove some of the line (the final values are not meaningful since they average over so few points)
+        line.trim(0, np.max(line.x)*0.8)
 
         if fit_curve:
             # Fit correlation curve
             
-            
             # Get the 1/e distance
             x_1e, y_1e = line.target_y(1.0/np.e)
             results['xi_1_over_e_nm'] = x_1e
-            
-            
             
             lm_result, fit_line, fit_line_extended = self._fit_exp(line, **run_args)
             
@@ -1957,14 +1962,17 @@ class grain_size(grain_size_hex):
                 results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
             
             results['xi_nm'] = results['fit_exp_xi']['value']
-            
-            
-        
 
 
+            lm_result, fit_lineb, fit_line_extendedb = self._fit_expb(line, **run_args)
+            fit_name = 'fit_expb'
+            for param_name, param in lm_result.params.items():
+                results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
+            results['xib_nm'] = results['fit_expb_xi']['value']
+            
+            
         if run_args['verbosity']>=3:
             # Plot curve
-            
             
             class DataLines_current(DataLines):
                 
@@ -1979,10 +1987,14 @@ class grain_size(grain_size_hex):
                         s = r'$\xi_{{1/e}} = {:.1f} \, \mathrm{{nm}}$'.format(x_1e)
                         self.ax.text(x_1e, 1.0, s, size=20, color='0.5', verticalalignment='top', horizontalalignment='left')
                         
-                        
                         xi, xf, yi, yf = self.ax.axis()
                         s = r'$g(r) = e^{{-r/\xi}}$' + '\n' + r'$\xi = {:.1f} \pm {:.1f} \, \mathrm{{nm}}$'.format(results['fit_exp_xi']['value'], results['fit_exp_xi']['error'])
                         self.ax.text(xf, 1.0, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+
+
+                        s = r'$g(r) = e^{{-r/\xi_b}} + b$' + '\n' + r'$\xi_b = {:.1f} \pm {:.1f} \, \mathrm{{nm}}$'.format(results['fit_expb_xi']['value'], results['fit_expb_xi']['error'])
+                        s += '\n' + r'$b = {:.2f} \pm {:.2f}$'.format(results['fit_expb_b']['value'], results['fit_expb_b']['error'])
+                        self.ax.text(xf, 0.75, s, size=20, color='purple', verticalalignment='center', horizontalalignment='right')
                         
                     
             lines = DataLines_current()
@@ -1992,6 +2004,7 @@ class grain_size(grain_size_hex):
             
             if fit_curve:
                 lines.add_line(fit_line_extended)
+                lines.add_line(fit_line_extendedb)
             
             
             lines.x_label = 'r'
@@ -2051,7 +2064,59 @@ class grain_size(grain_size_hex):
 
         return lm_result, fit_line, fit_line_extended             
     
+    
+    def _fit_expb(self, line, **run_args):
+        
+        # Usage: lm_result, fit_line, fit_line_extended = self._fit_expb(line, **run_args)
 
+
+        amt = int( len(line.y)*0.25 )
+        b = np.average(line.y[-amt:])
+        
+        
+        linet = line.copy()
+        linet.y = (linet.y - b)/(1-b)
+        x_1e, y_1e = linet.target_y(1.0/np.e)
+
+        line_full = line
+        if 'fit_range' in run_args:
+            line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
+            
+        line.x = np.asarray(line.x)
+        line.y = np.asarray(line.y)
+        
+        import lmfit
+        
+        def model(v, x):
+            return np.exp( -x/v['xi'] ) + v['b']
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        params = lmfit.Parameters()
+        params.add('b', value=b, min=0, max=np.max(line.y)*0.8, vary=True)
+        params.add('xi', value=x_1e, min=0, max=np.max(line.x)*+10, vary=True)
+        
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'purple', 'marker':None, 'linewidth':4.0})
+        
+        #fit_x = np.linspace(np.min(line_full.x), np.max(line_full.x), num=200)
+        fit_x = np.linspace(0, np.max(line.x)*1.1, num=500)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'purple', 'alpha':0.75, 'marker':None, 'linewidth':3.0})        
+
+        return lm_result, fit_line, fit_line_extended    
 
     def orientation_angle_map(self, data, output_dir, **run_args):
         

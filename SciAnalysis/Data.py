@@ -677,7 +677,7 @@ class DataLineAngle (DataLine):
         self._plot_polar(save=save, show=show, size=size, plot_buffers=plot_buffers, **kwargs)
         
         
-    def _plot_polar(self, save=None, show=False, size=5, plot_buffers=[0.2,0.2,0.2,0.2], assumed_symmetry=2, **kwargs):
+    def _plot_polar(self, save=None, show=False, size=5, plot_buffers=[0.2,0.2,0.2,0.2], assumed_symmetry=2, symmetry_copy=False, **kwargs):
         
         # TODO: Recast as part of plot_args
         #plt.rcParams['font.family'] = 'sans-serif'
@@ -702,6 +702,10 @@ class DataLineAngle (DataLine):
         p_args = dict([(i, plot_args[i]) for i in self.plot_valid_keys if i in plot_args])
         self.ax.plot(np.radians(self.x), self.y, **p_args)
         #self.ax.fill_between(np.radians(self.x), 0, self.y, color='0.8')
+        if symmetry_copy:
+            for i in range(assumed_symmetry-1):
+                shift = (2*np.pi/assumed_symmetry)*(i+1)
+                self.ax.plot(np.radians(self.x)+shift, self.y, **p_args)
         
         
         # Histogram of colors
@@ -716,6 +720,11 @@ class DataLineAngle (DataLine):
         
         
         self.ax.bar(xh[:-1], yh, width=spacing*1.05, color=color_list, linewidth=0.0)
+
+        if symmetry_copy:
+            for i in range(assumed_symmetry-1):
+                shift = (2*np.pi/assumed_symmetry)*(i+1)
+                self.ax.bar(xh[:-1]+shift, yh, width=spacing*1.05, color=color_list, linewidth=0.0)
 
         
         self.ax.yaxis.set_ticklabels([])

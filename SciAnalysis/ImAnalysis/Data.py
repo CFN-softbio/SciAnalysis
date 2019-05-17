@@ -79,6 +79,10 @@ class Data2DImage(Data2D):
         return x0, y0    
         
         
+    def get_scale(self):
+        return np.average([self.x_scale, self.y_scale])
+        
+        
     # Data modification
     ########################################
         
@@ -150,7 +154,7 @@ class Data2DImage(Data2D):
             data = self.data
             
             #get image histogram
-            imhist, bins = np.histogram(data.flatten(), num_bins, normed=True)
+            imhist, bins = np.histogram(data.flatten(), num_bins, density=True)
             cdf = imhist.cumsum() #cumulative distribution function
             cdf = max_val * cdf / cdf[-1] #normalize
 
