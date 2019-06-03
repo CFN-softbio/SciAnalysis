@@ -55,6 +55,22 @@ class ProcessorIm(Processor):
         return data
         
         
+class ProcessorImRGB(ProcessorIm):
+
+    
+    def load(self, infile, **kwargs):
+
+        data = Data2DImageRGB(infile, **kwargs)
+        data.infile = infile
+        
+        if 'crop_edges' in kwargs:
+            left, right, bottom, top = kwargs['crop_edges']
+            data.crop_edges(left=left, right=right, bottom=bottom, top=top, relative=False)
+
+        
+        return data
+                
+        
         
 class shell(Protocol):
     

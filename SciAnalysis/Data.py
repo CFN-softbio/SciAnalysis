@@ -789,9 +789,12 @@ class DataHistogram(DataLine):
 class DataLines(DataLine):
     '''Holds multiple lines, so that they can be plotted together.'''
     
-    def __init__(self, lines=[], plot_args=None, **kwargs):
+    def __init__(self, lines=None, plot_args=None, **kwargs):
         
-        self.lines = lines
+        if lines is None:
+            self.lines = []
+        else:
+            self.lines = lines
         
         self.x_label = kwargs['x_label'] if 'x_label' in kwargs else 'x'
         self.y_label = kwargs['y_label'] if 'y_label' in kwargs else 'y'
@@ -1632,10 +1635,10 @@ class Data2D(object):
         plt.xlabel(x_label) # self.ax.set_xlabel(x_label)
         plt.ylabel(y_label) # self.ax.set_ylabel(y_label)
         
-        if 'xticks' in kwargs and kwargs['xticks'] is not None:
-            self.ax.set_xticks(kwargs['xticks'])
-        if 'yticks' in kwargs and kwargs['yticks'] is not None:
-            self.ax.set_yticks(kwargs['yticks'])
+        if 'xticks' in plot_args and plot_args['xticks'] is not None:
+            self.ax.set_xticks(plot_args['xticks'])
+        if 'yticks' in plot_args and plot_args['yticks'] is not None:
+            self.ax.set_yticks(plot_args['yticks'])
         
         
         if 'colorbar' in plot_args and plot_args['colorbar']:

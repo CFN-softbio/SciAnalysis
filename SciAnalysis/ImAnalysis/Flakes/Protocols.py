@@ -5,6 +5,7 @@
 from ..Protocols import *
 
 
+
 class thumbnails_contrast(thumbnails):
     
     def __init__(self, name='thumbnails', **kwargs):
@@ -26,16 +27,8 @@ class thumbnails_contrast(thumbnails):
         
         results = {}
         
-        if run_args['crop'] is not None:
-            data.crop(run_args['crop'])
-        if run_args['blur'] is not None:
-            data.blur(run_args['blur'])
-        if run_args['resize'] is not None:
-            data.resize(run_args['resize']) # Shrink
-        
-        data.set_z_display([None, None, 'gamma', 1.0])
         outfile = self.get_outfile(data.name, output_dir)
-        data.plot_image(outfile, ztrim=[0.01, 0.005], **run_args)
+        data.plot_image(save=outfile, size=10*run_args['resize'], **run_args)
         
         return results
         
