@@ -220,6 +220,71 @@ class Processor(object):
                     raise
 
 
+    def run_parallel(self, infiles=None, protocols=None, output_dir=None, force=False, ignore_errors=False, sort=False, load_args={}, run_args={}, verbosity=3, **kwargs):
+        '''Process the specified files using the specified protocols.'''
+        
+        #from multiprocessing import Pool
+        from joblib import Parallel, delayed
+        
+        l_args = self.load_args.copy()
+        l_args.update(load_args)
+        r_args = self.run_args.copy()
+        r_args.update(run_args)
+        
+        if infiles is None:
+            infiles = self.infiles
+        if sort:
+            infiles.sort()
+                
+        if protocols is None:
+            protocols = self.protocols
+            
+        if output_dir is None:
+            output_dir = self.output_dir
+            
+        n_jobs = run_args['num_jobs'] if 'num_jobs' in run_args else 10
+        with Parallel(n_jobs=n_jobs) as parallel:
+            ret = parallel( delayed(self.run_parallel_file)(infile, protocols, output_dir, force, ignore_errors, l_args, r_args, verbosity) for infile in infiles )
+            
+    def run_parallel_file(self, infile, protocols, output_dir, force, ignore_errors, l_args, r_args, verbosity):
+            
+        try:
+            data = self.load(infile, **l_args)
+        
+            for protocol in protocols:
+                
+                output_dir_current = self.access_dir(output_dir, protocol.name)
+                
+                if not force and protocol.output_exists(data.name, output_dir_current):
+                    # Data already exists
+                    if verbosity>=2:
+                        print('Skipping {} for {}'.format(protocol.name, data.name))
+                    
+                else:
+                    if verbosity>=2:
+                        print('Queueing {} for {}'.format(protocol.name, data.name))
+                    
+                    results = protocol.run(data, output_dir_current, **r_args)
+                    
+                    md = {}
+                    md['infile'] = data.infile
+                    if 'full_name' in l_args:
+                        md['full_name'] = l_args['full_name']
+                    self.store_results(results, output_dir, infile, protocol, **md)
+                    
+
+        except Exception as exception:
+            if SUPPRESS_EXCEPTIONS or ignore_errors:
+                # Ignore errors, so that execution doesn't get stuck on a single bad file
+                if verbosity>=1:
+                    print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
+            else:
+                raise
+            
+        return 'done'
+
+
+
     def load(self, infile, **kwargs):
         
         data = Data2D(infile, **kwargs)

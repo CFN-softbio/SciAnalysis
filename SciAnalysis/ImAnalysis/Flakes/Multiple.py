@@ -151,11 +151,15 @@ class tile_img(ProtocolMultiple):
                 except:
                     data_rgb = plt.imread(data.infile) # Deferred load
                     
+                    
+                # WARNING: Kludge. Certain PNG files are loaded as float arrays (values from 0 to 1) instead of integers (0 to 255)
+                if data_rgb.dtype==np.float32:
+                    data_rgb *= 255
+                    
                 if 'image_contrast' is not None:
                     in_range = ( run_args['image_contrast'][0]*255, run_args['image_contrast'][1]*255 )
                     import skimage
                     data_rgb = skimage.exposure.rescale_intensity(data_rgb, in_range=in_range, out_range='dtype')
-                    
                     
                 left = (col-1)*spacing_x
                 right = left+w
