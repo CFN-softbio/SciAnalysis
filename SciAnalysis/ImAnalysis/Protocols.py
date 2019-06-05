@@ -59,8 +59,12 @@ class ProcessorImRGB(ProcessorIm):
 
     
     def load(self, infile, **kwargs):
-
-        data = Data2DImageRGB(infile, **kwargs)
+        
+        if 'defer_load' in kwargs and kwargs['defer_load']:
+            data = Data2DImageRGB(**kwargs)
+            data.name = tools.Filename(infile).get_filebase()
+        else:
+            data = Data2DImageRGB(infile, **kwargs)
         data.infile = infile
         
         if 'crop_edges' in kwargs:

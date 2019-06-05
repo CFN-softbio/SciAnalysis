@@ -18,6 +18,7 @@
 ################################################################################
 # TODO:
 #  Search for "TODO" below.
+#  Things like "load_args={}" in function definition can lead to side-effects.
 ################################################################################
 
 
@@ -28,13 +29,14 @@ import time
 
 SUPPRESS_EXCEPTIONS = False # Set to 'True' to suppress Python exceptions (errors). This allows the script to keep running even if there is an error processing one particular file.
 
-USE_LXML = True # Set to 'False' if lxml is not installed
-if USE_LXML:
+try:
     # 'Fancy' xml library
     from lxml import etree
-else:
+    USE_LXML = True
+except:
     # 'Regular' xml library
     import xml.etree.ElementTree as etree # XML read/write
+    USE_LXML = False
 import xml.dom.minidom as minidom
 
 def make_dir(directory):

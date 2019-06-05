@@ -54,8 +54,7 @@ class Data2DImage(Data2D):
         if name is not None:
             self.name = name
         elif infile is not None:
-            self.name = tools.Filename(infile).get_filebase()            
-        
+            self.name = tools.Filename(infile).get_filebase()
         
         
     # Coordinate methods
