@@ -54,8 +54,7 @@ class Data2DImage(Data2D):
         if name is not None:
             self.name = name
         elif infile is not None:
-            self.name = tools.Filename(infile).get_filebase()            
-        
+            self.name = tools.Filename(infile).get_filebase()
         
         
     # Coordinate methods
@@ -77,6 +76,10 @@ class Data2DImage(Data2D):
         y0 = int( height/2 )
         
         return x0, y0    
+        
+        
+    def get_scale(self):
+        return np.average([self.x_scale, self.y_scale])
         
         
     # Data modification
@@ -150,7 +153,7 @@ class Data2DImage(Data2D):
             data = self.data
             
             #get image histogram
-            imhist, bins = np.histogram(data.flatten(), num_bins, normed=True)
+            imhist, bins = np.histogram(data.flatten(), num_bins, density=True)
             cdf = imhist.cumsum() #cumulative distribution function
             cdf = max_val * cdf / cdf[-1] #normalize
 
@@ -200,3 +203,77 @@ class Data2DImage(Data2D):
     # End class Data2DImage(Data2D)
     ########################################
     
+
+
+# Data2DImageRGB 
+################################################################################    
+class Data2DImageRGB(Data2DImage):
+    
+    def load_image(self, infile):
+        
+        img1 = PIL.Image.open(infile)
+        img2 = img1.convert('I') # 'I' : 32-bit integer pixels
+        
+        self.data_rgb = np.array(img1)
+        self.data = np.asarray(img2)
+        del img1
+        del img2
+        
+        
+    def plot_image(self, save=None, show=False, size=10, ztrim=[0.01, 0.01], **plot_args):
+        '''Generates a false-color image of the 2D data.'''
+        
+        values = np.sort( self.data.flatten() )
+        if 'zmin' in plot_args and plot_args['zmin'] is not None:
+            zmin = plot_args['zmin']
+        elif self.z_display[0] is not None:
+            zmin = self.z_display[0]
+        else:
+            zmin = values[ +int( len(values)*ztrim[0] ) ]
+            
+        if 'zmax' in plot_args and plot_args['zmax'] is not None:
+            zmax = plot_args['zmax']
+        elif self.z_display[1] is not None:
+            zmax = self.z_display[1]
+        else:
+            idx = -int( len(values)*ztrim[1] )
+            if idx>=0:
+                idx = -1
+            zmax = values[idx]
+            
+        if zmax==zmin:
+            zmax = max(values)
+            
+        h, w, c = self.data_rgb.shape
+        
+        data = self.data_rgb
+        if 'image_contrast' in plot_args:
+            in_range = ( plot_args['image_contrast'][0]*255, plot_args['image_contrast'][1]*255 )
+        else:
+            in_range = (zmin, zmax)
+            
+        import skimage
+        data = skimage.exposure.rescale_intensity(data, in_range=in_range, out_range='dtype')
+        
+        self.fig = plt.figure( figsize=(size, size*h/w), facecolor='white' )
+        self.ax = self.fig.add_axes([0,0,1,1])
+        self.ax.imshow(data)
+        
+        if save:
+            if 'transparent' not in plot_args:
+                plot_args['transparent'] = True
+            if 'dpi' in plot_args:
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=plot_args['transparent'])
+            else:
+                plt.savefig(save, transparent=plot_args['transparent'])
+        
+        if show:
+            self._plot_interact()
+            plt.show()
+            
+        plt.close(self.fig.number)        
+        
+
+
+    # End class Data2DImageRGB(Data2DImage)
+    ########################################

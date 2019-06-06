@@ -396,8 +396,6 @@ class DataLine(object):
         self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
         
         
-        
-        
         p_args = dict([(i, plot_args[i]) for i in self.plot_valid_keys if i in plot_args])
         self._plot_main(error=error, error_band=error_band, dashes=dashes, **p_args)
         
@@ -413,6 +411,11 @@ class DataLine(object):
             self.ax.set_xticks(xticks)
         if yticks is not None:
             self.ax.set_yticks(yticks)
+        
+        if 'title' in plot_args and plot_args['title'] is not None:
+            size = plot_args['rcParams']['axes.labelsize']
+            #size = plot_args['rcParams']['xtick.labelsize']
+            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         
         # Axis scaling
@@ -438,6 +441,7 @@ class DataLine(object):
         plt.close(self.fig.number)
         
         
+
     def _plot_main(self, error=False, error_band=False, dashes=None, **plot_args):
         
         if error_band:
@@ -673,7 +677,7 @@ class DataLineAngle (DataLine):
         self._plot_polar(save=save, show=show, size=size, plot_buffers=plot_buffers, **kwargs)
         
         
-    def _plot_polar(self, save=None, show=False, size=5, plot_buffers=[0.2,0.2,0.2,0.2], assumed_symmetry=2, **kwargs):
+    def _plot_polar(self, save=None, show=False, size=5, plot_buffers=[0.2,0.2,0.2,0.2], assumed_symmetry=2, symmetry_copy=False, **kwargs):
         
         # TODO: Recast as part of plot_args
         #plt.rcParams['font.family'] = 'sans-serif'
@@ -698,6 +702,10 @@ class DataLineAngle (DataLine):
         p_args = dict([(i, plot_args[i]) for i in self.plot_valid_keys if i in plot_args])
         self.ax.plot(np.radians(self.x), self.y, **p_args)
         #self.ax.fill_between(np.radians(self.x), 0, self.y, color='0.8')
+        if symmetry_copy:
+            for i in range(assumed_symmetry-1):
+                shift = (2*np.pi/assumed_symmetry)*(i+1)
+                self.ax.plot(np.radians(self.x)+shift, self.y, **p_args)
         
         
         # Histogram of colors
@@ -712,6 +720,11 @@ class DataLineAngle (DataLine):
         
         
         self.ax.bar(xh[:-1], yh, width=spacing*1.05, color=color_list, linewidth=0.0)
+
+        if symmetry_copy:
+            for i in range(assumed_symmetry-1):
+                shift = (2*np.pi/assumed_symmetry)*(i+1)
+                self.ax.bar(xh[:-1]+shift, yh, width=spacing*1.05, color=color_list, linewidth=0.0)
 
         
         self.ax.yaxis.set_ticklabels([])
@@ -776,9 +789,12 @@ class DataHistogram(DataLine):
 class DataLines(DataLine):
     '''Holds multiple lines, so that they can be plotted together.'''
     
-    def __init__(self, lines=[], plot_args=None, **kwargs):
+    def __init__(self, lines=None, plot_args=None, **kwargs):
         
-        self.lines = lines
+        if lines is None:
+            self.lines = []
+        else:
+            self.lines = lines
         
         self.x_label = kwargs['x_label'] if 'x_label' in kwargs else 'x'
         self.y_label = kwargs['y_label'] if 'y_label' in kwargs else 'y'
@@ -987,6 +1003,7 @@ class Data2D(object):
         
         self.x_label = kwargs['x_label'] if 'x_label' in kwargs else 'x'
         self.y_label = kwargs['y_label'] if 'y_label' in kwargs else 'y'
+        self.z_label = kwargs['z_label'] if 'z_label' in kwargs else 'z'
         
         self.x_rlabel = kwargs['x_rlabel'] if 'x_rlabel' in kwargs else self.x_label
         self.y_rlabel = kwargs['y_rlabel'] if 'y_rlabel' in kwargs else self.y_label
@@ -1618,10 +1635,10 @@ class Data2D(object):
         plt.xlabel(x_label) # self.ax.set_xlabel(x_label)
         plt.ylabel(y_label) # self.ax.set_ylabel(y_label)
         
-        if 'xticks' in kwargs and kwargs['xticks'] is not None:
-            self.ax.set_xticks(kwargs['xticks'])
-        if 'yticks' in kwargs and kwargs['yticks'] is not None:
-            self.ax.set_yticks(kwargs['yticks'])
+        if 'xticks' in plot_args and plot_args['xticks'] is not None:
+            self.ax.set_xticks(plot_args['xticks'])
+        if 'yticks' in plot_args and plot_args['yticks'] is not None:
+            self.ax.set_yticks(plot_args['yticks'])
         
         
         if 'colorbar' in plot_args and plot_args['colorbar']:
@@ -1646,7 +1663,7 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
-        if 'title' in plot_args:
+        if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
@@ -1702,7 +1719,7 @@ class Data2D(object):
         if zmax<=zmin:
             zmax = max(values)
             
-        if verbosity>=3:
+        if verbosity>=4:
             print('        data: {:.3g} to {:.3g}'.format(np.min(self.data), np.max(self.data)))
             print('        z-scaling: {:.3g} to {:.3g}'.format(zmin, zmax) )
             
@@ -1786,9 +1803,13 @@ class Data2D(object):
         x_axis, y_axis = self.xy_axes()
         extent = [x_axis[0], x_axis[-1], y_axis[0], y_axis[-1]]
 
+        #self.data = ndimage.gaussian_filter(self.data, sigma=1.0) # Blur
+
         # Clip out-of-range data
-        #Z = np.where( (self.data>=zmin) & (self.data<=zmax), self.data, np.nan) # Ignore
-        Z = np.clip(self.data, zmin, zmax) # Set to boundary values
+        if 'clip_remove' in plot_args and plot_args['clip_remove']:
+            Z = np.where( (self.data>=zmin) & (self.data<=zmax), self.data, np.nan) # Ignore
+        else:
+            Z = np.clip(self.data, zmin, zmax) # Set to boundary values
         
         self.surf = self.ax.plot_surface(self.X, self.Y, Z, rstride=1, cstride=1, cmap=cmap, edgecolor='none', vmin=zmin, vmax=zmax)
         self.ax.set_zlim(zmin, zmax)
@@ -1831,7 +1852,7 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
-        if 'title' in plot_args:
+        if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
@@ -2210,6 +2231,16 @@ color_list_cyclic_spectrum = [
     [ 1.0, 0.0, 0.0 ]
 ]
 cmap_cyclic_spectrum = mpl.colors.LinearSegmentedColormap.from_list('cmap_cyclic_spectrum', color_list_cyclic_spectrum)
+
+# Cyclic
+color_list_cyclic_rb = [
+    [ 0.0, 0.0, 0.0 ],
+    [ 1.0, 0.0, 0.0 ],
+    [ 1.0, 1.0, 1.0 ],    
+    [ 0.0, 0.0, 1.0 ],
+    [ 0.0, 0.0, 0.0 ],
+]
+cmap_cyclic_rb = mpl.colors.LinearSegmentedColormap.from_list('cmap_cyclic_rb', color_list_cyclic_rb)
 
 # classic jet, slightly tweaked
 # (bears some similarity to mpl.cm.nipy_spectral)

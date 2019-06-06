@@ -4,9 +4,9 @@
 import os
 import sys # To get commandline arguments
 
-#SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
+SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
 #SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
-om SciAnalysis import tools
+from SciAnalysis import tools
 #from SciAnalysis.XSAnalysis.Data import *
 from SciAnalysis.ImAnalysis.Data import *
 

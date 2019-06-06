@@ -24,6 +24,7 @@ measure_type = 'measure'
 # Select the meta-data (md) to output
 md_required = ['scan_id']
 #md_required = ['scan_id', 'sample_x', 'sample_y', 'sample_th']
+#md_required = ['scan_id', 'motor_SAXSx', 'motor_SAXSy', 'motor_DETx', 'motor_WAXSx']
 
 md_optional = []
 #md_optional = ['sample_clock', 'sample_temperature']
@@ -89,7 +90,7 @@ with open(outfile, 'w') as fout:
         
         
         
-        if verbosity>=5:
+        if verbosity>=6:
             # Print out diagnostic info
             #print(header)
             #print(header.table()['det'].mean())
@@ -97,6 +98,10 @@ with open(outfile, 'w') as fout:
                 print(k, v)
 
         section = header['start']
+        
+        if verbosity>=5:
+            for k, v in section.items():
+                print(k, v)
 
         unixtime = float( section['time'] )
         time_str = datetime.datetime.fromtimestamp(unixtime).strftime('%Y-%m-%d %H:%M:%S')

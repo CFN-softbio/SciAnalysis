@@ -25,7 +25,7 @@ from SciAnalysis.XSAnalysis import Protocols
 # Experimental parameters
 ########################################
 
-if True:
+if False:
     # PhotonicSciences CCD
     from SciAnalysis.XSAnalysis.DataRQconv import *
     calibration = CalibrationRQconv(wavelength_A=0.9184) # 13.5 keV
@@ -44,9 +44,9 @@ else:
     calibration = Calibration(wavelength_A=0.9184) # 13.5 keV
     calibration.set_image_size(981, height=1043) # Pilatus1M
     calibration.set_pixel_size(pixel_size_um=172.0)
-    calibration.set_beam_position(50.0, 1680-1000)
+    calibration.set_beam_position(237, 1043-379)
 
-    calibration.set_distance(0.232)
+    calibration.set_distance(0.355)
 
     mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
     mask = Mask(mask_dir+'Dectris/Pilatus800kcustom-mask.png')
@@ -90,7 +90,8 @@ process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 protocols = [
     #Protocols.calibration_check(show=False, AgBH=True, q0=1.369*0.25, dq=0.002, num_rings=10, ztrim=[0.2, 0.01], dpi=300) ,
     Protocols.circular_average(ylog=False, plot_range=[0, 4.5, 1000, None], dezing=True) ,
-    Protocols.thumbnails(crop=None, resize=0.5, cmap=cmap_vge, ztrim=[0.06, 0.001], zmin=1000.0) , # PSCCD
+    #Protocols.thumbnails(crop=None, resize=0.5, cmap=cmap_vge, ztrim=[0.06, 0.001], zmin=1000.0) , # PSCCD
+    Protocols.thumbnails(crop=None, resize=0.5, cmap=cmap_vge, ztrim=[0.02, 0.001]) , # Pilatus800k
     ]
     
 

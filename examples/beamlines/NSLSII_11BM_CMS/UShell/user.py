@@ -25,11 +25,11 @@ if True:
     sus = SuspendFloor(ring_current, 100, resume_thresh=101)
     RE.install_suspender(sus)
 
-    absorber_pos = EpicsSignal( 'XF:11BMB-ES{SM:1-Ax:ArmR}Mtr.RBV')
-    sus_abs_low = SuspendFloor(absorber_pos, -56, resume_thresh=-55)
-    sus_abs_hi = SuspendCeil(absorber_pos, -54, resume_thresh=-55)
-    RE.install_suspender(sus_abs_low)
-    RE.install_suspender(sus_abs_hi)
+    #absorber_pos = EpicsSignal( 'XF:11BMB-ES{SM:1-Ax:ArmR}Mtr.RBV')
+    #sus_abs_low = SuspendFloor(absorber_pos, -56, resume_thresh=-55)
+    #sus_abs_hi = SuspendCeil(absorber_pos, -54, resume_thresh=-55)
+    #RE.install_suspender(sus_abs_low)
+    #RE.install_suspender(sus_abs_hi)
 
     #RE.clear_suspenders()
 
@@ -130,12 +130,12 @@ def cooling_on():
     caput('XF:11BMB-ES{IO}AO:1-SP', 5) # Cooling on
 
 
-cms.SAXS.setCalibration([764, 1680-579], 2.0, [-60, -71]) # 13.5 keV
+cms.SAXS.setCalibration([764, 1680-579], 5.03, [-60, -71]) # 13.5 keV
 
 
 
 RE.md['experiment_group'] = 'User group (University)'
-RE.md['experiment_alias_directory'] = '/GPFS/xf11bm/data/2019_1/UShell/'
+RE.md['experiment_alias_directory'] = '/nsls2/xf11bm/data/2019_X/UShell/'
 RE.md['experiment_proposal_number'] = 'TBD'
 RE.md['experiment_SAF_number'] = 'TBD'
 RE.md['experiment_user'] = 'TBD'
@@ -186,4 +186,4 @@ if False:
 # 1. Edit this file
 # 2. Save this file
 # 3. Run this command in your bsui session:
-#   %run -i /GPFS/xf11bm/data/2019_1/UShell/user.py
+#   %run -i /nsls2/xf11bm/data/2019_X/UShell/user.py
