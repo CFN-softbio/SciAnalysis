@@ -1576,7 +1576,7 @@ class qr_image(Protocol):
                         'blur' : None,
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
-                        'save_data' : True,
+                        'save_data' : False,
                         }
         self.run_args.update(kwargs)
         
