@@ -242,7 +242,7 @@ class Processor(object):
         if output_dir is None:
             output_dir = self.output_dir
             
-        n_jobs = run_args['num_jobs'] if 'num_jobs' in run_args else 10
+        n_jobs = r_args['num_jobs'] if 'num_jobs' in r_args else 8
         with Parallel(n_jobs=n_jobs) as parallel:
             ret = parallel( delayed(self.run_parallel_file)(infile, protocols, output_dir, force, ignore_errors, l_args, r_args, verbosity) for infile in infiles )
             

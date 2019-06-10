@@ -69,6 +69,7 @@ class find_flakes(thumbnails):
                         'image_threshold' : 10 , # Threshold to define the foreground in the residual map
                         'size_threshold' : 0 , # Size (in pixels) to consider a contiguous region to be a foregrond object
                         'verbosity' : 3 ,
+                        'show' : False ,
                         'dpi' : 'auto' ,
                         'resize' : 1.0 ,
                         'bbox_expanded' : 0.1 ,
@@ -208,6 +209,9 @@ class find_flakes(thumbnails):
             flake_i['name'] = data.name
             flake_i['infile'] = data.infile
             flake_i['size'] = flake_sizes[i] # Surface area in pixels
+            flake_i['scale'] = scale
+            flake_i['scale2'] = scale2
+
             
             flake_i = self.flake_plot(flake_i, scale, **run_args)
 
@@ -222,6 +226,8 @@ class find_flakes(thumbnails):
         #xi, xf, yi, yf = self.ax.axis()
         self.ax.axis( [0, w, h, 0] )
         
+        if run_args['show']:
+            plt.show()
         outfile = self.get_outfile(data.name, output_dir)
         plt.savefig(outfile, dpi=run_args['dpi']*run_args['resize'])
         plt.close(self.fig.number)
@@ -496,3 +502,395 @@ class find_flakes(thumbnails):
                 pix[ix,iy] = c            
         
         im.save(outfile)        
+
+
+
+def get_in_range(data, im_contrast, image_contrast_squeeze=None, **run_args):
+    
+    if image_contrast_squeeze is not None:
+        image_contrast_squeeze = np.clip(image_contrast_squeeze, 0, 0.95)
+        
+        avg = np.average(data.data_rgb)
+        avg /= 255
+        amt = image_contrast_squeeze
+        im_contrast = ( avg*amt , 1.0-(1.0-avg)*amt )
+
+    in_range = ( im_contrast[0]*255, im_contrast[1]*255 )    
+    
+    return in_range
+
+
+class flake_images(Protocol):
+    
+    def __init__(self, name='flake_images', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+                        'verbosity' : 3 ,
+                        'bbox_pad' : 0.5,
+                        'image_contrast' : (0, 1),
+                        'image_contrast2' : None,
+                        'image_contrast_squeeze' : None,
+                        'saved_dir' : './find_flakes/',
+                        'overlays' : 10,
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if 'scale' not in run_args:
+            run_args['scale'] = np.average((data.x_scale, data.y_scale)) # um/pixel
+        run_args['scale2'] = run_args['scale']*run_args['scale'] # um^2/pixel^2
+        
+            
+        with open(os.path.join(run_args['saved_dir'], data.name+'.pkl'), 'rb') as fin:
+            saved_information = pickle.load(fin)
+            
+        
+            
+        for flake_i in saved_information['flakes']:
+            self.plot_flake(data, flake_i, output_dir=output_dir, **run_args)
+        
+        results['flakes_plotted'] = len(saved_information['flakes'])
+        
+        return results
+    
+    
+    
+    def plot_flake(self, data, flake_i, output_dir, **run_args):
+        
+        plt.rcParams['xtick.labelsize'] = 15
+        h, w, c = data.data_rgb.shape
+        
+        y, x = flake_i['center_of_mass']
+        if run_args['verbosity']>=4:
+            print('  Flake id{}, (x, y) = ({:d}, {:d})'.format(flake_i['index'], int(x), int(y)))
+
+        ta = 0.5
+        ba = 0.5 # Modify this to expand/contract the bottom half of the layout
+        wa, ha = 1, ta+ba
+        aspect = wa/ha
+        self.fig = plt.figure( figsize=(10,10/aspect), facecolor='white' )
+        #                               x    y    xw    yh
+        self.ax1 = self.fig.add_axes( [0, ba/ha, 0.5, ta/ha] )
+        self.ax2 = self.fig.add_axes( [0.5, ba/ha, 0.5, ta/ha] )
+        
+        spacer = 0.1
+        self.ax3 = self.fig.add_axes( [0, 0, 0.5, (ba/ha)*(1-spacer)], zorder=-10 )
+        #self.ax4 = self.fig.add_axes( [0.5, 0, 0.5, (ba/ha)*(1-spacer)], zorder=-10 )
+        
+        self.ax5 = self.fig.add_axes( [0.58, 0.06, 0.41, (ba/ha)*(1-spacer)*0.7], zorder=-10 )
+        
+        
+        y1, y2, x1, x2 = flake_i['bbox']
+
+        # Make the crop border a bit bigger than the flake bounding box
+        box_size = (1+run_args['bbox_pad'])*max( abs(x2-x1), abs(y2-y1) )
+        x1p = int(np.clip((x1+x2)*0.5 - box_size/2, 0, w))
+        x2p = int(np.clip((x1+x2)*0.5 + box_size/2, 0, w))
+        y1p = int(np.clip((y1+y2)*0.5 - box_size/2, 0, h))
+        y2p = int(np.clip((y1+y2)*0.5 + box_size/2, 0, h))
+        box = y1p, y2p, x1p, x2p
+        
+        self.plot_ax1(data, box, **run_args)
+        
+        self.plot_ax2(data, box, flake_i, **run_args)
+        
+        self.plot_ax3(flake_i, **run_args)
+        
+        self.plot_ax5(flake_i, **run_args)
+        
+
+        if 'show' in run_args and run_args['show']:
+            plt.show()
+        outfile = self.get_outfile(data.name, output_dir, ext='-flake{:03d}.png'.format(flake_i['index']))
+        self.fig.savefig(outfile)
+        plt.close(self.fig.number)
+
+    
+    def plot_ax1(self, data, box, **run_args):
+        
+        y1p, y2p, x1p, x2p = box
+        
+        #in_range = ( run_args['image_contrast'][0]*255, run_args['image_contrast'][1]*255 )
+        in_range = get_in_range(data, run_args['image_contrast'], **run_args)
+        
+        flake = data.data_rgb[y1p:y2p , x1p:x2p, :]
+        flake = skimage.exposure.rescale_intensity(flake, in_range=in_range, out_range='dtype')
+        self.ax1.imshow(flake)
+        #xi, xf, yi, yf = self.ax1.axis()
+        #self.ax1.axis([0, box_size, box_size, 0])
+        self.ax1.axes.get_yaxis().set_visible(False)
+        self.ax1.set_xlabel('pixels', fontsize=20)
+        plt.setp(self.ax1.get_xticklabels()[-1], visible=False)
+        plt.setp(self.ax1.get_xticklabels()[-2], visible=False)
+
+
+    def plot_ax2(self, data, box, flake_i, **run_args):
+        
+        scale = run_args['scale']
+        
+        y1, y2, x1, x2 = flake_i['bbox']
+        y1p, y2p, x1p, x2p = box
+        box_size = max(abs(y1p-y2p), abs(x1p-x2p))
+        
+        if run_args['image_contrast2'] is None:
+            run_args['image_contrast2'] = run_args['image_contrast']
+        #in_range2 = ( run_args['image_contrast2'][0]*255, run_args['image_contrast2'][1]*255 )
+        if run_args['image_contrast_squeeze'] is not None:
+            in_range2 = get_in_range(data, run_args['image_contrast2'], image_contrast_squeeze=run_args['image_contrast_squeeze']*1.75)
+        else:
+            in_range2 = get_in_range(data, run_args['image_contrast2'])
+        
+        flake = data.data_rgb[y1p:y2p , x1p:x2p, :]
+        flake = skimage.exposure.rescale_intensity(flake, in_range=in_range2, out_range='dtype')
+        
+        he, we, c = flake.shape # Actual shape of region
+        if he==we:
+            extent = [0, box_size*scale, box_size*scale, 0]
+        elif he>we:
+            extent = [0, box_size*scale*we/he, box_size*scale, 0]
+        else:
+            extent = [0, box_size*scale, box_size*scale*he/we, 0]
+        self.ax2.imshow(flake, extent=extent, aspect='equal')
+        self.ax2.axes.get_yaxis().set_visible(False)
+        self.ax2.set_xlabel(r'$\mathrm{ \mu m }$', fontsize=20)
+        
+        xi, xf, yi, yf = self.ax2.axis()
+        y, x = flake_i['center_of_mass']
+        self.ax2.text(xi, yf, '({}, {})'.format(int(x),int(y)), size=12, weight='bold', horizontalalignment='left', verticalalignment='top')
+
+        if run_args['overlays']>=1:
+            c = flake_i['contour']
+            xs = (c[:,0] - x1p)*scale
+            ys = (c[:,1] - y1p)*scale
+            self.ax2.plot(xs, ys, '-', linewidth=4.0, color='r', dashes=[4,1], alpha=0.4)
+        if run_args['overlays']>=7:
+            c = flake_i['convex_hull']
+            xs = (c[:,1] - x1p)*scale
+            ys = (c[:,0] - y1p)*scale
+            self.ax2.plot(xs, ys, '-', linewidth=3.0, color='g')
+
+        if run_args['overlays']>=2:
+            rect = patches.Rectangle( ((x1-x1p)*scale, (y1-y1p)*scale), (x2-x1)*scale, (y2-y1)*scale, linewidth=2.5, edgecolor='orange', facecolor='none', alpha=0.5)
+            self.ax2.add_patch(rect)
+            
+        if run_args['overlays']>=3:
+            # Circle overlay denoting size
+            y, x = flake_i['center_of_mass']
+            x = (x-x1p)*scale
+            y = (y-y1p)*scale
+            size = flake_i['radius_um']
+            circ = patches.Circle(xy=(x,y), radius=size, linewidth=2.0, edgecolor='r', facecolor='none', alpha=0.3)
+            self.ax2.add_patch(circ)
+            
+        if run_args['overlays']>=4:
+            # Cross hair
+            rect = patches.Rectangle( (x-size/2, y), size, 0, linewidth=2.0, edgecolor='r', facecolor='none', alpha=0.3) # Horizontal bar
+            self.ax2.add_patch(rect)
+            rect = patches.Rectangle( (x, y-size/2), 0, size, linewidth=2.0, edgecolor='r', facecolor='none', alpha=0.3) # Vertical bar
+            self.ax2.add_patch(rect)
+
+        
+    def plot_ax3(self, flake_i, **run_args):
+        self.ax3.axis([0, 1, 0, 1])
+        self.ax3.axis('off')
+        
+        #self.ax3.text(0.5, 0.5, 'blah')
+        
+        
+        # Row 1 (headers)
+        texts = ['', '', '$P_i \, (\mathrm{ \mu m })$', '$P_i/P_{\mathrm{circ}}$', '$P_{\mathrm{pix}}/P_i$', '$A \, (\mathrm{ \mu m ^2})$', '%', '$r \, (\mathrm{ \mu m})$']
+        for icol, text in enumerate(texts):
+            self.table3_cell(0, icol, text)
+        
+        # Column 1 (names)
+        texts = ['', 'circle', 'pixel map', 'contour', 'convex hull', 'bounding box']
+        for irow, text in enumerate(texts):
+            self.table3_cell(irow, 0, text, horizontalalignment='left')
+        fills = ['none', 'r', 'r', 'r', 'g', 'orange']
+        for irow, fill in enumerate(fills):
+            self.table3_cell(irow, 1, ' ', facecolor=fill, horizontalalignment='left')
+            
+            
+            
+        # Perimeter
+        icol = 2
+        circumference = flake_i['radius_um']*2*np.pi
+        self.table3_cell(1, icol, '{:,.1f}'.format( circumference ) ) # circle
+        self.table3_cell(2, icol, '{:,.1f}'.format( flake_i['perimeter_um'] ) ) # pixel map
+        self.table3_cell(3, icol, '{:,.1f}'.format( flake_i['contour_perimeter_um'] ) ) # contour
+        self.table3_cell(4, icol, '{:,.1f}'.format( flake_i['convex_perimeter_um'] ) ) # convex hull
+        y1, y2, x1, x2 = flake_i['bbox']
+        P_um = 2*(abs(y2-y1)+abs(x2-x1))*run_args['scale']
+        self.table3_cell(5, icol, '{:,.1f}'.format(P_um) ) # bounding box
+
+        # P_i/P_circ
+        icol += 1
+        self.table3_cell(1, icol, '{:,.1f}'.format( 1.0 ), weight='light' )
+        self.table3_cell(2, icol, '{:,.1f}'.format( flake_i['perimeter_um']/circumference ) ) # pixel map
+        self.table3_cell(3, icol, '{:,.1f}'.format( flake_i['contour_perimeter_um']/circumference ), weight='bold' ) # contour
+        self.table3_cell(4, icol, '{:,.1f}'.format( flake_i['convex_perimeter_um']/circumference ) ) # convex hull
+        self.table3_cell(5, icol, '{:,.1f}'.format(P_um/circumference) ) # bounding box            
+
+        # P_pix/P_i
+        icol += 1
+        P_pix = flake_i['perimeter_um']
+        self.table3_cell(1, icol, '{:,.1f}'.format( P_pix/circumference ) )
+        self.table3_cell(2, icol, '{:,.1f}'.format( 1.0 ), weight='light' ) # pixel map
+        self.table3_cell(3, icol, '{:,.1f}'.format( P_pix/flake_i['contour_perimeter_um'] ) ) # contour
+        self.table3_cell(4, icol, '{:,.1f}'.format( P_pix/flake_i['convex_perimeter_um'] ), weight='bold' ) # convex hull
+        self.table3_cell(5, icol, '{:,.1f}'.format( P_pix/P_um ) ) # bounding box            
+            
+            
+        # Area
+        icol = 5
+        self.table3_cell(1, icol, '{:,.1f}'.format(flake_i['size_um']) ) # circle
+        self.table3_cell(2, icol, '{:,.1f}'.format(flake_i['size_um']) ) # pixel map
+        self.table3_cell(3, icol, '{:,.1f}'.format(flake_i['contour_size_um']) ) # contour
+        self.table3_cell(4, icol, '{:,.1f}'.format(flake_i['convex_size_um']) ) # convex hull
+        y1, y2, x1, x2 = flake_i['bbox']
+        A_um = (abs(y2-y1)*abs(x2-x1))*run_args['scale2']
+        self.table3_cell(5, icol, '{:,.1f}'.format(A_um) ) # bounding box
+        
+        # Area %
+        icol += 1
+        f = 100.*flake_i['size_um']
+        self.table3_cell(1, icol, '{:.0f}%'.format(100), weight='light' ) # circle
+        self.table3_cell(2, icol, '{:.0f}%'.format(100), weight='light' ) # pixel map
+        self.table3_cell(3, icol, '{:.0f}%'.format(f/flake_i['contour_size_um']), weight='light' ) # contour
+        self.table3_cell(4, icol, '{:.0f}%'.format(f/flake_i['convex_size_um']), weight='bold' ) # convex hull
+        self.table3_cell(5, icol, '{:.0f}%'.format( f/A_um ) ) # bounding box
+
+        # r
+        icol += 1
+        self.table3_cell(1, icol, '{:,.1f}'.format( np.sqrt(flake_i['size_um']/np.pi) ) ) # circle
+        self.table3_cell(2, icol, '{:,.1f}'.format( np.sqrt(flake_i['size_um']/np.pi) ), weight='bold') # pixel map
+        self.table3_cell(3, icol, '{:,.1f}'.format( np.sqrt(flake_i['contour_size_um']/np.pi) ) ) # contour
+        self.table3_cell(4, icol, '{:,.1f}'.format( np.sqrt(flake_i['convex_size_um']/np.pi) ) ) # convex hull
+        self.table3_cell(5, icol, '{:,.1f}'.format( np.sqrt(A_um/np.pi) ) ) # bounding box
+        
+
+
+
+        # Flake color features (34 features)
+        #                                      16 els.[0..15]         1 el.[16]          16 els.[17..32]                1 el.[33]
+        #flake_i['flake_color_fea'] = np.array(flake_color_fea + [flake_color_entropy] + flake_inner_color_fea + [flake_inner_color_entropy])        
+            #flake_color_fea = [im_gray[flake_region>0].mean() - bk_gray[flake_region>0].mean(),            # 0
+                            #im_hsv[flake_region>0, 2].mean() - bk_hsv[flake_region>0, 2].mean()] + \       # 1
+                            #[im_gray[flake_region>0].mean(), im_gray[flake_region>0].std()] + \            # 2, 3
+                            #list(im_hsv[flake_region>0].mean(0)) + list(im_hsv[flake_region>0].std(0)) + \ # 4,5,6        7,8,9
+                            #list(im_rgb[flake_region>0].mean(0)) + list(im_rgb[flake_region>0].std(0))     # 10,11,12   13,14,15
+        idx_inner = 17
+        
+        # Row 1 (headers)
+        texts = ['', 'contour', 'inner', 'diff.']
+        for icol, text in enumerate(texts):
+            self.table3b_cell(0, icol, text)
+        
+        # Column 1 (names)
+        texts = ['', 'contrast', 'gray', 'H', 'S', 'V', 'R', 'G', 'B', 'entropy']
+        fills = ['none', '0.8', '0.8', 'lightblue', 'lightblue', '0.9', 'r', 'g', 'b', 'none']
+        for irow, text in enumerate(texts):
+            self.table3b_cell(irow, 0, text, facecolor=fills[irow])
+        
+        self.table3b_row(1, flake_i['flake_contrast'], flake_i['flake_color_fea'][idx_inner]/255, decimals=True ) # contrast
+        self.table3b_row(2, flake_i['flake_color_fea'][2], flake_i['flake_color_fea'][2+idx_inner], flake_i['flake_color_fea'][3], flake_i['flake_color_fea'][3+idx_inner], decimals=False ) # gray
+        
+        #            H S V R G B
+        for irow in [3,4,5,6,7,8]:
+            if irow<=5:
+                i = irow+1
+                decimals = True
+            else:
+                i = irow+4
+                decimals = False
+                
+            self.table3b_row(irow, flake_i['flake_color_fea'][i], flake_i['flake_color_fea'][i+idx_inner], flake_i['flake_color_fea'][i+3], flake_i['flake_color_fea'][i+idx_inner+3], decimals=decimals )
+        
+        self.table3b_row(9, flake_i['flake_color_fea'][16], flake_i['flake_color_fea'][16+idx_inner], decimals=True ) # entropy
+        
+        
+    def table3_cell(self, irow, icol, text, ts=10, weight='normal', facecolor='none', horizontalalignment='center', verticalalignment='center'):
+        xo, yo = 0, 0.95
+        
+        row_spacing = 0.04
+        col_widths = [0.20, 0.03, 0.12, 0.12, 0.12, 0.15, 0.12, 0.1]
+        
+        # Center of cell
+        x = xo + col_widths[icol]*0.5 + np.sum(col_widths[:icol])
+        y = yo - row_spacing*(irow+0.5)
+
+        if text!='':
+            rect = patches.Rectangle( (x-col_widths[icol]/2, y-row_spacing/2), col_widths[icol], row_spacing, linewidth=0.2, edgecolor='0.1', facecolor=facecolor, alpha=0.6)
+            self.ax3.add_patch(rect)
+
+        
+        if horizontalalignment=='left':
+            x -= col_widths[icol]*0.5
+        
+        self.ax3.text(x, y, text, size=ts, weight=weight, horizontalalignment=horizontalalignment, verticalalignment=verticalalignment)
+        
+    def table3b_cell(self, irow, icol, text, ts=10, weight='normal', facecolor='none', horizontalalignment='center', verticalalignment='center'):
+        xo, yo = 0, 0.65
+        
+        row_spacing = 0.04
+        col_widths = [0.12, 0.17, 0.17, 0.12]
+        
+        # Center of cell
+        x = xo + col_widths[icol]*0.5 + np.sum(col_widths[:icol])
+        y = yo - row_spacing*(irow+0.5)
+
+        if text!='':
+            rect = patches.Rectangle( (x-col_widths[icol]/2, y-row_spacing/2), col_widths[icol], row_spacing, linewidth=0.2, edgecolor='0.1', facecolor=facecolor, alpha=0.6)
+            self.ax3.add_patch(rect)
+
+        
+        if horizontalalignment=='left':
+            x -= col_widths[icol]*0.5
+        
+        self.ax3.text(x, y, text, size=ts, weight=weight, horizontalalignment=horizontalalignment, verticalalignment=verticalalignment)
+                
+    def table3b_row(self, irow, val_a, val_b, std_a=None, std_b=None, decimals=False):
+        
+        f = '{:.3f}' if decimals else '{:.0f}'
+        f2 = '{:.2f}±{:.2f}' if decimals else '{:.0f}±{:.0f}'
+        
+        if std_a is None:
+            self.table3b_cell(irow, 1, f.format( val_a ) )
+        else:
+            self.table3b_cell(irow, 1, f2.format( val_a, std_a ) )
+        if std_b is None:
+            self.table3b_cell(irow, 2, f.format( val_b ) )
+        else:
+            self.table3b_cell(irow, 2, f2.format( val_b, std_b ) )
+            
+        d = val_a-val_b
+        if abs(d)<1:
+            self.table3b_cell(irow, 3, '{:.3f}'.format(d) )
+        else:
+            self.table3b_cell(irow, 3, '{:.1f}'.format(d) )
+        
+        #self.table3b_cell(irow, 1, '{:,.1f} ± {}'.format( np.sqrt(A_um/np.pi) ) )
+        
+    
+    def plot_ax5(self, flake_i, **run_args):
+            
+        #flake_i['flake_shape_fea'] = np.array([flake_shape_len_area_ratio] + list(flake_shape_contour_hist) + [flake_shape_fracdim])
+        contour_hist = flake_i['flake_shape_fea'][1:-1]
+
+        self.ax5.tick_params(axis='both', which='major', labelsize=10)
+        self.ax5.bar(x=range(len(contour_hist)), height=contour_hist)
+        self.ax5.set_xlabel('bin', fontsize=10)
+        self.ax5.set_ylabel('chord distribution', fontsize=10)
+    
+    
+    
+    
+    
