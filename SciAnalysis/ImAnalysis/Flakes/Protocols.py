@@ -19,6 +19,8 @@ import cv2
 
 
 try:
+    # Boyu Wang (Stony Brook University) code:
+    #  https://github.com/Boyu-Wang/material_segmentation
     from MaterialSegmentation import utils
 except:
     code_PATH='/home/kyager/current/code/MaterialSegmentation/main/'
@@ -505,14 +507,14 @@ class find_flakes(thumbnails):
 
 
 
-def get_in_range(data, im_contrast, image_contrast_squeeze=None, **run_args):
+def get_in_range(data, im_contrast, image_contrast_trim=None, **run_args):
     
-    if image_contrast_squeeze is not None:
-        image_contrast_squeeze = np.clip(image_contrast_squeeze, 0, 0.95)
+    if image_contrast_trim is not None:
+        image_contrast_trim = np.clip(image_contrast_trim, 0, 0.95)
         
         avg = np.average(data.data_rgb)
         avg /= 255
-        amt = image_contrast_squeeze
+        amt = image_contrast_trim
         im_contrast = ( avg*amt , 1.0-(1.0-avg)*amt )
 
     in_range = ( im_contrast[0]*255, im_contrast[1]*255 )    
@@ -532,7 +534,7 @@ class flake_images(Protocol):
                         'bbox_pad' : 0.5,
                         'image_contrast' : (0, 1),
                         'image_contrast2' : None,
-                        'image_contrast_squeeze' : None,
+                        'image_contrast_trim' : None,
                         'saved_dir' : './find_flakes/',
                         'overlays' : 10,
                         }
@@ -643,8 +645,8 @@ class flake_images(Protocol):
         if run_args['image_contrast2'] is None:
             run_args['image_contrast2'] = run_args['image_contrast']
         #in_range2 = ( run_args['image_contrast2'][0]*255, run_args['image_contrast2'][1]*255 )
-        if run_args['image_contrast_squeeze'] is not None:
-            in_range2 = get_in_range(data, run_args['image_contrast2'], image_contrast_squeeze=run_args['image_contrast_squeeze']*1.75)
+        if run_args['image_contrast_trim'] is not None:
+            in_range2 = get_in_range(data, run_args['image_contrast2'], image_contrast_trim=run_args['image_contrast_trim']*1.75)
         else:
             in_range2 = get_in_range(data, run_args['image_contrast2'])
         

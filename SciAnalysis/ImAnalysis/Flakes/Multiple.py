@@ -1022,7 +1022,7 @@ class ImageGrid(object):
                     f = flake_images()
                     f.run_args['scale'] = flake['scale']
                     f.run_args['scale2'] = flake['scale2']
-                    f.run_args['image_contrast_squeeze'] = 0.4
+                    f.run_args['image_contrast_trim'] = 0.4
                     f.plot_flake(data, flake, output_dir='./flake_images', show=True, **f.run_args)
                     return
                 
@@ -1225,7 +1225,7 @@ class histogram(tile_img):
             ]
             
         plot_range = run_args['min_radius_um'], run_args['max_radius_um'], run_args['value_range'][0], run_args['value_range'][1]
-        d.plot(outfile, show=run_args['interact'], xlog=True, ylog=False, plot_buffers=[0.18, 0.05, 0.18, 0.05], plot_range=plot_range, yticks=[-0.08, -0.04, 0, 0.04, 0.08], _cmap=cmap_vge_hdr, zmin=0, zmax=1, side_histograms=0.15, dpi=300, plot_args=plot_args)
+        d.plot(outfile, show=run_args['interact'], xlog=True, ylog=False, plot_buffers=[0.18, 0.05, 0.18, 0.05], plot_range=plot_range, yticks=[-0.08, -0.04, 0, 0.04, 0.08], _cmap=cmap_vge_hdr, zmin=0, ztrim=[0,0.02], side_histograms=0.15, dpi=300, plot_args=plot_args)
     
     
         return results
