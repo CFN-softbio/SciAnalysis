@@ -88,7 +88,6 @@ class find_flakes(thumbnails):
         scale = np.average((data.x_scale, data.y_scale)) # um/pixel
         scale2 = scale*scale # um^2/pixel^2
         
-        
         # Load image
         ########################################
         if run_args['verbosity']>=5:

@@ -27,8 +27,7 @@
 import os
 import time
 
-SUPPRESS_EXCEPTIONS = False # Set to 'True' to suppress Python exceptions (errors). This allows the script to keep running even if there is an error processing one particular file.
-
+from .settings import *
 try:
     # 'Fancy' xml library
     from lxml import etree
@@ -242,7 +241,7 @@ class Processor(object):
         if output_dir is None:
             output_dir = self.output_dir
             
-        n_jobs = r_args['num_jobs'] if 'num_jobs' in r_args else 8
+        n_jobs = r_args['num_jobs'] if 'num_jobs' in r_args else 5
         with Parallel(n_jobs=n_jobs) as parallel:
             ret = parallel( delayed(self.run_parallel_file)(infile, protocols, output_dir, force, ignore_errors, l_args, r_args, verbosity) for infile in infiles )
             

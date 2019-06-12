@@ -26,8 +26,14 @@
 import re # Regular expressions
 
 import numpy as np
-import pylab as plt
+
 import matplotlib as mpl
+from ..settings import *
+if MATPLOTLIB_BACKEND is not None:
+    mpl.use(MATPLOTLIB_BACKEND)
+mpl.rcParams['mathtext.fontset'] = 'cm'
+import pylab as plt
+
 #from scipy.optimize import leastsq
 #import scipy.special
 
