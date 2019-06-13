@@ -411,7 +411,9 @@ class DataLine(object):
             self.ax.set_xticks(xticks)
         if yticks is not None:
             self.ax.set_yticks(yticks)
-        
+       
+        plt.grid()
+       
         if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
@@ -1648,9 +1650,9 @@ class Data2D(object):
                 colorbar_labels = [ zmin + i*(zmax-zmin)/4 for i in range(5) ]
             
             tick_positions = self._plot_z_transform(data=colorbar_labels, set_Z=False)
-            cbar = plt.colorbar(ticks=tick_positions, fraction=0.045, pad=0.02)
+            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.03, aspect=50)
             colorbar_labels = ["{:.0f}".format(c) for c in colorbar_labels]
-            cbar.ax.set_yticklabels(colorbar_labels, size=20)
+            cbar.ax.set_yticklabels(colorbar_labels, size=12)
         
         
         if 'plot_range' in plot_args:

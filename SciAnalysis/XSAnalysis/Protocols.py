@@ -164,7 +164,90 @@ class circular_average(Protocol):
         
         return results
                 
+class circular_average_Int(Protocol):
+
+    def __init__(self, name='circular_average_Int', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.dat'
+        #self.sumrange = [1.8, 2.2]
+        #self.sumrange = []
+        self.run_args = {}
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        results = {}
+        #if os.path.isfile(outfile):
+            #print(' Skipping (internal check) {} for {}'.format(self.name, data.name))
+            #return 
+
+        
+        line = data.circular_average_q_bin(error=True)
+        
+        #if sumrange==None:
+            #sumrange = self.sumrange
+        
+        # Convert to q2I
+        
+        #line.y *= np.abs(line.x)
+        #line.y *= np.square(line.x)
+        #line.y *= np.power(np.abs(line.x), 1.5)
+        
+        line.y_label = 'I(q)'
+        line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
+
+        line.save_data(outfile)        
+
+        #ii_sum = 0 
+        #for ct, val in np.ndenumerate(line.x):
+            #if val > self.sumrange[0] and val < self.sumrange[1]:
+                #ii_sum = ii_sum + line.y[ct]
+                #line.y[ct] = line.y[ct]*2
                 
+        if True:
+            # Integration
+            Int, fit_line = self._sum_peaks(line, **run_args)
+            fit_name = 'peaks_int'
+            results['{}_int_total'.format(fit_name)] = Int
+            #print(lm_result.params)
+            
+            #lines = DataLines_current([line, fit_line])
+            lines = DataLines([line, fit_line])
+            lines.results = results
+            lines._run_args = run_args
+            lines.copy_labels(line)
+            
+        else:
+            lines = DataLines([line])
+            
+            
+        #outfile = self.get_outfile(data.name, output_dir, ext='_Int{}'.format(self.default_ext))
+        #lines.plot(save=outfile, **run_args)
+
+        #outfile = self.get_outfile(data.name, output_dir, ext='_Int.dat')
+        #line.save_data(outfile)
+        return results
+
+    def _sum_peaks(self, line, vary=True, **run_args):
+        
+        # Usage: lm_result, fit_line, fit_line_extended = self.fit_peaks(line, **run_args)
+        
+        line_full = line
+        if 'fit_range' in run_args:
+            line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
+
+        fit_x = line.x
+        fit_y = line.y
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'marker':None, 'linewidth':4.0})
+
+
+        return sum(line.y), fit_line                
                 
 class circular_average_q2I(Protocol):
 
