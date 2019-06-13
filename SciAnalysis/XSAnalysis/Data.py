@@ -27,7 +27,9 @@ import re # Regular expressions
 
 import numpy as np
 import matplotlib as mpl
-#mpl.use('Agg') # For 'headless' plotting (e.g. over an SSH connection)
+from ..settings import *
+if MATPLOTLIB_BACKEND is not None:
+    mpl.use(MATPLOTLIB_BACKEND)
 mpl.rcParams['mathtext.fontset'] = 'cm'
 import pylab as plt
 
