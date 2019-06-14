@@ -5,7 +5,7 @@ SUPPRESS_EXCEPTIONS = False # Set to 'True' to suppress Python exceptions (error
 
 
 MATPLOTLIB_BACKEND = None # Leave as default
-MATPLOTLIB_BACKEND = 'Agg' # For 'headless' plotting (e.g. over an SSH connection, or to avoid bugs with joblib parallelization)
+#MATPLOTLIB_BACKEND = 'Agg' # For 'headless' plotting (e.g. over an SSH connection, or to avoid bugs with joblib parallelization)
 
 
 

@@ -163,6 +163,70 @@ class circular_average(Protocol):
         line.save_data(outfile)
         
         return results
+
+
+
+class circular_average_sum(circular_average):
+
+    def __init__(self, name='circular_average_sum', **kwargs):
+
+        self.name = self.__class__.__name__ if name is None else name
+
+        self.default_ext = '.png'
+        self.run_args = {
+            'bins_relative' : 1.0,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            }
+        self.run_args.update(kwargs)
+
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+
+        results = {}
+
+        if 'dezing' in run_args and run_args['dezing']:
+            data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
+
+
+        line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
+        #line.smooth(2.0, bins=10)
+
+        line_sub = line.sub_range(run_args['sum_range'][0], run_args['sum_range'][1])
+        results['values_sum'] = np.sum(line_sub.y)
+
+        outfile = self.get_outfile(data.name, output_dir)
+
+
+        # Plot and save data
+        class DataLines_current(DataLines):
+
+            def _plot_extra(self, **plot_args):
+
+                xi, xf, yi, yf = self.ax.axis()
+                v_spacing = (yf-yi)*0.10
+
+                yp = yf
+                s = '$S = \, {:.1f} $'.format(self.results['values_sum'])
+                self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+                
+                self.ax.axvspan(run_args['sum_range'][0], run_args['sum_range'][1], color='b', alpha=0.1)
+
+
+        lines = DataLines_current([line])
+        lines.copy_labels(line)
+        lines.results = results
+
+        try:
+            lines.plot(save=outfile, **run_args)
+        except ValueError:
+            pass
+
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        line.save_data(outfile)
+
+        return results
                 
                 
                 
@@ -1913,6 +1977,7 @@ class qr_image(Protocol):
                         'blur' : None,
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
+                        'save_data' : False,
                         }
         self.run_args.update(kwargs)
         
@@ -1955,7 +2020,7 @@ class qr_image(Protocol):
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
         q_data.plot(outfile, **run_args)
         
-        if 'save_data' in run_args and run_args['save_data']:
+        if run_args['save_data']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
         
@@ -2220,7 +2285,8 @@ class q_phi_image(Protocol):
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
                         'yticks' : [-180, -90, 0, 90, 180],
-                        'save_data_pickle': True,
+                        'save_data' : False,
+                        'save_data_pickle' : True,
                         }
         self.run_args.update(kwargs)
         
@@ -2251,6 +2317,11 @@ class q_phi_image(Protocol):
                             } 
         q_data.plot(outfile, plot_buffers=[0.20,0.05,0.20,0.05], **run_args)
         
+        if run_args['save_data']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)         
+
+        # TODO: Deprecate in favor of 'save_data' .npz file
         if 'save_data_pickle' in run_args and run_args['save_data_pickle']:
             # Save Data2DQPhi() object
             import pickle
@@ -2258,7 +2329,7 @@ class q_phi_image(Protocol):
             with open(outfile, 'wb') as fout:
                 out_data = q_data.data, q_data.x_axis, q_data.y_axis
                 pickle.dump(out_data, fout)
-            
+
         
         return results
 
