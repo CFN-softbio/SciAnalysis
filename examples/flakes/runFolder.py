@@ -7,7 +7,8 @@ import glob
 
 
 
-if True:
+PARALLELLIZE = True
+if PARALLELLIZE:
     # Set the backend to 'Agg' to avoid bugs related to parralelization (joblib)
     import matplotlib as mpl
     mpl.use('Agg')
@@ -130,8 +131,10 @@ def analysis(folder, step=0):
                         ]
 
         print('Processing {} infiles...'.format(len(infiles)))
-        process.run(infiles, protocols, output_dir=output_dir, load_args=load_args, run_args=run_args, force=True)
-        #process.run_parallel(infiles, protocols, output_dir=output_dir, load_args=load_args, run_args=run_args, force=False)
+        if PARALLELLIZE:
+            process.run_parallel(infiles, protocols, output_dir=output_dir, load_args=load_args, run_args=run_args, force=False)
+        else:
+            process.run(infiles, protocols, output_dir=output_dir, load_args=load_args, run_args=run_args, force=True)
 
 
 

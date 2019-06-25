@@ -1,7 +1,8 @@
 # Global settings which influence how SciAnalysis operates.
 
 
-SUPPRESS_EXCEPTIONS = False # Set to 'True' to suppress Python exceptions (errors). This allows the script to keep running even if there is an error processing one particular file.
+SUPPRESS_EXCEPTIONS = False
+#SUPPRESS_EXCEPTIONS = True # Suppress Python exceptions (errors). This allows the script to keep running even if there is an error processing one particular file.
 
 
 MATPLOTLIB_BACKEND = None # Leave as default

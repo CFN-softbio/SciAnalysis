@@ -1048,6 +1048,7 @@ class grain_size_hex(Protocol):
                         'invert' : False,
                         'diagonal_detection' : False,
                         'cmap' : mpl.cm.bone,
+                        'preprocess' : 'default',
                         }
         self.run_args.update(kwargs)
         
@@ -1072,9 +1073,25 @@ class grain_size_hex(Protocol):
 
         
         # Pre-process
+        if run_args['preprocess']=='None':
+            pass
         
-        # Typical processing for SEM images:
-        if False:
+        elif run_args['preprocess']=='AFM':
+            # Typical processing for AFM images:
+            data.equalize()
+            data.maximize_intensity_spread()
+
+        elif run_args['preprocess']=='custom':
+            data.blur(0.6) # lowpass
+            for i in range(2):
+                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            for i in range(2):
+                data.blur(0.8) # lowpass
+            data.equalize()
+            data.maximize_intensity_spread()
+
+        else:
+            # Typical processing for SEM images:
             #data.equalize()
             data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
             for i in range(2):
@@ -1090,20 +1107,7 @@ class grain_size_hex(Protocol):
             data.maximize_intensity_spread()
         
         
-        # Typical processing for AFM images:
-        if False:
-            data.equalize()
-            data.maximize_intensity_spread()
 
-        # Custom
-        if True:
-            data.blur(0.6) # lowpass
-            for i in range(2):
-                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            for i in range(2):
-                data.blur(0.8) # lowpass
-            data.equalize()
-            data.maximize_intensity_spread()
 
 
         if run_args['verbosity']>=4:
@@ -1797,6 +1801,7 @@ class grain_size(grain_size_hex):
                         'blur_orientation_image_size_rel' : 0.25,
                         'correlation_edge_exclusion' : 10,
                         'correlation_step_size_points' : 5,
+                        'trim_r_curve' : 0.8, # 1.0 doesn't trim anything; 0.8 trims the last 20% of the r-curve
                         'preprocess' : 'default',
                         }
         self.run_args.update(kwargs)
@@ -1966,7 +1971,7 @@ class grain_size(grain_size_hex):
         line = DataLine(x=r_nm_list_final, y=g_of_r_final)
         
         # Remove some of the line (the final values are not meaningful since they average over so few points)
-        line.trim(0, np.max(line.x)*0.8)
+        line.trim(0, np.max(line.x)*run_args['trim_r_curve'])
 
         if fit_curve:
             # Fit correlation curve
