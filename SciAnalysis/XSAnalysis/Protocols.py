@@ -1996,7 +1996,7 @@ class qr_image(Protocol):
                         'blur' : None,
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
-                        'save_data' : False,
+                        'save_data' : True,
                         }
         self.run_args.update(kwargs)
         
@@ -2039,7 +2039,10 @@ class qr_image(Protocol):
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
         q_data.plot(outfile, **run_args)
         
+        print('data is saving or NOT')
+        
         if 'save_data' in run_args and run_args['save_data']:
+            print('data is saving')
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
         
@@ -2533,8 +2536,8 @@ class metadata_extract(Protocol):
                     ['y_position', '.+_y(-?\d+\.\d+)_.+'] ,
                     ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
                     ['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
-                    ['exposure_time', '.+_(\d+\.\d+)c_\d+_?axs.+'] ,
-                    ['sequence_ID', '.+_(\d+)_?axs.+'] ,
+                    ['exposure_time', '.+_(\d+\.\d+)s_\d+_.axs.+'] ,
+                    ['sequence_ID', '.+_(\d+)_.axs.+'] ,
                     ]            
             
         self.run_args = { 'patterns' : patterns }

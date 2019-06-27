@@ -1888,6 +1888,11 @@ class Data2D(object):
     def _plot_interact(self):
         
         self.fig.canvas.set_window_title('SciAnalysis')
+        if self.fig.canvas.toolbar is None:
+            print('IT IS NONE')
+        
+        #print(self.fig.canvas.sswtewrqtqwer)
+        
         #plt.get_current_fig_manager().toolbar.pan()
         self.fig.canvas.toolbar.pan()
         self.fig.canvas.mpl_connect('scroll_event', self._scroll_event )
