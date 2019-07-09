@@ -1801,7 +1801,7 @@ class grain_size(grain_size_hex):
                         'blur_orientation_image_size_rel' : 0.25,
                         'correlation_edge_exclusion' : 10,
                         'correlation_step_size_points' : 5,
-                        'trim_r_curve' : 0.8, # 1.0 doesn't trim anything; 0.8 trims the last 20% of the r-curve
+                        'trim_r_curve' : 0.8, # 1.0 doesn't trim anything; 0.8 trims the last 20% of the g(r)-curve
                         'preprocess' : 'default',
                         }
         self.run_args.update(kwargs)
@@ -2142,6 +2142,7 @@ class grain_size(grain_size_hex):
         fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'purple', 'alpha':0.75, 'marker':None, 'linewidth':3.0})        
 
         return lm_result, fit_line, fit_line_extended    
+
 
     def orientation_angle_map(self, data, output_dir, **run_args):
         
