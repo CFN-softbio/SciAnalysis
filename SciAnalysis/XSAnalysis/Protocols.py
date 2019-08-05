@@ -2315,7 +2315,10 @@ class q_phi_image(Protocol):
                                     'ytick.labelsize': 40,
                                     },
                             } 
-        q_data.plot(outfile, plot_buffers=[0.20,0.05,0.20,0.05], **run_args)
+
+        if 'plot_buffers' not in run_args:
+            run_args['plot_buffers'] = [0.20,0.05,0.20,0.05]
+        q_data.plot(outfile, **run_args)
         
         if run_args['save_data']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
