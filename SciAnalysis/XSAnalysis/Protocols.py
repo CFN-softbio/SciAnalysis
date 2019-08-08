@@ -2511,7 +2511,7 @@ class metadata_extract(Protocol):
                     ['y_position', '.+_y(-?\d+\.\d+)_.+'] ,
                     ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
                     ['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
-                    ['exposure_time', '.+_(\d+\.\d+)c_\d+_?axs.+'] ,
+                    ['exposure_time', '.+_(\d+\.\d+)s_\d+_?axs.+'] ,
                     ['sequence_ID', '.+_(\d+)_?axs.+'] ,
                     ]            
             
