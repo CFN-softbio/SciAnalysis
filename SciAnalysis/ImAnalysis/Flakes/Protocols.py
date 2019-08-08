@@ -400,6 +400,8 @@ class find_flakes(thumbnails):
         flake_shape_contour_hist = flake_shape_contour_hist / flake_shape_contour_hist.sum()
         flake_shape_fracdim = utils.fractal_dimension(flake_region)
         flake_i['flake_shape_fea'] = np.array([flake_shape_len_area_ratio] + list(flake_shape_contour_hist) + [flake_shape_fracdim])
+        
+        flake_i['flake_shape_fea_names'] = ['P/A'] + ['hist {}'.format(i) for i in range(15)] + ['fractal dimension']
 
 
         # Calculate color features of the flake
@@ -447,6 +449,29 @@ class find_flakes(thumbnails):
             flake_inner_color_entropy = cv2.calcHist([im_gray[inner_region>0].astype('uint8')],[0],None,[256],[0,256])
             flake_inner_color_entropy = entropy(flake_inner_color_entropy, base=2)
         flake_i['flake_color_fea'] = np.array(flake_color_fea + [flake_color_entropy] + flake_inner_color_fea + [flake_inner_color_entropy])
+        
+        
+        feature_names_color = [
+            'g contrast',
+            'v contrast',
+            'gray',
+            'gray std',
+            'H',
+            'S',
+            'V',
+            'H std',
+            'S std',
+            'V std',
+            'R',
+            'G',
+            'B',
+            'R std',
+            'G std',
+            'B std',
+            'entropy'
+            ]
+        feature_names_color = feature_names_color + ['{}_inner'.format(f) for f in feature_names_color]
+        flake_i['flake_color_fea_names'] = feature_names_color
 
         
         return flake_i
@@ -777,7 +802,6 @@ class flake_images(Protocol):
         self.table3_cell(4, icol, '{:,.1f}'.format( np.sqrt(flake_i['convex_size_um']/np.pi) ) ) # convex hull
         self.table3_cell(5, icol, '{:,.1f}'.format( np.sqrt(A_um/np.pi) ) ) # bounding box
         
-
 
 
         # Flake color features (34 features)

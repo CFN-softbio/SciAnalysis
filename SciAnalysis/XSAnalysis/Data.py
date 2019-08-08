@@ -956,7 +956,7 @@ class Data2DScattering(Data2D):
         QZ = self.calibration.qz_map().ravel()
         QX = self.calibration.qr_map().ravel()
         D = self.data.ravel()
-
+        
         qz_min = np.min(QZ)
         qz_max = np.max(QZ)
         qx_min = np.min(QX)
@@ -1489,6 +1489,8 @@ class Calibration(object):
             self.qx_map_data, self.qz_map_data = c*self.qx_map_data - s*self.qz_map_data, s*self.qx_map_data + c*self.qz_map_data
         
         self.qr_map_data = np.sign(self.qx_map_data)*np.sqrt(np.square(self.qx_map_data) + np.square(self.qy_map_data))
+
+
 
         
     

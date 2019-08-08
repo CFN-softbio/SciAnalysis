@@ -1095,7 +1095,7 @@ class histogram(tile_img):
                     values.append(flake[run_args['value_key']])
                     
                 if run_args['verbosity']>=5:
-                    print('      {} flakes added from image {}'.format(len(saved_flakes), data.infile))
+                    print('      {} flakes added from image {}'.format(len(saved['flakes']), data.infile))
 
 
         r_sizes = np.asarray(r_sizes)
