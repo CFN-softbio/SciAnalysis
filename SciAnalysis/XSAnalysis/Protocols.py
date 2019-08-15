@@ -38,6 +38,17 @@ class ProcessorXS(Processor):
         
         data.threshold_pixels(4294967295-1) # Eiger inter-module gaps
         
+        if 'background' in kwargs:
+            if isinstance(kwargs['background'], (int, float)):
+                # Constant background to be subtracted from whole image
+                data.data -= kwargs['background']
+            elif isinstance(kwargs['background'], (list, np.ndarray)):
+                # TODO: Subtract whole image as background
+                pass
+            else:
+                print("ProcessorXS.load: Specified background type not recognized.")
+                
+        
         if 'dezing' in kwargs and kwargs['dezing']:
             data.dezinger()
         
@@ -48,6 +59,9 @@ class ProcessorXS(Processor):
 
         if 'rotCCW' in kwargs and kwargs['rotCCW']:
             data.data = np.rot90(data.data) # rotate CCW
+
+        if 'rotCW' in kwargs and kwargs['rotCW']:
+            data.data = np.rot90(data.data, k=3) # rotate CW
 
         if 'rot180' in kwargs and kwargs['rot180']:
             data.data = np.flipud(data.data) # Flip up/down
@@ -119,6 +133,7 @@ class circular_average(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
+            'bins_relative' : 1.0,
             'markersize' : 0,
             'linewidth' : 1.5,
             }
@@ -134,7 +149,7 @@ class circular_average(Protocol):
             data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
         
         
-        line = data.circular_average_q_bin(error=True)
+        line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
         #line.smooth(2.0, bins=10)
         results = line
         
@@ -150,8 +165,70 @@ class circular_average(Protocol):
             outfile = self.get_outfile(data.name, output_dir, ext='.dat')
             line.save_data(outfile)
         
-        # TODO: Fit 1D data
-        
+        return results
+
+
+
+class circular_average_sum(circular_average):
+
+    def __init__(self, name='circular_average_sum', **kwargs):
+
+        self.name = self.__class__.__name__ if name is None else name
+
+        self.default_ext = '.png'
+        self.run_args = {
+            'bins_relative' : 1.0,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            }
+        self.run_args.update(kwargs)
+
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+
+        results = {}
+
+        if 'dezing' in run_args and run_args['dezing']:
+            data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
+
+
+        line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
+        #line.smooth(2.0, bins=10)
+
+        line_sub = line.sub_range(run_args['sum_range'][0], run_args['sum_range'][1])
+        results['values_sum'] = np.sum(line_sub.y)
+
+        outfile = self.get_outfile(data.name, output_dir)
+
+
+        # Plot and save data
+        class DataLines_current(DataLines):
+
+            def _plot_extra(self, **plot_args):
+
+                xi, xf, yi, yf = self.ax.axis()
+                v_spacing = (yf-yi)*0.10
+
+                yp = yf
+                s = '$S = \, {:.1f} $'.format(self.results['values_sum'])
+                self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
+                
+                self.ax.axvspan(run_args['sum_range'][0], run_args['sum_range'][1], color='b', alpha=0.1)
+
+
+        lines = DataLines_current([line])
+        lines.copy_labels(line)
+        lines.results = results
+
+        try:
+            lines.plot(save=outfile, **run_args)
+        except ValueError:
+            pass
+
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        line.save_data(outfile)
+
         return results
                 
                 
@@ -163,7 +240,13 @@ class circular_average_q2I(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {}
+        self.run_args = {
+            'bins_relative' : 1.0,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            'qn_power' : 2.0,
+            'num_curves' : 1, # For (optional) fitting
+            }
         self.run_args.update(kwargs)
     
         
@@ -172,11 +255,18 @@ class circular_average_q2I(Protocol):
         
         results = {}
         
-        line = data.circular_average_q_bin(error=True)
+        line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
         
-        line.y *= np.square(line.x)
-        line.y_label = 'q^2*I(q)'
-        line.y_rlabel = '$q^2 I(q) \, (\AA^{-2} \mathrm{counts/pixel})$'
+        if run_args['qn_power']==2.0:
+            line.y *= np.square(line.x)
+            line.y_label = 'q^2*I(q)'
+            line.y_rlabel = '$q^2 I(q) \, (\AA^{-2} \mathrm{counts/pixel})$'
+            
+        else:
+            line.y *= np.power(line.x, run_args['qn_power'])
+            line.y_label = 'q^n*I(q)'
+            line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
+            
         
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
@@ -184,8 +274,6 @@ class circular_average_q2I(Protocol):
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
         line.save_data(outfile)        
-        
-        # TODO: Fit 1D data
         
         return results
                        
@@ -201,7 +289,290 @@ class circular_average_q2I(Protocol):
         return os.path.isfile(outfile)
 
 
+class fit_peaks(Protocol):
+    
+    def _fit(self, line, results, **run_args):
+        
+        # Fit
+        lm_result, fit_line, fit_line_extended = self._fit_peaks(line, **run_args)
+        
+        fit_name = 'fit_peaks'
+        prefactor_total = 0
+        for param_name, param in lm_result.params.items():
+            results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
+            if 'prefactor' in param_name:
+                prefactor_total += np.abs(param.value)
+            
+        results['{}_prefactor_total'.format(fit_name)] = prefactor_total
+        results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
+        
+        # Calculate some additional things
+        for i in range(run_args['num_curves']):
+            d = 0.1*2.*np.pi/results['{}_x_center{}'.format(fit_name, i+1)]['value']
+            results['{}_d0{}'.format(fit_name, i+1)] = d
+            xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma{}'.format(fit_name, i+1)]['value']
+            results['{}_grain_size{}'.format(fit_name, i+1)] = xi
+            
+        results['{}_d0'.format(fit_name)] = results['{}_d01'.format(fit_name)]
+        results['{}_grain_size'.format(fit_name)] = results['{}_grain_size1'.format(fit_name)]
+        
+        
+        # Plot and save data
+        class DataLines_current(DataLines):
+            
+            def _plot_extra(self, **plot_args):
+                
+                xi, xf, yi, yf = self.ax.axis()
+                
+                if 'fit_range' in self._run_args:
+                    xstart, xend = self._run_args['fit_range']
+                    line = self.lines[0].sub_range(xstart, xend)
+                else:
+                    line = self.lines[0]
+                
+                yf = np.max(line.y)*1.5
+                self.ax.axis([xi, xf, yi, yf])
+                
 
+                s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_peaks_chi_squared'])
+                self.ax.text(xi, yi, s, size=20, color='b', verticalalignment='bottom', horizontalalignment='left')
+
+
+                v_spacing = (yf-yi)*0.08
+                
+                yp = yf
+                ha, xp = 'right', xf
+                s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center1']['value'])
+                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+
+                yp -= v_spacing
+                s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0'])
+                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+
+                yp -= v_spacing
+                s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma1']['value'])
+                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                
+                yp -= v_spacing
+                s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size'])
+                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                
+                if self._run_args['num_curves']>1:
+                    yp = yf
+                    ha, xp = 'left', xi
+                    s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center2']['value'])
+                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+
+                    yp -= v_spacing
+                    s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d02'])
+                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+
+                    yp -= v_spacing
+                    s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma2']['value'])
+                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                    
+                    yp -= v_spacing
+                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size2'])
+                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)        
+        
+        lines = DataLines_current([line, fit_line, fit_line_extended])
+        lines.results = results
+        lines._run_args = run_args
+        lines.copy_labels(line)            
+        
+        # Note that the results dictionary is modified within this function.
+        # Thus although it is not returned, it is part of the set of returned
+        # information.
+        return lines
+    
+    
+    def _fit_peaks(self, line, q0=None, num_curves=1, **run_args):
+        # Usage: lm_result, fit_line, fit_line_extended = self._fit_peaks(line, **run_args)
+
+        line_full = line
+        if 'fit_range' in run_args:
+            line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
+        
+        import lmfit
+        
+        def model(v, x):
+            # Linear background
+            m = v['m']*x + v['b']
+            # Power-law background
+            m += v['qp']*np.power( np.abs(x), v['qalpha'] )
+            
+            # Gaussian peaks
+            for i in range(num_curves):
+                m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+            return m
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        params = lmfit.Parameters()
+
+
+        m = (line.y[-1]-line.y[0])/(line.x[-1]-line.x[0])
+        b = line.y[0] - m*line.x[0]
+
+        xs = np.abs(line.x)
+        ys = line.y
+        qalpha = (np.log(ys[0])-np.log(ys[-1]))/(np.log(xs[0])-np.log(xs[-1]))
+        qp = np.exp( np.log(ys[0]) - qalpha*np.log(xs[0]) )
+
+        if True:
+            # Linear background
+            params.add('m', value=m, min=abs(m)*-10, max=abs(m)*+10+1e-12, vary=False)
+            params.add('b', value=b, vary=False)
+            
+            params.add('qp', value=0, vary=False)
+            params.add('qalpha', value=1.0, vary=False)
+            
+        else:
+            # Power-law background
+            params.add('m', value=0, vary=False)
+            params.add('b', value=0, vary=False)
+            
+            params.add('qp', value=qp, vary=False)
+            params.add('qalpha', value=qalpha, vary=False)
+            
+        
+        xspan = np.max(line.x) - np.min(line.x)
+        xpeak, ypeak = line.target_y(np.max(line.y))
+
+
+
+        # Best guess for peak position
+        xs = np.asarray(line.x)
+        ys = np.asarray(line.y)
+        
+        if q0 is not None:
+            # Sort
+            indices = np.argsort(xs)
+            x_sorted = xs[indices]
+            y_sorted = ys[indices]
+            
+            idx = np.where( x_sorted>=q0 )[0][0]
+
+            xpeak = x_sorted[idx]
+            ypeak = y_sorted[idx]
+        
+        else:
+            # Sort
+            indices = np.argsort(ys)
+            x_sorted = xs[indices]
+            y_sorted = ys[indices]
+            
+            target = np.max(ys)
+            idx = np.where( y_sorted>=target )[0][0]
+            
+            xpeak = x_sorted[idx]
+            ypeak = y_sorted[idx]
+            
+        xpeak, ypeak = line.target_x(xpeak)
+                                 
+
+        prefactor = ypeak - ( m*xpeak + b )
+        if 'sigma' in run_args:
+            sigma = run_args['sigma']
+        else:
+            sigma = 0.1*xspan
+        
+        for i in range(num_curves):
+            
+            params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=np.max(line.y)*1.5, vary=False)
+            if i==0:
+                # 1st peak should be at max location
+                params.add('x_center{:d}'.format(i+1), value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=False)
+            else:
+                # Additional peaks can be spread out
+                xpos = np.min(line.x) + (xspan/num_curves)*i
+                params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
+            params.add('sigma{:d}'.format(i+1), value=sigma, min=0.00001, max=xspan*0.5, vary=False)
+        
+        
+        # Fit only the peak width
+        params['sigma1'].vary = True
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if True:
+            # Tweak peak position
+            lm_result.params['sigma1'].vary = False
+            lm_result.params['x_center1'].vary = True
+            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+        
+        if True:
+            # Relax entire fit
+            lm_result.params['m'].vary = True
+            lm_result.params['b'].vary = True
+            #lm_result.params['qp'].vary = True
+            #lm_result.params['qalpha'].vary = True
+            
+            for i in range(num_curves):
+                lm_result.params['prefactor{:d}'.format(i+1)].vary = True
+                lm_result.params['sigma{:d}'.format(i+1)].vary = True
+                lm_result.params['x_center{:d}'.format(i+1)].vary = True
+            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+            
+            #lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y), method='nelder')
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'marker':None, 'linewidth':4.0})
+        
+        x_span = abs(np.max(line.x)-np.min(line.x))
+        fit_x = np.linspace(np.min(line.x)-x_span, np.max(line.x)+x_span, num=2000)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'alpha':0.5, 'marker':None, 'linewidth':2.0})        
+
+        return lm_result, fit_line, fit_line_extended         
+        
+
+class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
+        
+        if run_args['qn_power']==2.0:
+            line.y *= np.square(line.x)
+            line.y_label = 'q^2*I(q)'
+            line.y_rlabel = '$q^2 I(q) \, (\AA^{-2} \mathrm{counts/pixel})$'
+            
+        else:
+            line.y *= np.power(line.x, run_args['qn_power'])
+            line.y_label = 'q^n*I(q)'
+            line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
+            
+        
+        outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
+        line.save_data(outfile)        
+
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+        
+        lines = self._fit(line, results, **run_args)
+        #lines = DataLines([line])
+        
+        outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
+        lines.plot(save=outfile, **run_args)        
+        
+        return results
+         
+        #End class circular_average_q2I_fit(Protocol, fit_peaks)
+        ########################################
+         
          
 class sector_average(Protocol):
 
@@ -348,7 +719,6 @@ class linecut_qr(Protocol):
         if 'show_region' in run_args and run_args['show_region']:
             data.plot(show=True)
         
-        
         #line.smooth(2.0, bins=10)
         
         outfile = self.get_outfile(data.name, output_dir)
@@ -442,9 +812,55 @@ class linecut_q(Protocol):
 
 
 
+class linecut_qr_fit(linecut_qr, fit_peaks):
+    '''Takes a linecut along qr, and fits the data to a simple model
+    (Gaussian peak with background).'''
+    
+
+    def __init__(self, name='linecut_qr_fit', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {'show_region' : False ,
+                         'plot_range' : [None, None, 0, None] ,
+                         'num_curves' : 1 ,
+                         }
+        self.run_args.update(kwargs)    
+    
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        line = data.linecut_qr(**run_args)
+        
+        if 'show_region' in run_args and run_args['show_region']:
+            data.plot(show=True)
+        
+        #line.smooth(2.0, bins=10)
+        
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        line.save_data(outfile)
+        
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+        
+        lines = self._fit(line, results, **run_args)
+        #lines = DataLines([line])
+
+        outfile = self.get_outfile(data.name, output_dir)
+        lines.plot(save=outfile, **run_args)        
+        
+        return results
+
+        #End class linecut_qr_fit(linecut_qr)
+        ########################################
 
 
-class linecut_qr_fit(linecut_qr):
+
+# TODO: Remove
+class _old_linecut_qr_fit(linecut_qr):
     '''Takes a linecut along qr, and fits the data to a simple model
     (Gaussian peak with background).'''
     
@@ -607,8 +1023,8 @@ class linecut_qr_fit(linecut_qr):
 
         if True:
             # Linear background
-            params.add('m', value=m, min=0, max=abs(m)*+4, vary=False) # Slope must be positive
-            params.add('b', value=b, min=0, max=np.max(line.y)*100, vary=False)
+            params.add('m', value=m, min=abs(m)*-4, max=abs(m)*+4+1e-12, vary=False)
+            params.add('b', value=b, min=0, max=np.max(line.y)*100+1e-12, vary=False)
             
             params.add('qp', value=0, vary=False)
             params.add('qalpha', value=1.0, vary=False)
@@ -991,7 +1407,7 @@ class linecut_qz_fit(linecut_qz):
         #params.add('m', value=0)
         #params.add('b', value=np.min(line.y), min=0, max=np.max(line.y))
         #params.add('m', value=m, min=abs(m)*-10, max=abs(m)*+10)
-        params.add('m', value=m, min=abs(m)*-5, max=0) # Slope must be negative
+        params.add('m', value=m, min=abs(m)*-5, max=1e-12) # Slope must be negative
         params.add('b', value=b, min=0)
         
         
@@ -1668,6 +2084,7 @@ class q_image(Protocol):
             
             # WARNING: These outputs are not to be trusted.
             # The maps are oriented relative to data.data (not q_data.data)
+            # These are for diagnostic purposes only.
             data_temp = Data2DReciprocal()
             
             data_temp.data = data.calibration.qx_map()
@@ -1732,6 +2149,7 @@ class qr_image(Protocol):
                         'blur' : None,
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
+                        'save_data' : False,
                         }
         self.run_args.update(kwargs)
         
@@ -1750,37 +2168,34 @@ class qr_image(Protocol):
         q_data = data.remesh_qr_bin(**run_args)
         results = q_data
         
-        plot_save = run_args['plot_save'] if 'plot_save' in run_args else True           
-        if plot_save:                
-            if 'file_extension' in run_args and run_args['file_extension'] is not None:
-                outfile = self.get_outfile(data.name, output_dir, ext=run_args['file_extension'])
-            else:
-                outfile = self.get_outfile(data.name, output_dir)
-    
-            if 'q_max' in run_args and run_args['q_max'] is not None:
-                q_max = run_args['q_max']
-                run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
-            
-            q_data.set_z_display([None, None, 'gamma', 0.3])
-            q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
-                                        'xtick.labelsize': 40,
-                                        'ytick.labelsize': 40,
-                                        'xtick.major.pad': 10,
-                                        'ytick.major.pad': 10,
-                                        },
-                                } 
-            q_data.x_label = 'qr'
-            q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
-    
-            if 'plot_buffers' not in run_args:
-                run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
-            q_data.plot(outfile, **run_args)
-            
-            if 'save_data' in run_args and run_args['save_data']:
-                outfile = self.get_outfile(data.name, output_dir, ext='.npz')
-                q_data.save_data(outfile)
-           
+        if 'file_extension' in run_args and run_args['file_extension'] is not None:
+            outfile = self.get_outfile(data.name, output_dir, ext=run_args['file_extension'])
+        else:
+            outfile = self.get_outfile(data.name, output_dir)
+
+        if 'q_max' in run_args and run_args['q_max'] is not None:
+            q_max = run_args['q_max']
+            run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
         
+        q_data.set_z_display([None, None, 'gamma', 0.3])
+        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
+                                    'xtick.labelsize': 40,
+                                    'ytick.labelsize': 40,
+                                    'xtick.major.pad': 10,
+                                    'ytick.major.pad': 10,
+                                    },
+                            } 
+        q_data.x_label = 'qr'
+        q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
+
+        if 'plot_buffers' not in run_args:
+            run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
+        q_data.plot(outfile, **run_args)
+        
+        if run_args['save_data']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)
+               
         return results
         
         
@@ -2041,7 +2456,8 @@ class q_phi_image(Protocol):
                         'ztrim' : [0.05, 0.005],
                         'method' : 'nearest',
                         'yticks' : [-180, -90, 0, 90, 180],
-                        'save_data_pickle': True,
+                        'save_data' : False,
+                        'save_data_pickle' : True,
                         }
         self.run_args.update(kwargs)
         
@@ -2070,8 +2486,16 @@ class q_phi_image(Protocol):
                                     'ytick.labelsize': 40,
                                     },
                             } 
-        q_data.plot(outfile, plot_buffers=[0.20,0.05,0.20,0.05], **run_args)
+
+        if 'plot_buffers' not in run_args:
+            run_args['plot_buffers'] = [0.20,0.05,0.20,0.05]
+        q_data.plot(outfile, **run_args)
         
+        if run_args['save_data']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.npz')
+            q_data.save_data(outfile)         
+
+        # TODO: Deprecate in favor of 'save_data' .npz file
         if 'save_data_pickle' in run_args and run_args['save_data_pickle']:
             # Save Data2DQPhi() object
             import pickle
@@ -2079,7 +2503,12 @@ class q_phi_image(Protocol):
             with open(outfile, 'wb') as fout:
                 out_data = q_data.data, q_data.x_axis, q_data.y_axis
                 pickle.dump(out_data, fout)
+<<<<<<< HEAD
             
+=======
+
+        
+>>>>>>> b8f638c48049c113fb353d06ad432025db66b007
         return results
 
 
@@ -2166,6 +2595,9 @@ class export_STL(Protocol):
 
         if run_args['verbosity']>=4:
             print('        data.data from {:.2f} to {:.2f} ({:.2f} ± {:.2f})'.format(np.min(data.data), np.max(data.data), np.average(data.data), np.std(data.data)))
+
+        if 'clip' in run_args:
+            data.data = np.clip(data.data, run_args['clip'][0], run_args['clip'][1])
                                                                                       
         data._plot_z_transform()
         
@@ -2251,7 +2683,7 @@ class metadata_extract(Protocol):
                     ['y_position', '.+_y(-?\d+\.\d+)_.+'] ,
                     ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
                     ['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
-                    ['exposure_time', '.+_(\d+\.\d+)c_\d+_?axs.+'] ,
+                    ['exposure_time', '.+_(\d+\.\d+)s_\d+_?axs.+'] ,
                     ['sequence_ID', '.+_(\d+)_?axs.+'] ,
                     ]            
             
@@ -2404,7 +2836,7 @@ class _deprecated_sum_images(Protocol):
     
     
     
-class merge_images_tiling(Protocol):
+class _deprecated_merge_images_tiling(Protocol):
     
     def __init__(self, name='merge_images', **kwargs):
         
@@ -2542,7 +2974,7 @@ class merge_images_tiling(Protocol):
         return results
             
     
-class merge_images_gonio_phi(Protocol):
+class _deprecated_merge_images_gonio_phi(Protocol):
     
     def __init__(self, name='merge_images', **kwargs):
         

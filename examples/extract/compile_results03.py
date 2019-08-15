@@ -15,6 +15,8 @@ from SciAnalysis import tools
 #from SciAnalysis.XSAnalysis import Protocols
 
 
+# TODO: Instead of redefining the Results() object, simply import:
+#from SciAnalysis.Result import * # Results() object
 
 # Results
 ################################################################################

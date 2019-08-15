@@ -35,6 +35,9 @@ class CalibrationGonio(Calibration):
     ########################################
     
     def set_angles(self, det_phi_g=0., det_theta_g=0.):
+        
+        self.clear_maps() # Any change to the detector position will presumptively invalidate cached maps
+        
         self.det_phi_g = det_phi_g
         self.det_theta_g = det_theta_g
     
@@ -54,6 +57,7 @@ class CalibrationGonio(Calibration):
         return self.q_map_data
     
     def angle_map(self):
+        
         if self.angle_map_data is not None:
             self._generate_qxyz_maps()
         
@@ -117,3 +121,7 @@ class CalibrationGonio(Calibration):
         self.qy_map_data = qy_c
         self.qz_map_data = qz_c
         self.q_map_data = q_c
+        
+        
+        
+        

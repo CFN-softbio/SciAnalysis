@@ -6,7 +6,7 @@
 
 import sys, os
 #SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
-SciAnalysis_PATH='/home/xf11bm/software/SciAnalysis/'
+SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob
@@ -25,18 +25,32 @@ from SciAnalysis.XSAnalysis import Protocols
 # Experimental parameters
 ########################################
 
-from SciAnalysis.XSAnalysis.DataRQconv import *
-calibration = CalibrationRQconv(wavelength_A=0.9184) # 13.5 keV
-calibration.set_image_size(1042) # psccd Photonic Sciences CCD
-calibration.set_pixel_size(pixel_size_um=101.7)
-calibration.set_distance(0.232) # Bigger number moves theory rings outwards (larger spacing)
-calibration.set_beam_position(22.0, 1042-22.0)
-calibration.set_angles(det_orient=45, det_tilt=-21, det_phi=0, incident_angle=0., sample_normal=0.)
-print('ratio Dw = {:.3f}'.format(calibration.get_ratioDw()))
+if False:
+    # PhotonicSciences CCD
+    from SciAnalysis.XSAnalysis.DataRQconv import *
+    calibration = CalibrationRQconv(wavelength_A=0.9184) # 13.5 keV
+    calibration.set_image_size(1042) # psccd Photonic Sciences CCD
+    calibration.set_pixel_size(pixel_size_um=101.7)
+    calibration.set_distance(0.232) # Bigger number moves theory rings outwards (larger spacing)
+    calibration.set_beam_position(22.0, 1042-22.0)
+    calibration.set_angles(det_orient=45, det_tilt=-21, det_phi=0, incident_angle=0., sample_normal=0.)
+    print('ratio Dw = {:.3f}'.format(calibration.get_ratioDw()))
 
+    mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
+    mask = Mask(mask_dir+'CCD/psccd_generic-mask.png')
+    
+else:
+    # Custom Dectris Pilatus 800k (lower-left modules removed)
+    calibration = Calibration(wavelength_A=0.9184) # 13.5 keV
+    calibration.set_image_size(981, height=1043) # Pilatus1M
+    calibration.set_pixel_size(pixel_size_um=172.0)
+    calibration.set_beam_position(237, 1043-379)
 
-mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
-mask = Mask(mask_dir+'CCD/psccd_generic-mask.png')
+    calibration.set_distance(0.355)
+
+    mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
+    mask = Mask(mask_dir+'Dectris/Pilatus800kcustom-mask.png')
+    #mask.load('./Pilatus800k_current-mask.png')
 
 
 
@@ -76,7 +90,8 @@ process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 protocols = [
     #Protocols.calibration_check(show=False, AgBH=True, q0=1.369*0.25, dq=0.002, num_rings=10, ztrim=[0.2, 0.01], dpi=300) ,
     Protocols.circular_average(ylog=False, plot_range=[0, 4.5, 1000, None], dezing=True) ,
-    Protocols.thumbnails(crop=None, resize=0.5, cmap=cmap_vge, ztrim=[0.06, 0.001], zmin=1000.0) , # PSCCD
+    #Protocols.thumbnails(crop=None, resize=0.5, cmap=cmap_vge, ztrim=[0.06, 0.001], zmin=1000.0) , # PSCCD
+    Protocols.thumbnails(crop=None, resize=0.5, cmap=cmap_vge, ztrim=[0.02, 0.001]) , # Pilatus800k
     ]
     
 
@@ -90,25 +105,5 @@ process.run(infiles, protocols, output_dir=output_dir, force=True)
 
 # Loop
 ########################################
-import time
-donefiles = []
-while True:
-
-    infiles = glob.glob(os.path.join(source_dir, pattern+'.tiff'))
-
-    for infile in infiles:
-        if infile in donefiles:
-            pass
-
-        else:
-            process.run([infile], protocols, output_dir=output_dir, force=False)
-
-            donefiles.append(infile)
-
-    time.sleep(4)
-
-
-
-
-
-
+# This is typically only used at the beamline (it loops forever, watching for new files).
+process.monitor_loop(source_dir=source_dir, pattern='*.tiff', protocols=protocols, output_dir=output_dir, force=False)

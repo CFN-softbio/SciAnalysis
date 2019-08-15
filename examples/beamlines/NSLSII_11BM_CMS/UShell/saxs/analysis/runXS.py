@@ -6,7 +6,7 @@
 
 import sys, os
 #SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
-SciAnalysis_PATH='/home/xf11bm/software/SciAnalysis/'
+SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob
@@ -69,7 +69,7 @@ process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 protocols = [
     #Protocols.calibration_check(show=False, AgBH=True, q0=0.010, num_rings=4, ztrim=[0.05, 0.05], ) ,
     #Protocols.circular_average(ylog=True, plot_range=[0, 0.12, None, None]) ,
-    Protocols.thumbnails(crop=None, resize=1.0, blur=None, cmap=cmap_vge, ztrim=[0.0, 0.01]) ,
+    Protocols.thumbnails(crop=None, resize=1.0, blur=None, cmap=cmap_vge, ztrim=[0.01, 0.001]) ,
     ]
     
 
@@ -83,26 +83,5 @@ process.run(infiles, protocols, output_dir=output_dir, force=False)
 
 # Loop
 ########################################
-# This code is typically only used at the beamline (it loops forever, watching for new files).
-import time
-donefiles = []
-while True:
-
-    infiles = glob.glob(os.path.join(source_dir, pattern+'.tiff'))
-
-    for infile in infiles:
-        if infile in donefiles:
-            pass
-
-        else:
-            process.run([infile], protocols, output_dir=output_dir, force=False)
-
-            donefiles.append(infile)
-
-    time.sleep(4)
-
-
-
-
-
-
+# This is typically only used at the beamline (it loops forever, watching for new files).
+process.monitor_loop(source_dir=source_dir, pattern='*.tiff', protocols=protocols, output_dir=output_dir, force=False)
