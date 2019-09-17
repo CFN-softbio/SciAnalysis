@@ -481,7 +481,7 @@ class fit_peaks(Protocol):
         
         for i in range(num_curves):
             
-            params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=np.max(line.y)*1.5, vary=False)
+            params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=max(np.max(line.y)*1.5,0)+1e-12, vary=False)
             if i==0:
                 # 1st peak should be at max location
                 params.add('x_center{:d}'.format(i+1), value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=False)
