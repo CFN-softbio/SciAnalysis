@@ -17,8 +17,11 @@ from .Data import *
 ################################################################################    
 class CalibrationQ(Calibration):
     """
-    The geomatric claculations used here are described in Yang, J Synch Rad (2013) 20, 211–218
-    http://dx.doi.org/10.1107/S0909049512048984
+    This object (and variants thereof) is intended for opening up data that has already
+    been mapped into q-space. This is typically obtained by some other conversion operation.
+    For instance, if different detector images are merged into q-space (accounting for 
+    detector position), then the resultant saved matrix should be "calibrated" using
+    and calibration object like this.
     
     """    
     
@@ -27,18 +30,36 @@ class CalibrationQ(Calibration):
         
         self.clear_maps()
         
-        if infile is not None:
+        if infile is not None and '_axes' in infile:
             self.load_axes(infile)
+            self._load_mode = 'axes'
+        else:
+            self.load_maps(infile)
+            
             
     def load_axes(self, infile):
         
-        self.qxs, self.qzs = pickle.load(open(infile,'rb'))
+        #self.qxs, self.qzs = pickle.load(open(infile,'rb'))
+        #self.qxs, self.qzs = np.load(infile)
+        
+        npzfile = np.load(infile)
+        self.qxs = npzfile['qxs']
+        self.qzs = npzfile['qzs']
         
         dqx = np.average(abs(self.qxs[:-1] - self.qxs[1:]))
         dqz = np.average(abs(self.qzs[:-1] - self.qzs[1:]))
         
         self.q_per_pixel = (dqx + dqz)*0.5
         
+    def load_maps(self, infile):
+        npzfile = np.load(infile)
+        self.qx_map_data = npzfile['QX']
+        self.qy_map_data = npzfile['QY']
+        self.qz_map_data = npzfile['QZ']
+        self._generate_qxyz_maps()
+        
+        self.q_per_pixel = abs(self.qx_map_data[0,0] - self.qx_map_data[1,1])
+
     
     def get_q_per_pixel(self):
         
@@ -72,14 +93,24 @@ class CalibrationQ(Calibration):
     
     def _generate_qxyz_maps(self):
         
-        QX, QZ = np.meshgrid(self.qxs, self.qzs)
+        if self._load_mode=='axes':
         
-        self.qx_map_data = QX
-        self.qz_map_data = QZ
-        
-        self.q_map_data = np.sqrt( np.square(QX) + np.square(QZ) )
-        
-        #self.qy_map_data = np.zeros_like(QX)
-        #self.qr_map_data = np.zeros_like(QX)
+            QX, QZ = np.meshgrid(self.qxs, self.qzs)
+            
+            self.qx_map_data = QX
+            self.qz_map_data = QZ
+            
+            self.q_map_data = np.sqrt( np.square(QX) + np.square(QZ) )
+            
+            #self.qy_map_data = np.zeros_like(QX)
+            #self.qr_map_data = np.zeros_like(QX)
+            
+        else:
+            
+            self.q_map_data = np.sqrt( np.square(QX) + np.square(QY) + np.square(QZ) )
+            self.qr_map_data = np.sqrt( np.square(QX) + np.square(QY) )
+            
+            
+            
         
     

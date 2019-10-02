@@ -27,7 +27,9 @@ import re # Regular expressions
 
 import numpy as np
 import matplotlib as mpl
-#mpl.use('Agg') # For 'headless' plotting (e.g. over an SSH connection)
+from ..settings import *
+if MATPLOTLIB_BACKEND is not None:
+    mpl.use(MATPLOTLIB_BACKEND)
 mpl.rcParams['mathtext.fontset'] = 'cm'
 import pylab as plt
 
@@ -954,7 +956,7 @@ class Data2DScattering(Data2D):
         QZ = self.calibration.qz_map().ravel()
         QX = self.calibration.qr_map().ravel()
         D = self.data.ravel()
-
+        
         qz_min = np.min(QZ)
         qz_max = np.max(QZ)
         qx_min = np.min(QX)
@@ -1037,7 +1039,7 @@ class Data2DScattering(Data2D):
         
         This version allows explicit control of the remesh matrix, and returns
         the corresponding mask. (This can be useful, e.g. for stitching/tiling 
-        images together into a combined/total reciprocal-space).'''
+        images together into a combined/total reciprocal-space.)'''
         
         
         
@@ -1314,6 +1316,9 @@ class Calibration(object):
         return self.q_per_pixel
     
     def set_angles(self, sample_normal=0):
+        
+        self.clear_maps() # Any change to the detector position will presumptively invalidate cached maps
+        
         self.sample_normal = sample_normal
     
     
@@ -1330,6 +1335,22 @@ class Calibration(object):
         kpre = 2.0*self.get_k()
         return kpre*np.sin(np.radians(angle/2))    
     
+    def compute_qy(self, QX, QZ):
+        '''Compute the (sometimes ignored!) qy component for the given (QX,QZ) matrices.'''
+        
+        k = self.get_k()
+        
+        
+        alpha_f = np.arcsin(QZ/k)
+        theta_f = np.arcsin( QX/(k*np.cos(alpha_f)) )
+        
+        QY = k*( np.cos(theta_f)*np.cos(alpha_f) - 1 )
+        
+        # Alternate computation:
+        #QZk2 = (1 - np.square(QZ/k))
+        #QY = k*( np.sqrt( 1 - np.square(QX/k)*(1/QZk2) )*np.sqrt(QZk2) - 1 )
+        
+        return QY
     
     # Maps
     ########################################
@@ -1468,6 +1489,8 @@ class Calibration(object):
             self.qx_map_data, self.qz_map_data = c*self.qx_map_data - s*self.qz_map_data, s*self.qx_map_data + c*self.qz_map_data
         
         self.qr_map_data = np.sign(self.qx_map_data)*np.sqrt(np.square(self.qx_map_data) + np.square(self.qy_map_data))
+
+
 
         
     

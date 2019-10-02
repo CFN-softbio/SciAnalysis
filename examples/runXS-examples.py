@@ -305,69 +305,6 @@ class update_autonomous_data(Protocols.Protocol):
     
     
     
-class circular_average_sum(Protocols.circular_average):
-
-    def __init__(self, name='circular_average_sum', **kwargs):
-
-        self.name = self.__class__.__name__ if name is None else name
-
-        self.default_ext = '.png'
-        self.run_args = {}
-        self.run_args.update(kwargs)
-
-
-    @tools.run_default
-    def run(self, data, output_dir, **run_args):
-
-        results = {}
-
-        if 'dezing' in run_args and run_args['dezing']:
-            data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
-
-
-        line = data.circular_average_q_bin(error=True)
-        #line.smooth(2.0, bins=10)
-
-        line_sub = line.sub_range(run_args['sum_range'][0], run_args['sum_range'][1])
-        results['values_sum'] = np.sum(line_sub.y)
-
-        outfile = self.get_outfile(data.name, output_dir)
-
-
-        # Plot and save data
-        class DataLines_current(DataLines):
-
-            def _plot_extra(self, **plot_args):
-
-                xi, xf, yi, yf = self.ax.axis()
-                v_spacing = (yf-yi)*0.10
-
-                yp = yf
-                s = '$S = \, {:.1f} $'.format(self.results['values_sum'])
-                self.ax.text(xf, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment='right')
-
-
-
-
-        lines = DataLines_current([line])
-        lines.copy_labels(line)
-        lines.results = results
-
-        try:
-            lines.plot(save=outfile, **run_args)
-        except ValueError:
-            pass
-
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
-
-        # TODO: Fit 1D data
-
-        return results
-
-
-
-
 
 
 class circular_average_subtract(Protocols.circular_average):

@@ -115,26 +115,7 @@ process.run(infiles, protocols, output_dir=output_dir, force=False)
 
 # Loop
 ########################################
-# This code is typically only used at the beamline (it loops forever, watching for new files).
-import time
-donefiles = []
-while False:
-
-    infiles = glob.glob(os.path.join(source_dir, '*.tiff'))
-
-    for infile in infiles:
-        if infile in donefiles:
-            pass
-
-        else:
-            process.run([infile], protocols, output_dir=output_dir, force=False)
-
-        donefiles.append(infile)
-
-    time.sleep(4)
-
-
-
-
+# This is typically only used at the beamline (it loops forever, watching for new files).
+process.monitor_loop(source_dir=source_dir, pattern='*.tiff', protocols=protocols, output_dir=output_dir, force=False)
 
 

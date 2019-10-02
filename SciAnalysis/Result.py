@@ -1,22 +1,30 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
+# vi: ts=4 sw=4
+'''
+:mod:`SciAnalysis.XSAnalysis.Result - Class for extracting results from xml files
+================================================
+.. module:: SciAnalysis.XSAnalysis.Result
+   :synopsis: Extracting results from xml files
+.. moduleauthor:: Dr. Kevin G. Yager <kyager@bnl.gov>
+                    Brookhaven National Laboratory
+'''
 
-# Imports
-########################################
-
-import sys, os
-SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
-SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
-
-import glob
+################################################################################
+#  Class for extracting results previously saved by SciAnalysis into xml
+# files (by default into the directory "./analysis/results/").
+################################################################################
+# Known Bugs:
+#  N/A
+################################################################################
+# TODO:
+#  Search for "TODO" below.
+################################################################################
+ 
 import numpy as np
-from SciAnalysis import tools
-#from SciAnalysis.XSAnalysis.Data import *
-#from SciAnalysis.XSAnalysis import Protocols
 
 
-# TODO: Instead of redefining the Results() object, simply import:
-#from SciAnalysis.Result import * # Results() object
+
 
 # Results
 ################################################################################
@@ -56,8 +64,8 @@ class Results(object):
         
         for i, infile in enumerate(infiles):
             
-            if i%100==0:
-                print( 'Extracting file {} ({:.1f}% done)'.format(i+1, 100.*i/len(infiles)) )
+            if len(infiles)>250 and i%100==0:
+                print( '    Extracting file {} ({:.1f}% done)'.format(i+1, 100.*i/len(infiles)) )
             line = [infile]
             
             result_names_e, results_e = self.extract_results_from_xml(infile, protocol)
@@ -72,9 +80,9 @@ class Results(object):
         return results
             
             
-    def extract_multi_save_txt(self, outfile, infiles, extractions, delimeter='__'):
+    def extract_multi_save_txt(self, outfile, infiles, extractions, delimeter='__', verbosity=3):
         
-        results = self.extract_multi(infiles, extractions)
+        results = self.extract_multi(infiles, extractions, verbosity=verbosity)
         print('Generated {} results.'.format(len(results)))
         
         result_names_all = []
@@ -96,7 +104,7 @@ class Results(object):
     
     
             
-    def extract_multi(self, infiles, extractions):
+    def extract_multi(self, infiles, extractions, verbosity=3):
         
         results = []
         for i, infile in enumerate(infiles):
@@ -104,25 +112,36 @@ class Results(object):
         
         for i, infile in enumerate(infiles):
             
-            if i%100==0:
-                print( 'Extracting file {} ({:.1f}% done)'.format(i+1, 100.*i/len(infiles)) )
-            
-            for protocol, result_names in extractions:
-                
-                result_names_e, results_e = self.extract_results_from_xml(infile, protocol)
-                
-                for result_name in result_names:
-                    if result_name in result_names_e:
-                        idx = result_names_e.index(result_name)
-                        results[i].append(results_e[idx])
-                    else:
-                        results[i].append('-')
+            if verbosity>=5 or (verbosity>=3 and len(infiles)>250 and i%100==0):
+                print( '    Extracting file {} ({:.1f}% done)'.format(i+1, 100.*i/len(infiles)) )
+            if verbosity>=5:
+                print( '     filename: {}'.format(infile))
+
+            try:
+                for protocol, result_names in extractions:
+                    if verbosity>=5:
+                        print('      Procotol {} (looking for {} results)'.format(protocol, len(result_names)))
                     
+                    result_names_e, results_e = self.extract_results_from_xml(infile, protocol, verbosity=verbosity)
+
+                    if verbosity>=5:
+                        print('        (found {} results)'.format(len(result_names_e)))
+                    
+                    for result_name in result_names:
+                        if result_name in result_names_e:
+                            idx = result_names_e.index(result_name)
+                            results[i].append(results_e[idx])
+                        else:
+                            results[i].append('-')
+                            
+            except:
+                if verbosity>=1:
+                    print( '    ERROR: Extraction failed for {}'.format(infile))
                 
         return results                  
             
         
-    def extract_results_from_xml(self, infile, protocol):
+    def extract_results_from_xml(self, infile, protocol, verbosity=3):
         
         parser = self.etree.XMLParser(remove_blank_text=True)
         root = self.etree.parse(infile, parser).getroot()
@@ -180,7 +199,8 @@ class Results(object):
                     
             
             else:
-                print('    Errror: result has no usable data ({})'.format(element))
+                if verbosity>=1:
+                    print('    Errror: result has no usable data ({})'.format(element))
             
         
         return result_names, results
@@ -189,47 +209,5 @@ class Results(object):
     # End class Results(object)
     ########################################
     
-
-
-
-
-# Files to analyze
-########################################
-
-source_dir = './' # The location of the SciAnalysis outputs
-results_dir = source_dir + '/results/' # Location of xml files
-
-infiles = glob.glob(os.path.join(results_dir, 'GD3-9-1_*.xml'))
-infiles.sort()
-#infiles = [infiles[0]]
-print('{} infiles'.format(len(infiles)))
-
-# Extract
-########################################
-
-output_dir = source_dir + '/trend/' # Location to output the txt file of assembled results
-tools.make_dir(output_dir)
-
-if False:
-    outfile = os.path.join(source_dir, 'SciAnalysis', 'trend', 'q2I.txt')
-    results = Results().extract_save_txt(outfile, infiles, protocol='circular_average_q2I', result_names=['fit_peaks_prefactor1', 'fit_peaks_prefactor1_error', 'fit_peaks_x_center1', 'fit_peaks_x_center1_error', 'fit_peaks_sigma1', 'fit_peaks_sigma1_error'])
-
-if False:
-    outfile = os.path.join(source_dir, 'SciAnalysis', 'trend', 'angle_fit.txt')
-    results = Results().extract_save_txt(outfile, infiles, protocol='linecut_angle', result_names=['fit_eta_eta', 'fit_eta_eta_error', 'fit_library_eta_S', 'fit_MaierSaupe_m', 'fit_MaierSaupe_m_error', 'fit_library_MaierSaupe_S'])
-
-if False:
-    outfile = os.path.join(source_dir, 'SciAnalysis', 'trend', 'angle_fit_qm.txt')
-    results = Results().extract_save_txt(outfile, infiles, protocol='linecut_angle_qm', result_names=['fit_eta_eta', 'fit_eta_eta_error', 'fit_library_eta_S', 'fit_MaierSaupe_m', 'fit_MaierSaupe_m_error', 'fit_library_MaierSaupe_S'])
-
-
-
-
-if True:
     
-    outfile = os.path.join(source_dir, 'trend', 'output.txt')
-    extractions = [ [ 'metadata_extract', ['theta','clock_time'] ] ,
-            ['linecut_qr_fit', ['fit_peaks_d0', 'fit_peaks_grain_size'] ],
-            ]
-    results = Results().extract_multi_save_txt(outfile, infiles, extractions)
     

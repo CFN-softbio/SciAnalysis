@@ -52,6 +52,9 @@ class CalibrationRQconv(Calibration):
     ########################################
     
     def set_angles(self, det_orient=0, det_tilt=0, det_phi=0, incident_angle=0., sample_normal=0.):
+        
+        self.clear_maps() # Any change to the detector position will presumptively invalidate cached maps
+        
         self.det_orient = det_orient
         self.det_tilt = det_tilt
         self.det_phi = det_phi
