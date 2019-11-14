@@ -39,6 +39,7 @@ class ProcessorCurve(Processor):
         load_args.update(kwargs)
 
         data = DataLine(infile, **load_args)
+        data.infile = infile
         
         return data
         
@@ -57,6 +58,7 @@ class ProcessorCurveStructure(ProcessorCurve):
         load_args.update(kwargs)
 
         data = DataLineStructured(infile, **load_args)
+        data.infile = infile
         
         return data        
         

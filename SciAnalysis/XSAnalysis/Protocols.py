@@ -480,7 +480,7 @@ class fit_peaks(Protocol):
         
         for i in range(num_curves):
             
-            params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=np.max(line.y)*1.5, vary=False)
+            params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=np.max(line.y)*1.5+1e-12, vary=False)
             if i==0:
                 # 1st peak should be at max location
                 params.add('x_center{:d}'.format(i+1), value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=False)
@@ -488,7 +488,7 @@ class fit_peaks(Protocol):
                 # Additional peaks can be spread out
                 xpos = np.min(line.x) + (xspan/num_curves)*i
                 params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
-            params.add('sigma{:d}'.format(i+1), value=sigma, min=0.00001, max=xspan*0.5, vary=False)
+            params.add('sigma{:d}'.format(i+1), value=sigma, min=0.0001, max=xspan*0.5, vary=False)
         
         
         # Fit only the peak width
@@ -514,6 +514,7 @@ class fit_peaks(Protocol):
                 lm_result.params['x_center{:d}'.format(i+1)].vary = True
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             
+            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             #lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y), method='nelder')
         
         if run_args['verbosity']>=5:
