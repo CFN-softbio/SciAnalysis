@@ -290,7 +290,7 @@ class fit_peaks(Protocol):
     def _fit(self, line, results, **run_args):
         
         # Fit
-        lm_result, fit_line, fit_line_extended = self._fit_peaks(line, **run_args)
+        lm_result, fit_line, fit_line_extended, fit_line_gaussians = self._fit_peaks(line, **run_args)
         
         fit_name = 'fit_peaks'
         prefactor_total = 0
@@ -338,6 +338,10 @@ class fit_peaks(Protocol):
                 
                 yp = yf
                 ha, xp = 'right', xf
+                s = '$prefactor = \, {:.2f} \,$'.format(self.results['fit_peaks_prefactor1']['value'])
+                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                
+                yp -= v_spacing
                 s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center1']['value'])
                 self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
 
@@ -356,6 +360,10 @@ class fit_peaks(Protocol):
                 if self._run_args['num_curves']>1:
                     yp = yf
                     ha, xp = 'left', xi
+                    s = '$prefactor = \, {:.2f} \,$'.format(self.results['fit_peaks_prefactor2']['value'])
+                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                    
+                    yp -= v_spacing
                     s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center2']['value'])
                     self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
 
@@ -370,8 +378,8 @@ class fit_peaks(Protocol):
                     yp -= v_spacing
                     s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size2'])
                     self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)        
-        
-        lines = DataLines_current([line, fit_line, fit_line_extended])
+   
+        lines = DataLines_current([line, fit_line, fit_line_extended]+fit_line_gaussians)
         lines.results = results
         lines._run_args = run_args
         lines.copy_labels(line)            
@@ -401,7 +409,14 @@ class fit_peaks(Protocol):
             for i in range(num_curves):
                 m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
             return m
-        
+ 
+ 
+        def model_Gaussian(v, x, i):           
+            # Gaussian peaks
+            m = v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+            return m
+ 
+ 
         def func2minimize(params, x, data):
             
             v = params.valuesdict()
@@ -452,7 +467,7 @@ class fit_peaks(Protocol):
             x_sorted = xs[indices]
             y_sorted = ys[indices]
             
-            idx = np.where( x_sorted>=q0 )[0][0]
+            idx = np.where( x_sorted>=q0[0] )[0][0]
 
             xpeak = x_sorted[idx]
             ypeak = y_sorted[idx]
@@ -486,7 +501,8 @@ class fit_peaks(Protocol):
                 params.add('x_center{:d}'.format(i+1), value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=False)
             else:
                 # Additional peaks can be spread out
-                xpos = np.min(line.x) + (xspan/num_curves)*i
+                if len(q0)>i: xpos = q0[i] 
+                else: np.min(line.x) + (xspan/num_curves)*i
                 params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
             params.add('sigma{:d}'.format(i+1), value=sigma, min=0.0001, max=xspan*0.5, vary=False)
         
@@ -530,7 +546,16 @@ class fit_peaks(Protocol):
         fit_y = model(lm_result.params.valuesdict(), fit_x)
         fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'alpha':0.5, 'marker':None, 'linewidth':2.0})        
 
-        return lm_result, fit_line, fit_line_extended         
+        # Gaussians (for plotting each fit separately)
+        fit_line_gaussians = []
+        for ii in range(num_curves):
+            fit_y = model_Gaussian(lm_result.params.valuesdict(), fit_x, ii)
+            if ii==0: color = 'r'
+            elif ii==1: color = 'g'
+            else: color = 0.5*np.random.rand(3)
+            fit_line_gaussians.append(DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'--', 'color':color, 'alpha':0.5, 'marker':None, 'linewidth':2.0}))        
+
+        return lm_result, fit_line, fit_line_extended, fit_line_gaussians      
         
 
 class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
