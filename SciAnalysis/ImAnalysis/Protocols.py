@@ -765,6 +765,7 @@ class particles(Protocol):
                         'invert' : False,
                         'diagonal_detection' : False,
                         'cmap' : mpl.cm.bone,
+                        'preprocess' : 'default',
                         }
         self.run_args.update(kwargs)
         
@@ -787,13 +788,43 @@ class particles(Protocol):
             data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
         
         # Pre-process
-        #data.equalize()
-        #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-        data.lowkill(run_args['q0']*0.1)
-        data.blur(2.0) # lowpass
-        #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
-        #data.equalize()
-        data.maximize_intensity_spread()
+        if run_args['preprocess']=='None':
+            pass
+        
+        elif run_args['preprocess']=='AFM':
+            data.equalize()
+            data.maximize_intensity_spread()
+
+        elif run_args['preprocess']=='custom':
+            data.blur(0.6) # lowpass
+            for i in range(2):
+                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            for i in range(2):
+                data.blur(0.8) # lowpass
+            data.equalize()
+            data.maximize_intensity_spread()
+            
+        elif run_args['preprocess']=='SEM':
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            for i in range(2):
+                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            data.blur(2.0) # lowpass
+            data.blur(2.0) # lowpass
+            data.equalize()
+            data.maximize_intensity_spread()
+
+        else:
+            # Generic
+            #data.equalize()
+            #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            data.lowkill(run_args['q0']*0.1)
+            data.blur(2.0) # lowpass
+            #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
+            #data.equalize()
+            data.maximize_intensity_spread()
+        
+        
+
 
         if run_args['verbosity']>=4:
             data.set_z_display( [None, None, 'gamma', 1.0] )
@@ -1090,8 +1121,16 @@ class grain_size_hex(Protocol):
             data.equalize()
             data.maximize_intensity_spread()
 
+        elif run_args['preprocess']=='SEM':
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            for i in range(2):
+                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            data.blur(2.0) # lowpass
+            data.blur(2.0) # lowpass
+            data.equalize()
+            data.maximize_intensity_spread()
+
         else:
-            # Typical processing for SEM images:
             #data.equalize()
             data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
             for i in range(2):

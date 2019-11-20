@@ -151,17 +151,19 @@ class circular_average(Protocol):
         
         line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
         #line.smooth(2.0, bins=10)
-        
-        outfile = self.get_outfile(data.name, output_dir)
-        
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+
+        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        line.save_data(outfile)
+
         try:
+            outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, **run_args)
         except ValueError:
             pass
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
-        
+       
         return results
 
 
@@ -291,7 +293,7 @@ class fit_peaks(Protocol):
     def _fit(self, line, results, **run_args):
         
         # Fit
-        lm_result, fit_line, fit_line_extended = self._fit_peaks(line, **run_args)
+        lm_result, fit_line, fit_line_extended, fit_line_curves = self._fit_peaks(line, **run_args)
         
         fit_name = 'fit_peaks'
         prefactor_total = 0
@@ -373,6 +375,9 @@ class fit_peaks(Protocol):
                     self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)        
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
+        if 'num_curves' in run_args and run_args['num_curves']>1 and 'show_curves' in run_args and run_args['show_curves']:
+            for curve in fit_line_curves:
+                lines.add_line(curve)
         lines.results = results
         lines._run_args = run_args
         lines.copy_labels(line)            
@@ -528,9 +533,28 @@ class fit_peaks(Protocol):
         x_span = abs(np.max(line.x)-np.min(line.x))
         fit_x = np.linspace(np.min(line.x)-x_span, np.max(line.x)+x_span, num=2000)
         fit_y = model(lm_result.params.valuesdict(), fit_x)
-        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'alpha':0.5, 'marker':None, 'linewidth':2.0})        
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'alpha':0.5, 'marker':None, 'linewidth':2.0})
+        
+        # Generate component curves
+        prefactors = [lm_result.params['prefactor{:d}'.format(i+1)].value for i in range(num_curves) ]
+        fit_line_curves = []
+        for i in range(num_curves):
+            # Set all but one prefactors to zero
+            for j, prefactor in enumerate(prefactors):
+                if j!=i:
+                    prefactor = 0
+                lm_result.params['prefactor{:d}'.format(j+1)].value = prefactor
 
-        return lm_result, fit_line, fit_line_extended         
+            fit_y = model(lm_result.params.valuesdict(), fit_x)
+            fit_line_curve = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'purple', 'alpha':0.5, 'marker':None, 'linewidth':1.0})
+            fit_line_curves.append(fit_line_curve)
+        
+        # Return the model to the correct state
+        for i, prefactor in enumerate(prefactors):
+            lm_result.params['prefactor{:d}'.format(i+1)].value = prefactor
+            
+
+        return lm_result, fit_line, fit_line_extended, fit_line_curves
         
 
 class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
@@ -655,7 +679,9 @@ class linecut_angle(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {'show_region' : False,
-                         'plot_range' : [-180, 180, 0, None]
+                         'plot_range' : [-180, 180, 0, None],
+                         'markersize' : 0,
+                         'linewidth' : 1.5,
                          }
         self.run_args.update(kwargs)
     
@@ -672,7 +698,8 @@ class linecut_angle(Protocol):
             data.plot(show=True)
         
         
-        #line.smooth(2.0, bins=10)
+        if 'smooth' in run_args:
+            line.smooth(run_args['smooth'])
         
         outfile = self.get_outfile(data.name, output_dir)
         line.plot(save=outfile, **run_args)
@@ -2511,8 +2538,8 @@ class metadata_extract(Protocol):
                     ['y_position', '.+_y(-?\d+\.\d+)_.+'] ,
                     ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
                     ['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
-                    ['exposure_time', '.+_(\d+\.\d+)s_\d+_?axs.+'] ,
-                    ['sequence_ID', '.+_(\d+)_?axs.+'] ,
+                    ['exposure_time', '.+_(\d+\.\d+)s_\d+_[a-zA-Z]axs.+'] ,
+                    ['sequence_ID', '.+_(\d+)_[a-zA-Z]axs.+'] ,
                     ]            
             
         self.run_args = { 'patterns' : patterns }
