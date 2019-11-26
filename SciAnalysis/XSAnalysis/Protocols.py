@@ -23,6 +23,7 @@
 from .Data import *
 from ..tools import *
 
+import copy
 
 class ProcessorXS(Processor):
 
@@ -89,7 +90,8 @@ class thumbnails(Protocol):
                         'make_square' : False,
                         'blur' : 2.0,
                         'resize' : 0.2,
-                        'ztrim' : [0.05, 0.005]
+                        'ztrim' : [0.05, 0.005],
+                        'preserve_data' : True,
                         }
         self.run_args.update(kwargs)
         
@@ -98,6 +100,10 @@ class thumbnails(Protocol):
     def run(self, data, output_dir, **run_args):
         
         results = {}
+        
+        if run_args['preserve_data']:
+            # Avoid changing the data (which would disrupt downstream analysis of this data object)
+            data = copy.deepcopy(data)
         
         if run_args['crop'] is not None:
             data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'], make_square=run_args['make_square'])
@@ -697,13 +703,18 @@ class linecut_angle(Protocol):
         if 'show_region' in run_args and run_args['show_region']:
             data.plot(show=True)
         
-        
         if 'smooth' in run_args:
             line.smooth(run_args['smooth'])
         
+        if 'polarization_correction' in run_args and run_args['polarization_correction']:
+            chi_deg = line.x
+            two_theta_rad = 2.0*np.arcsin(run_args['q0']/(2.*data.calibration.get_k()))
+            P_h = 1 - np.square(np.sin(two_theta_rad))*np.square(np.sin(np.radians(chi_deg)))
+            line.y *= P_h
+
         outfile = self.get_outfile(data.name, output_dir)
         line.plot(save=outfile, **run_args)
-
+            
         #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
         #line.plot_polar(save=outfile, **run_args)
 
@@ -2396,6 +2407,7 @@ class export_STL(Protocol):
         
         # Usage:
         #Protocols.export_STL( stl_zscale=150, stl_pedestal=8, blur=1.5, resize=1.0, crop_GI=700)
+        #Protocols.export_STL( stl_zscale=150, stl_pedestal=8, blur=1.5, resize=1.0, crop_beam=[400,400], ztrim=[0.05, 0.006], logo_file=SciAnalysis_PATH+'./examples/STL/logo.png', logo_resize=0.3 )
         
         results = {}
         
@@ -2530,7 +2542,7 @@ class metadata_extract(Protocol):
         
         self.name = self.__class__.__name__ if name is None else name
         
-        self.default_ext = '.dat'
+        self.default_ext = '.npy'
         
         patterns = [
                     ['theta', '.+_th(\d+\.\d+)_.+'] ,
@@ -2544,8 +2556,7 @@ class metadata_extract(Protocol):
             
         self.run_args = { 'patterns' : patterns }
         self.run_args.update(kwargs)
-    
-        
+
     @run_default
     def run(self, data, output_dir, **run_args):
         

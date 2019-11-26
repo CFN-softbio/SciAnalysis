@@ -674,6 +674,11 @@ def autonomous_result(xml_file):
     extractions = [ [ 'metadata_extract', ['x_position', 'y_position'] ] ,
                 ['circular_average_q2I', ['fit_peaks_prefactor1', 'fit_peaks_x_center1', 'fit_peaks_sigma1', 'fit_peaks_chi_squared' ] ],
                 ]
+    #extractions = [ [ 'metadata_extract', ['x_position', 'y_position'] ] , # 1, 2
+                #['circular_average_q2I_fit', ['fit_peaks_prefactor1', 'fit_peaks_x_center1', 'fit_peaks_sigma1', 'fit_peaks_chi_squared', 'fit_peaks_prefactor1_error', 'fit_peaks_x_center1_error', 'fit_peaks_sigma1_error' ] ], # 3, ... 9
+                #['linecut_angle_fit', ['fit_eta_eta', 'orientation_factor', 'orientation_angle', 'fit_eta_span_prefactor'] ], # 10, ... 13
+                #]
+
 
     infiles = [xml_file]
     extracted_results = Results().extract_multi(infiles, extractions)
@@ -688,186 +693,174 @@ def autonomous_result(xml_file):
             'chi_squared' : float(result[6]),
             
         }
+    #data_vector = {
+            ##'x_position' : float(result[1]),
+            ##'y_position' : float(result[2]),
+            #'prefactor' : float(result[3]),
+            #'prefactor variance' : float(result[7]),
+            #'q' : float(result[4]),
+            #'q variance' : float(result[8]),
+            #'sigma' : float(result[5]),
+            #'sigma variance' : float(result[9]),
+            #'chi_squared' : float(result[6]),
+            #'chi_squared variance' : 0,
+            #'eta' : float(result[10]),
+            #'orientation_factor' : float(result[11]),
+            #'orientation_angle' : float(result[12]),
+            #'eta_prefactor' : float(result[13]),
+            
+        #}    
     
     return data_vector
     
     
 
-    
-    
-    
-
-
-
-
-
-# Experimental parameters
+# Tweaking data
 ########################################
+# This code can be modified to tweak the data being passed around to control SMART
 
-calibration = Calibration(wavelength_A=0.9184) # 13.5 keV
-calibration.set_image_size(1475, height=1679) # Pilatus2M
-calibration.set_pixel_size(pixel_size_um=172.0)
-#calibration.set_beam_position(765.0, 1680-579) # SAXSx -60, SAXSy -71
-calibration.set_beam_position(757.0-1, 1680-530) # SAXSx -65, SAXSy -60
-
-#calibration.set_distance(5.038) # 5m
-#calibration.set_distance(2.001) # 2m
-calibration.set_distance(5.09) # 5m
-
-mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
-mask = Mask(mask_dir+'Dectris/Pilatus2M_gaps-mask.png')
-mask.load('./Pilatus2M_CMS_5m-circ.png')
-
-
-
-# Files to analyze
-########################################
-source_dir = '../'
-output_dir = './'
-
-
-pattern = 'GD3_68_2_test_*'
-pattern = '*'
-
-infiles = glob.glob(os.path.join(source_dir, pattern+'.tiff'))
-infiles.sort()
-
-
-# Analysis to perform
-########################################
-
-load_args = { 'calibration' : calibration, 
-             'mask' : mask,
-             }
-run_args = { 'verbosity' : 3,
-            }
-
-process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
-
-
-
-thumb2 = Protocols.thumbnails(crop=None, resize=1.0, blur=None, cmap=cmap_vge, ztrim=[0.0, 0.01])
-thumb2.name = 'thumbnails2'
-
-
-L0 = 48 # nm
-q0 = 0.1*2*np.pi/(L0)
-print(q0)
-
-
-patterns = [
-            ['theta', '.+_th(\d+\.\d+)_.+'] ,
-            ['x_position', '.+_x(-?\d+\.\d+)_.+'] ,
-            ['y_position', '.+_yy(-?\d+\.\d+)_.+'] ,
-            ['cost', '.+_Cost(\d+\.\d+)_.+'] ,
-            ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
-            ['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
-            ['exposure_time', '.+_(\d+\.\d+)c_\d+_saxs.+'] ,
-            ['sequence_ID', '.+_(\d+)_saxs.+'] ,
-            ]
-
-
-protocols = [
-    #linecut_qr_fit() ,
-    #circular_average_q2I_fit(show=False, q0=None, plot_range=[0, 0.025, 0, None], fit_range=[0.010, 0.022], vary=True) ,
-    circular_average_q2I_fit(show=False, q0=None, plot_range=[0, 0.025, 0, None], fit_range=[q0-0.006, q0+0.004], vary=True) ,
+def analyze_more(communication_directory='../../Code/smart/data/', source_dir='../', pattern='*', save=False, verbosity=3):
     
-    #linecut_angle_fit_custom(q0=0.0122, dq=0.003, show=False, show_region=False) ,
     
-    Protocols.metadata_extract(patterns=patterns) ,
-    #update_autonomous_data(),
+    #input_file = communication_directory+'new_experiment_command/analysis_command.npy'
+    input_file = communication_directory+'new_experiment_command/analysis_command_bak.npy'
+    output_file = communication_directory+'new_experiment_result/experiment_result.npy'
+    output_file = './experiment_result.npy'
+
+
+    # Determine files to analyze
+    infiles = glob.glob(source_dir+pattern+'.tiff')
     
-    ]
-    
-
-
-
-
-
-
-
-SMART_DIRECTORY = '/GPFS/xf11bm/data/2019_1/MNoack/Exp8/Code/chiSMART/data/'
-#SMART_DIRECTORY = '../../Code/chiSMART/data/'
-communication_file = SMART_DIRECTORY+'new_experiment_command/analysis_command.npy'
-
-
-
-# Autonomous loop
-print('\n\n\n')
-print('=============================')
-print('==  Autonomous Experiment  ==')
-print('=============================')
-print('\n')
-
-filename_re = re.compile('.+_222(\d\d\d\d)_saxs.+')
-
-#if False:
-while True:
-
-    
-    start_time = time.time()
-    while not os.path.isfile(communication_file):
-        print('Waiting for command file (analysis_command.npy) [{:.1f} minutes]'.format( (time.time()-start_time)/60 ))
-        time.sleep(10)
+    if verbosity>=3:
+        print('Found {} infiles...'.format(len(infiles)))
         
-    print('New command file found')
-    command = np.load(communication_file)
+        
+    # Select only the 'right' files
+    filename_re = re.compile('.+_(\d+)_saxs.+') # sequence_ID
     
+    ##AE_LGX_C67blend_P045_run1_clock40304.16_localT492.0_th0.120_5.00s_2532754_saxs.tiff
+    #filename_re = re.compile('.+_clock(\d+\.\d\d)_localT(\d+\.\d)_.+_(\d+)_saxs.+') # clock, T, sID
     
-    print('    SciAnalysis processing {} files...'.format(len(command.item())))
-    result_vector = {}
-    for index, data_vector in command.item().items():
-
-
-        okay = True
-        m = filename_re.match(data_vector['filename'])
+    to_analyze = []
+    for infile in infiles:
+        m = filename_re.match(infile)
         if m:
-            num = int(m.groups()[0])
-            print(num)
-            if num>=863 and num<=871:
-                okay = False
- 
+            sequence_ID = int(m.groups()[0])
+            #clock, temperature, sequence_ID = float(m.groups()[0]), float(m.groups()[1]), int(m.groups()[2])
+            if verbosity>=5:
+                print('considering file: {}'.format(infile))
+
+                print('    sID {:d}'.format(sequence_ID))
+                #print('    clock: {:.2f}, T {:.1f}, sID {:d}'.format(clock, temperature, sequence_ID))
+            #if sequence_ID==2533156:
+            to_analyze.append(infile)
+                
+    if verbosity>=3:
+        print('RE match {} files...'.format(len(to_analyze)))
 
 
-        if 'filename' in data_vector and okay:
-        
-            infile = source_dir + data_vector['filename']
-            print('        Analysis for index {}, file: {}'.format(index, infile))
-            print('\n')
+    # Load existing analysis data
+    #results = np.load(input_file).item()
+    #index = max(results.keys()) + 1
+    
+    results = {}
+    index = 0
+    
+    for infile in to_analyze:
+        if False:
+            if verbosity>=3:
+                print('        Analysis for index {}, file: {}'.format(index, infile))
+                print('\n')
+            
             process.run([infile], protocols, output_dir=output_dir, force=False)
-            print('\n')
             
-            xml_file = '{}{}{}'.format( './results/', infile[len(source_dir):-5], '.xml' )
-            result = autonomous_result(xml_file)
-            data_vector.update(result)
+            if verbosity>=3:
+                print('\n')
+        
+        #xml_file = '{}{}{}'.format( './results/', infile[len(source_dir):-5], '.xml' )
+        xml_file = '{}{}{}{}'.format( source_dir, '../analysis/results/', infile[len(source_dir):-5], '.xml' )
+        result = autonomous_result(xml_file)
+        
+        if verbosity>=5:
+            print(result)
+        
+        m = filename_re.match(infile)
+        if m:
+            sequence_ID = int(m.groups()[0])
+            #clock, temperature, sequence_ID = float(m.groups()[0]), float(m.groups()[1]), int(m.groups()[2])
+        
+            result['filename'] = infile
+            #result['cost'] = 1
             
-            #print(data_vector)
+            #result['laser_power'] = 0
+            #result['sweep_index'] = 0
+            #result['l_position'] = lpos
+            #result['o_position'] = opos
             
-            result_vector[index] = data_vector
-        
-        
-    
-    # Update the file for SMART to analyze
-    outfile = SMART_DIRECTORY+'new_experiment_result/experiment_result.npy'
-    
-    
-    print('    Removing command file (analysis_command.npy)')
-    os.remove(communication_file)
-    
-    
-    if os.path.isfile(outfile):
-        time.sleep(10)
-        
-    if os.path.isfile(outfile):
-        print('    Saving experiment_result.npy (file exists).')
-    else:
-        print('    Saving experiment_result.npy (file missing).')
-    np.save(outfile, result_vector)
-        
-    time.sleep(1)
+            result['measured'] = True
+            result['analyzed'] = True
+            results[index] = result
+            index += 1
+            
+        else:
+            if verbosity>=1:
+                print("WARNING: RE didn't match for: {}".format(infile))
+                
+    if verbosity>=4:
+        print( 'Results contains {} results, from index {} to {}'.format( len(results), min(results.keys()), max(results.keys()) ) )
+    if verbosity>=5:
+        for index in results:
+            print(index)
+            for key in results[index]:
+                print ('    ', key, ':', results[index][key])
+
+    if save:
+        # Save analysis results for SMART to consider
+        if os.path.isfile(output_file):
+            time.sleep(5)
+        if os.path.isfile(output_file):
+            if verbosity>=3:
+                print('    Saving experiment_result.npy (file exists).')
+        else:
+            if verbosity>=3:
+                print('    Saving experiment_result.npy (file missing).')
+        np.save(output_file, results)
+            
 
 
+def fix_results(infile, save=False, verbosity=3):
+    
+    
+    results = np.load(infile).item()
+    index = max(results.keys()) + 1
+    
+    filename_re = re.compile('.+_opos(-?\d+\.\d+)_lpos(-?\d+\.\d+)_.+_(\d+)_saxs.+')
+    
+    for index, result in results.items():
+        
+        if verbosity>=4:
+            print('doing index {}, infile {}'.format(index, result['filename']))
+        
+        m = filename_re.match(result['filename'])
+        if m:
+            result['l_position'] = m.groups()[0]
+            result['o_position'] = m.groups()[1]
+            
+        else:
+            if verbosity>=1:
+                print("WARNING: RE didn't match for: {}".format(result['filename']))
 
+    if save:
+        # Save analysis results for SMART to consider
+        if os.path.isfile(infile):
+            time.sleep(5)
+        if os.path.isfile(infile):
+            if verbosity>=3:
+                print('    Saving experiment_result.npy (file exists).')
+        else:
+            if verbosity>=3:
+                print('    Saving experiment_result.npy (file missing).')
+        np.save(infile, results)
 
 
 
@@ -901,10 +894,235 @@ if False:
 
 
 
-# Normal SciAnalysis loop
-if False:
+
+
+# Autonomous execution
+########################################
+def load_retry(infile, max_retries=10, wait_time=0.1):
+    attempts = 0
+    while attempts < max_retries:
+        try:
+            results = np.load(infile, allow_pickle=True).item()
+        except Exception as ex:
+            attempts += 1
+            print("Exception {} occurred while loading {}".format(ex.__class__.__name__, infile))
+            print(ex)
+            
+            time.sleep(wait_time)
+            wait_time *= 2
+            
+            if attempts>=max_retries:
+                raise ex
+            
+    return results
+
+def run_autonomous_loop(protocols, communication_directory='../../Code/smart/data/', verbosity=3):
+
+    if verbosity>=3:
+        print('\n\n\n')
+        print('=============================')
+        print('==  Autonomous Experiment  ==')
+        print('=============================')
+        print('\n')
+        
+    
+    input_file = communication_directory+'new_experiment_command/analysis_command.npy'
+    output_file = communication_directory+'new_experiment_result/experiment_result.npy'
+
+    
+    #filename_re = re.compile('.+_(\d+)_saxs.+') # In case we need the sequence_ID
+    #filename_re = re.compile('.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_saxs.+')
+    
+    
+    # Loop forever
+    while True:
+    
+        # Wait for analysis command to appear
+        start_time = time.time()
+        while not os.path.isfile(input_file):
+            if verbosity>=3:
+                print(' Waiting for command file (analysis_command.npy) [{:.1f} minutes]'.format( (time.time()-start_time)/60 ))
+            time.sleep(10)
+            
+        if verbosity>=2:
+            print('New command file found (waited {:.1f} minutes)'.format((time.time()-start_time)/60) )
+            
+        # Open command file
+        time.sleep(0.2)
+        results = load_retry(input_file)
+  
+        
+        if verbosity>=3:
+            num_items = sum(1 for v in results.values() if 'analyzed' in v and v['analyzed'] is False)
+            print('    SciAnalysis processing {} files...'.format(num_items))
+        if verbosity>=10:
+            print_dictionary(results)
+        
+        for index, result in results.items():
+            
+            # Ad hoc code to control analysis
+            analyze = True
+            #m = filename_re.match(result['filename'])
+            #if m:
+                #sequence_ID = int(m.groups()[0])
+                #if sequence_ID>=863 and sequence_ID<=871:
+                    #analyze = False        
+            
+            
+            #if 'filename' in result: # Update all analysis
+            if 'analyzed' in result and result['analyzed'] is False and 'filename' in result and analyze:
+
+                infile = source_dir + result['filename']
+                if verbosity>=3:
+                    print('        Analysis for index {}, file: {}'.format(index, infile))
+                    print('\n')
+                
+                process.run([infile], protocols, output_dir=output_dir, force=False)
+                
+                if verbosity>=3:
+                    print('\n')
+                
+                xml_file = '{}{}{}'.format( './results/', infile[len(source_dir):-4], '.xml' )
+                new_result = autonomous_result(xml_file)
+                result.update(new_result)
+                
+                if verbosity>=5:
+                    print(result)
+                
+                results[index] = result
+                results[index]['analyzed'] = True
+            
+            
+        
+        # Update the file for SMART to analyze
+        if verbosity>=3:
+            print('    Removing command file (analysis_command.npy)')
+        
+        #os.remove(input_file)
+        os.replace(input_file, communication_directory+'/new_experiment_command/analysis_command_bak.npy')
+        
+        
+        
+        if os.path.isfile(output_file):
+            time.sleep(10)
+            
+        if os.path.isfile(output_file):
+            if verbosity>=3:
+                print('    Saving experiment_result.npy (file exists).')
+        else:
+            if verbosity>=3:
+                print('    Saving experiment_result.npy (file missing).')
+        np.save(output_file, results)
+            
+        time.sleep(1)
     
 
+
+# Debug code
+########################################
+# This code is convenient for inspecting the inter-process files being passed around
+# during a SMART autonomous experiment.
+
+def print_dictionary(results):
+    for index in results:
+        print(index)
+        for key in results[index]:
+            print ('    ', key, ':', results[index][key])
+            
+# Example structure of a SMART dictionary
+results = { 
+    0 : {'x': 1.0, 'y': 1.0, 'prefactor': 10.0, 'prefactor variance': 0.1, 'cost': 1.0, 'measured': True, 'analyzed': True} ,
+    1 : {'x': 2.0, 'y': 1.0, 'prefactor': 11.0, 'prefactor variance': 0.1, 'cost': 1.0, 'measured': True, 'analyzed': True} ,
+    3 : {'x': 3.0, 'y': 2.0, 'prefactor': 10.0, 'prefactor variance': 0.1, 'cost': 1.0, 'measured': True, 'analyzed': False} ,
+    }        
+            
+if False:
+    # Examples of commands that can be run in an ipython session to inspect SMART dictionaries    
+    import numpy as np
+    results = np.load('experiment_command.npy.bak', allow_pickle=True).item() ; print_dictionary(results)
+    results = np.load('analysis_command_bak.npy', allow_pickle=True).item() ; print_dictionary(results)
+    max_cost = max( [result['cost'] for result in results.values()] )
+    num_results = len( [ key for key in results.keys() ] )
+
+    # Print dictionary
+    def dict_str(d): return ''.join([ '{}\n{}'.format(i, sv(v)) for i, v in d.items() ])
+    def sv(v): return ''.join([ se(k, e) for k, e in v.items() ])
+    def se(k,e): return ''.join(['    ', str(k), ': ', str(e), '\n'])
+    print(dict_str(results))    
+    
+
+
+
+
+
+# Experimental parameters
+########################################
+
+calibration = Calibration(wavelength_A=0.9184) # 13.5 keV
+calibration.set_image_size(1475, height=1679) # Pilatus2M
+calibration.set_pixel_size(pixel_size_um=172.0)
+#calibration.set_beam_position(765.0, 1680-579) # SAXSx -60, SAXSy -71
+calibration.set_beam_position(757.0-1, 1680-530) # SAXSx -65, SAXSy -60
+
+#calibration.set_distance(5.038) # 5m
+#calibration.set_distance(2.001) # 2m
+calibration.set_distance(5.09) # 5m
+
+mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
+mask = Mask(mask_dir+'Dectris/Pilatus2M_gaps-mask.png')
+mask.load('./Pilatus2M_CMS_5m-circ.png')
+
+
+
+# Files to analyze
+########################################
+source_dir = '../raw/'
+output_dir = './'
+
+pattern = '*'
+
+infiles = glob.glob(os.path.join(source_dir, pattern+'.tiff'))
+infiles.sort()
+
+
+# Analysis to perform
+########################################
+
+load_args = { 'calibration' : calibration, 
+             'mask' : mask,
+             }
+run_args = { 'verbosity' : 3,
+            }
+
+process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
+
+
+
+
+patterns = [
+            ['theta', '.+_th(\d+\.\d+)_.+'] ,
+            ['x_position', '.+_x(-?\d+\.\d+)_.+'] ,
+            ['y_position', '.+_yy(-?\d+\.\d+)_.+'] ,
+            ['cost', '.+_Cost(\d+\.\d+)_.+'] ,
+            ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
+            ['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
+            ['exposure_time', '.+_(\d+\.\d+)c_\d+_saxs.+'] ,
+            ['sequence_ID', '.+_(\d+)_saxs.+'] ,
+            ]
+
+
+protocols = [
+    #Protocols.thumbnails(name='thumbnails2', crop=None, resize=1.0, blur=None, cmap=cmap_vge, ztrim=[0.0, 0.01])
+    #circular_average_q2I_fit(show=False, q0=None, plot_range=[0, 0.025, 0, None], fit_range=[0.010, 0.022], vary=True) ,
+    #circular_average_q2I_fit(show=False, q0=None, plot_range=[0, 0.025, 0, None], fit_range=[q0-0.006, q0+0.004], vary=True) ,
+    linecut_qr_fit(show_region=False, show=False, qz=0.0285, dq=0.006, q0=0.0030, sigma=0.0010, fit_range=[0.00, 0.010], plot_range=[0, 0.050, 0, None], trim_range=[0, 0.05]) ,
+    linecut_angle_fit_custom(q0=0.0135, dq=0.0035, show=False, show_region=False) ,
+    Protocols.metadata_extract(patterns=patterns) ,
+    ]
+    
+
+# Normal SciAnalysis loop
+if False:
 
     # Run
     ########################################
@@ -915,23 +1133,12 @@ if False:
     # Loop
     ########################################
     # This code is typically only used at the beamline (it loops forever, watching for new files).
-    import time
-    donefiles = []
-    while False:
+    # This is typically only used at the beamline (it loops forever, watching for new files).
+    #process.monitor_loop(source_dir=source_dir, pattern='*.tiff', protocols=protocols, output_dir=output_dir, force=False)
 
-        infiles = glob.glob(os.path.join(source_dir, pattern+'.tiff'))
 
-        for infile in infiles:
-            if infile in donefiles:
-                pass
-
-            else:
-                process.run([infile], protocols, output_dir=output_dir, force=False)
-
-                donefiles.append(infile)
-
-        time.sleep(4)
-
+if False:
+    run_autonomous_loop(protocols)
 
 
 
