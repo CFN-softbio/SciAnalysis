@@ -656,11 +656,14 @@ class Protocol(object):
         self.run_args.update(kwargs)
 
     
-    def get_outfile(self, name, output_dir, ext=None, ir=False):
+    def get_outfile(self, name, output_dir, extra='', ext=None, ir=False):
         
         if ext is None:
             ext = self.default_ext
-            
+
+        if extra is not None:
+            name = name + extra            
+
         if ir:
             name = '{:02d}_{}{}'.format(self.ir, name, ext)
             self.ir += 1

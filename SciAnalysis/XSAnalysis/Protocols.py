@@ -623,6 +623,9 @@ class sector_average(Protocol):
         if 'dezing' in run_args and run_args['dezing']:
             data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
         
+        if 'extra' in run_args:
+            extra = run_args['extra']
+        else: extra = ''
         
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
@@ -631,14 +634,14 @@ class sector_average(Protocol):
         if 'show_region' in run_args and run_args['show_region']:
             data.plot(show=True)
         
-        outfile = self.get_outfile(data.name, output_dir)
+        outfile = self.get_outfile(data.name, output_dir, extra=extra)
         
         try:
             line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
         except ValueError:
             pass
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+        outfile = self.get_outfile(data.name, output_dir, extra=extra, ext='.dat')
         line.save_data(outfile)
         
         return results
