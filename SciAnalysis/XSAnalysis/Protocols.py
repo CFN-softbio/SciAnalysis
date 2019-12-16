@@ -347,6 +347,10 @@ class fit_peaks(Protocol):
                 
                 yp = yf
                 ha, xp = 'right', xf
+                s = '$ prefactor = \, {:.1f} \,$'.format(self.results['fit_peaks_prefactor1']['value'])
+                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                
+                yp -= v_spacing
                 s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center1']['value'])
                 self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
 
@@ -365,6 +369,10 @@ class fit_peaks(Protocol):
                 if self._run_args['num_curves']>1:
                     yp = yf
                     ha, xp = 'left', xi
+                    s = '$ prefactor = \, {:.1f} \,$'.format(self.results['fit_peaks_prefactor2']['value'])
+                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+
+                    yp -= v_spacing
                     s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center2']['value'])
                     self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
 
@@ -378,7 +386,7 @@ class fit_peaks(Protocol):
                     
                     yp -= v_spacing
                     s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size2'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)        
+                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)       
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
         if 'num_curves' in run_args and run_args['num_curves']>1 and 'show_curves' in run_args and run_args['show_curves']:
