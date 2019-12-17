@@ -297,6 +297,11 @@ class DataLine(object):
         
         self.x = x_sorted[idx_start:idx_end]
         self.y = y_sorted[idx_start:idx_end]
+        
+        if self.x_err is not None:
+            self.x_err = self.x_err[indices][idx_start:idx_end]
+        if self.y_err is not None:
+            self.y_err = self.y_err[indices][idx_start:idx_end]
     
     
     def kill_x(self, x_center, x_spread):

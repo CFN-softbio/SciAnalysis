@@ -134,9 +134,11 @@ class Results(object):
                         else:
                             results[i].append('-')
                             
-            except:
+            except Exception as e:
                 if verbosity>=1:
                     print( '    ERROR: Extraction failed for {}'.format(infile))
+                if verbosity>=5:
+                    print(e)
                 
         return results                  
             

@@ -162,7 +162,7 @@ class tile_img(ProtocolMultiple):
                     
                 if 'image_contrast' is not None:
                     in_range = ( run_args['image_contrast'][0]*255, run_args['image_contrast'][1]*255 )
-                    import skimage
+                    import skimage.exposure
                     data_rgb = skimage.exposure.rescale_intensity(data_rgb, in_range=in_range, out_range='dtype')
                     
                 left = (col-1)*spacing_x

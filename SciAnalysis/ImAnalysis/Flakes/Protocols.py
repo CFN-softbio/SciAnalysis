@@ -14,18 +14,22 @@ from scipy import ndimage
 from scipy.stats import entropy
 from scipy.spatial.distance import cdist
 import skimage
+import skimage.exposure
 import skimage.measure as measure
 import cv2
 
 
+# WARNING: Potential namespace collision with Python 'utils' package
 try:
     # Boyu Wang (Stony Brook University) code:
     #  https://github.com/Boyu-Wang/material_segmentation
-    from MaterialSegmentation import utils
+    from MaterialSegmentation import utils as MatSegUtils
+    #from MaterialSegmentation import MatSegUtils
 except:
     code_PATH='/home/kyager/current/code/MaterialSegmentation/main/'
     code_PATH in sys.path or sys.path.append(code_PATH)
-    import utils
+    import utils as MatSegUtils
+    #import MatSegUtils
 
 
 
@@ -127,33 +131,35 @@ class find_flakes(thumbnails):
             
         if run_args['verbosity']>=4:
             print('  Segmenting image to find flakes')
-        res_map, image_labelmap, flake_centroids, flake_sizes, num_flakes = utils.perform_robustfit_multichannel(im_hsv, im_gray, run_args['image_threshold'], run_args['size_threshold'])
+        res_map, image_labelmap, flake_centroids, flake_sizes, num_flakes = MatSegUtils.perform_robustfit_multichannel(im_hsv, im_gray, run_args['image_threshold'], run_args['size_threshold'])
         if run_args['verbosity']>=4:
             print('    {} flakes'.format(num_flakes))
         
         if run_args['background']:
             if run_args['verbosity']>=4:
                 print('  Segmenting background')
-            _, _, bk_flake_centroids, _, n = utils.perform_robustfit(bk_gray, 10, 0)
-            # Remove regions in background
-            dis = cdist(flake_centroids, bk_flake_centroids)
-            dis_min = dis.min(1)
-            # to_remove = np.nonzero(dis_min < 5)[0]
-            to_keep = np.nonzero(dis_min >= 5)[0]
-
-            flake_sizes = flake_sizes[to_keep]
-            flake_centroids = flake_centroids[to_keep]
-            num_flakes = to_keep.shape[0]
-            if run_args['verbosity']>=4:
-                print('    {} background objects; {} flakes remain'.format(n, num_flakes))
+            _, _, bk_flake_centroids, _, n = MatSegUtils.perform_robustfit(bk_gray, 10, 0)
             
-            # Reprocess label map
-            new_image_labels = np.zeros(image_labelmap.shape)
-            cnt = 0
-            for idx in to_keep:
-                cnt += 1
-                new_image_labels[image_labelmap==idx+1] = cnt
-            image_labelmap = new_image_labels            
+            if n>0:
+                # Remove regions in background
+                dis = cdist(flake_centroids, bk_flake_centroids)
+                dis_min = dis.min(1)
+                # to_remove = np.nonzero(dis_min < 5)[0]
+                to_keep = np.nonzero(dis_min >= 5)[0]
+
+                flake_sizes = flake_sizes[to_keep]
+                flake_centroids = flake_centroids[to_keep]
+                num_flakes = to_keep.shape[0]
+                if run_args['verbosity']>=4:
+                    print('    {} background objects; {} flakes remain'.format(n, num_flakes))
+                
+                # Reprocess label map
+                new_image_labels = np.zeros(image_labelmap.shape)
+                cnt = 0
+                for idx in to_keep:
+                    cnt += 1
+                    new_image_labels[image_labelmap==idx+1] = cnt
+                image_labelmap = new_image_labels            
             
         results['num_flakes'] = num_flakes
 
@@ -383,6 +389,7 @@ class find_flakes(thumbnails):
         
         # Flake contour
         _, flake_contour, _ = cv2.findContours(flake_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        #flake_contour, _ = cv2.findContours(flake_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) # Call signature depends on cv2 version
         flake_i['contour'] = np.squeeze(flake_contour[0], 1)
         flake_i['contour_perimeter_pixels'] = self.total_length(flake_i['contour'])
         flake_i['contour_size_pixels'] = self.polygon_area(flake_i['contour'])
@@ -398,7 +405,7 @@ class find_flakes(thumbnails):
         contours_center_dis = cdist(np.expand_dims(flake_i['center_of_mass'],0), flake_contour)
         flake_shape_contour_hist = np.histogram(contours_center_dis, bins=15)[0]
         flake_shape_contour_hist = flake_shape_contour_hist / flake_shape_contour_hist.sum()
-        flake_shape_fracdim = utils.fractal_dimension(flake_region)
+        flake_shape_fracdim = MatSegUtils.fractal_dimension(flake_region)
         flake_i['flake_shape_fea'] = np.array([flake_shape_len_area_ratio] + list(flake_shape_contour_hist) + [flake_shape_fracdim])
         
         flake_i['flake_shape_fea_names'] = ['P/A'] + ['hist {}'.format(i) for i in range(15)] + ['fractal dimension']
