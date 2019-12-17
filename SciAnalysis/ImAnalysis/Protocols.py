@@ -768,6 +768,18 @@ class particles(Protocol):
                         'preprocess' : 'default',
                         }
         self.run_args.update(kwargs)
+
+
+    def preprocess_custom(self, data, **run_args):
+        data.blur(0.6) # lowpass
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.blur(0.8) # lowpass
+        data.equalize()
+        data.maximize_intensity_spread()        
+        
+        return data
         
 
     @run_default
@@ -788,6 +800,7 @@ class particles(Protocol):
             data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
         
         # Pre-process
+        #TODO: Make these methods of the class
         if run_args['preprocess']=='None':
             pass
         
@@ -795,15 +808,6 @@ class particles(Protocol):
             data.equalize()
             data.maximize_intensity_spread()
 
-        elif run_args['preprocess']=='custom':
-            data.blur(0.6) # lowpass
-            for i in range(2):
-                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            for i in range(2):
-                data.blur(0.8) # lowpass
-            data.equalize()
-            data.maximize_intensity_spread()
-            
         elif run_args['preprocess']=='SEM':
             data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
             for i in range(2):
@@ -813,7 +817,16 @@ class particles(Protocol):
             data.equalize()
             data.maximize_intensity_spread()
 
-        else:
+        elif run_args['preprocess']=='blur':
+            #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            for i in range(2):
+                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+            for i in range(20):
+                data.blur(2)
+                               
+            data.maximize_intensity_spread()
+
+        elif run_args['preprocess']=='default':
             # Generic
             #data.equalize()
             #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
@@ -822,6 +835,9 @@ class particles(Protocol):
             #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
             #data.equalize()
             data.maximize_intensity_spread()
+            
+        else:
+            data = getattr(self, 'preprocess_{}'.format(run_args['preprocess']))(data, **run_args)
         
         
 

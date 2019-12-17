@@ -85,14 +85,14 @@ class thumbnails(Protocol):
         
         self.default_ext = '.jpg'
         self.run_args = {
-                        'crop' : None,
-                        'shift_crop_up' : 0.0,
-                        'make_square' : False,
-                        'blur' : 2.0,
-                        'resize' : 0.2,
-                        'ztrim' : [0.05, 0.005],
-                        'preserve_data' : True,
-                        }
+            'crop' : None,
+            'shift_crop_up' : 0.0,
+            'make_square' : False,
+            'blur' : 2.0,
+            'resize' : 0.2,
+            'ztrim' : [0.05, 0.005],
+            'preserve_data' : True,
+            }
         self.run_args.update(kwargs)
         
 
@@ -337,48 +337,46 @@ class fit_peaks(Protocol):
                 
                 yf = np.max(line.y)*1.5
                 self.ax.axis([xi, xf, yi, yf])
+
                 
+                font_size = self._run_args['font_size'] if 'font_size' in self._run_args else 18
+                v_spacing = (yf-yi)*0.065*(font_size/20)
 
                 s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_peaks_chi_squared'])
-                self.ax.text(xi, yi, s, size=20, color='b', verticalalignment='bottom', horizontalalignment='left')
+                self.ax.text(xi, yi, s, size=font_size, color='b', verticalalignment='bottom', horizontalalignment='left')
 
 
-                v_spacing = (yf-yi)*0.08
-                
-                yp = yf
-                ha, xp = 'right', xf
-                s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center1']['value'])
-                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-
-                yp -= v_spacing
-                s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0'])
-                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-
-                yp -= v_spacing
-                s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma1']['value'])
-                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-                
-                yp -= v_spacing
-                s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size'])
-                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-                
-                if self._run_args['num_curves']>1:
-                    yp = yf
-                    ha, xp = 'left', xi
-                    s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center2']['value'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                for i in range(self._run_args['num_curves']):
+                    
+                    if i<=1:
+                        yp = yf
+                    else:
+                        yp -= v_spacing*1.5
+                    if i==0:
+                        ha, xp = 'right', xf
+                    else:
+                        ha, xp = 'left', xi
+        
+                    s = '$p_{{ {:d} }} = \, {:.3g}$'.format(i+1, self.results['fit_peaks_prefactor{}'.format(i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d02'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                    s = '$q = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center{}'.format(i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma2']['value'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                    s = r'$d \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+
+                    yp -= v_spacing
+                    s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma{}'.format(i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
                     
                     yp -= v_spacing
-                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size2'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)        
+                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)        
+                    
+        
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
         if 'num_curves' in run_args and run_args['num_curves']>1 and 'show_curves' in run_args and run_args['show_curves']:
@@ -592,6 +590,16 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
         lines = self._fit(line, results, **run_args)
         #lines = DataLines([line])
         
+        if 'save_fit' in run_args and run_args['save_fit']:
+            # lines.lines contains: line, fit_line, fit_line_extended, fit_curve1, fit_curve2, ...
+            if 'show_curves' in run_args and run_args['show_curves']:
+                for i, line in enumerate(lines.lines[2:]):
+                    outfile = self.get_outfile(data.name, output_dir, ext='_q2I_fit{}.dat'.format(i))
+                    line.save_data(outfile)            
+            else:
+                outfile = self.get_outfile(data.name, output_dir, ext='_q2I_fit.dat')
+                lines.lines[1].save_data(outfile)            
+        
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
         lines.plot(save=outfile, **run_args)        
         
@@ -609,9 +617,12 @@ class sector_average(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'error' : True, 
-                        'show_region' : False,
-                        }
+            'bins_relative' : 1.0,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            'error' : True, 
+            'show_region' : False,
+            }
         self.run_args.update(kwargs)
     
         
@@ -626,7 +637,6 @@ class sector_average(Protocol):
         
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
-        
         
         if 'show_region' in run_args and run_args['show_region']:
             data.plot(show=True)
@@ -651,7 +661,9 @@ class roi(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.txt'
-        self.run_args = {}
+        self.run_args = {
+            'extra' : '',
+            }
         self.run_args.update(kwargs)
         
 
@@ -684,11 +696,12 @@ class linecut_angle(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [-180, 180, 0, None],
-                         'markersize' : 0,
-                         'linewidth' : 1.5,
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [-180, 180, 0, None],
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            }
         self.run_args.update(kwargs)
     
         
@@ -734,9 +747,10 @@ class linecut_qr(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [None, None, 0, None]
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [None, None, 0, None]
+            }
         self.run_args.update(kwargs)
     
         
@@ -771,9 +785,10 @@ class linecut_qz(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [None, None, 0, None]
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [None, None, 0, None]
+            }
         self.run_args.update(kwargs)
     
         
@@ -809,9 +824,10 @@ class linecut_q(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [None, None, 0, None]
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [None, None, 0, None]
+            }
         self.run_args.update(kwargs)
     
         
@@ -853,10 +869,11 @@ class linecut_qr_fit(linecut_qr, fit_peaks):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False ,
-                         'plot_range' : [None, None, 0, None] ,
-                         'num_curves' : 1 ,
-                         }
+        self.run_args = {
+            'show_region' : False ,
+            'plot_range' : [None, None, 0, None] ,
+            'num_curves' : 1 ,
+            }
         self.run_args.update(kwargs)    
     
     @run_default
@@ -1156,12 +1173,13 @@ class linecut_qz_fit(linecut_qz):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [None, None, 0, None],
-                         'show_guides' : True,
-                         'markersize' : 0,
-                         'linewidth' : 1.5,
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [None, None, 0, None],
+            'show_guides' : True,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            }
         self.run_args.update(kwargs)
     
         
@@ -1496,9 +1514,10 @@ class linecut_angle_fit(linecut_angle):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [-90, 90, None, None]
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [-90, 90, None, None]
+            }
         self.run_args.update(kwargs)
         
         
@@ -1725,7 +1744,9 @@ class calibration_check(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'dq': 0.01}
+        self.run_args = {
+            'dq': 0.01,
+            }
         self.run_args.update(kwargs)
     
         
@@ -1787,7 +1808,9 @@ class fit_calibration(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = { 'material' : 'AgBH01' }
+        self.run_args = {
+            'material' : 'AgBH01',
+            }
         self.run_args.update(kwargs)
     
         
@@ -1928,10 +1951,10 @@ class q_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        }
+            'blur' : None,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            }
         self.run_args.update(kwargs)
         
 
@@ -2012,11 +2035,11 @@ class qr_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        'save_data' : False,
-                        }
+            'blur' : None,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            'save_data' : False,
+            }
         self.run_args.update(kwargs)
         
 
@@ -2074,10 +2097,10 @@ class q_image_special(q_image):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        }
+            'blur' : None,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            }
         self.run_args.update(kwargs)
         
 
@@ -2317,15 +2340,15 @@ class q_phi_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'bins_relative' : 0.5,
-                        'bins_phi' : 360.0/1.0,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        'yticks' : [-180, -90, 0, 90, 180],
-                        'save_data' : False,
-                        'save_data_pickle' : True,
-                        }
+            'blur' : None,
+            'bins_relative' : 0.5,
+            'bins_phi' : 360.0/1.0,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            'yticks' : [-180, -90, 0, 90, 180],
+            'save_data' : False,
+            'save_data_pickle' : True,
+            }
         self.run_args.update(kwargs)
         
 
@@ -2386,19 +2409,19 @@ class export_STL(Protocol):
         
         self.default_ext = '.stl'
         self.run_args = {
-                        'crop' : None ,
-                        'shift_crop_up' : 0.0 ,
-                        'blur' : 0.5 ,
-                        'resize' : 1.0 ,
-                        'ztrim' : [0.05, 0.005] ,
-                        'stl_pedestal' : 75.0 ,
-                        'stl_zscale' : 200.0 ,
-                        'crop_zone' : None ,
-                        'crop_beam' : None , 
-                        'crop_GI' : None ,
-                        'logo_file' : None ,
-                        'logo_resize' : 1.0 ,
-                        }
+            'crop' : None ,
+            'shift_crop_up' : 0.0 ,
+            'blur' : 0.5 ,
+            'resize' : 1.0 ,
+            'ztrim' : [0.05, 0.005] ,
+            'stl_pedestal' : 75.0 ,
+            'stl_zscale' : 200.0 ,
+            'crop_zone' : None ,
+            'crop_beam' : None , 
+            'crop_GI' : None ,
+            'logo_file' : None ,
+            'logo_resize' : 1.0 ,
+            }
         self.run_args.update(kwargs)
         
 
@@ -2554,7 +2577,9 @@ class metadata_extract(Protocol):
                     ['sequence_ID', '.+_(\d+)_[a-zA-Z]axs.+'] ,
                     ]            
             
-        self.run_args = { 'patterns' : patterns }
+        self.run_args = {
+            'patterns' : patterns,
+            }
         self.run_args.update(kwargs)
 
     @run_default

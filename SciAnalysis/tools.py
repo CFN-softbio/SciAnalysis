@@ -633,6 +633,7 @@ def run_default(inner_function):
         run_args = self.run_args.copy()
         run_args.update(kwargs)
 
+        self.extra = run_args['extra'] if 'extra' in run_args else ''
         self.ir = 1
         self.start_timestamp = time.time()
 
@@ -656,16 +657,19 @@ class Protocol(object):
         self.run_args.update(kwargs)
 
     
-    def get_outfile(self, name, output_dir, ext=None, ir=False):
+    def get_outfile(self, name, output_dir, extra=None, ext=None, ir=False):
         
         if ext is None:
             ext = self.default_ext
             
+        if extra is None:
+            extra = self.extra
+            
         if ir:
-            name = '{:02d}_{}{}'.format(self.ir, name, ext)
+            name = '{:02d}_{}{}{}'.format(self.ir, name, extra, ext)
             self.ir += 1
         else:
-            name = name + ext
+            name = '{}{}{}'.format(name, extra, ext)
             
         return os.path.join(output_dir, name)
 

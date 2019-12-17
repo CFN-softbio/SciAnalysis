@@ -184,9 +184,11 @@ class merge_images_position(ProtocolMultiple):
         for data in datas:
             # WARNING TODO: This is just a hard-coded (test) for now
             if '_pos2_' in data.name:
-                data.calibration.set_beam_position(484, 1043-379) # pos2
+                #data.calibration.set_beam_position(484, 1043-379) # pos2
+                data.calibration.set_beam_position(456, 1043-362) # pos2
             else:
-                data.calibration.set_beam_position(237, 1043-379)
+                #data.calibration.set_beam_position(237, 1043-379)
+                data.calibration.set_beam_position(456, 1043-392)
             data.calibration.clear_maps()
             
             remesh_data, num_per_pixel = data.remesh_q_bin_explicit(qx_min=q_range[0], qx_max=q_range[1], num_qx=len(qxs), qz_min=q_range[2], qz_max=q_range[3], num_qz=len(qzs), **run_args)
@@ -234,8 +236,13 @@ class merge_images_position(ProtocolMultiple):
             
             outfile = self.get_outfile(basename, output_dir, ext='-mask.png')
             #np.save(outfile, mask)
-            import scipy.misc
-            scipy.misc.imsave(outfile, mask)            
+            
+            try:
+                import scipy.misc
+                scipy.misc.imsave(outfile, mask)
+            except:
+                import imageio
+                imageio.imwrite(outfile, mask)
 
             results['files_saved'].append( 
                 { 'filename': '{}'.format(outfile) ,
