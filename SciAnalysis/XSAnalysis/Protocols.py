@@ -503,8 +503,8 @@ class fit_peaks(Protocol):
                 # Additional peaks can be spread out
                 if len(q0)>i: xpos = q0[i] 
                 else: np.min(line.x) + (xspan/num_curves)*i
-                params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
-            params.add('sigma{:d}'.format(i+1), value=sigma, min=0.0001, max=xspan*0.5, vary=False)
+                params.add('x_center{:d}'.format(i+1), value=xpos, min=xpos*0.98, max=xpos*1.02, vary=False)
+            params.add('sigma{:d}'.format(i+1), value=sigma, min=sigma*0.9, max=sigma*1.1, vary=False)
         
         
         # Fit only the peak width
@@ -1738,6 +1738,20 @@ class calibration_check(Protocol):
             
             for i in range(11):
                 data.overlay_ring(q0*(i+1), q0*(i+1)*dq)
+
+        if 'CeO2' in run_args and run_args['CeO2']:
+            
+            #FCC sturcture, a=5.411
+            #ref: https://community.dur.ac.uk/john.evans/topas_workshop/data/ceo2.cif
+            q0 = 2*np.pi/5.411*np.sqrt(3) # A^-1, (111)
+            
+            qlist = q0/np.sqrt(3)*np.array((np.sqrt(3), 2, np.sqrt(8),np.sqrt(11),np.sqrt(12),np.sqrt(16),np.sqrt(19),  np.sqrt(20)))
+            
+            data.overlay_ring(q0, q0*dq)
+            for q in qlist:
+                data.overlay_ring(q, q*dq)
+            #print(q0)    
+                
                 
         if 'q0'  in run_args:
             
