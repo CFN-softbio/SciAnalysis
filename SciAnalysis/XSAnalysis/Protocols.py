@@ -336,57 +336,39 @@ class fit_peaks(Protocol):
                     line = self.lines[0]
                 
                 yf = np.max(line.y)*1.5
-                self.ax.axis([xi, xf, yi, yf])
+                self.ax.axis([xi, xf, yi, yf])                
                 
-
+                font_size = 20
                 s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_peaks_chi_squared'])
-                self.ax.text(xi, yi, s, size=20, color='b', verticalalignment='bottom', horizontalalignment='left')
-
+                self.ax.text(xi, yi, s, size=font_size, color='b', verticalalignment='bottom', horizontalalignment='left')
 
                 v_spacing = (yf-yi)*0.08
                 
-                yp = yf
-                ha, xp = 'right', xf
-                s = '$ prefactor = \, {:.1f} \,$'.format(self.results['fit_peaks_prefactor1']['value'])
-                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-                
-                yp -= v_spacing
-                s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center1']['value'])
-                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-
-                yp -= v_spacing
-                s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0'])
-                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-
-                yp -= v_spacing
-                s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma1']['value'])
-                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-                
-                yp -= v_spacing
-                s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size'])
-                self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-                
-                if self._run_args['num_curves']>1:
-                    yp = yf
-                    ha, xp = 'left', xi
-                    s = '$ prefactor = \, {:.1f} \,$'.format(self.results['fit_peaks_prefactor2']['value'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-
-                    yp -= v_spacing
-                    s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center2']['value'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-
-                    yp -= v_spacing
-                    s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d02'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
-
-                    yp -= v_spacing
-                    s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma2']['value'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)
+                for i in range(run_args['num_curves']):
+                    if i<=1: yp=yf
+                    else: yp -= v_spacing
+                    if i==0: ha, xp = 'right', xf
+                    else: ha, xp = 'left', xi
+                    
+                    s = '$ prefactor{} = \, {:.1f} \,$'.format(i+1, self.results['{}_prefactor{}'.format(fit_name, i+1)]['value'])               
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
                     
                     yp -= v_spacing
-                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size2'])
-                    self.ax.text(xp, yp, s, size=20, color='b', verticalalignment='top', horizontalalignment=ha)       
+                    s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['{}_x_center{}'.format(fit_name, i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+
+                    yp -= v_spacing
+                    s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['{}_d0{}'.format(fit_name, i+1)])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+
+                    yp -= v_spacing
+                    s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['{}_sigma{}'.format(fit_name, i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    
+                    yp -= v_spacing
+                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['{}_grain_size{}'.format(fit_name, i+1)])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+   
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
         if 'num_curves' in run_args and run_args['num_curves']>1 and 'show_curves' in run_args and run_args['show_curves']:
@@ -599,7 +581,10 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
         
         lines = self._fit(line, results, **run_args)
         #lines = DataLines([line])
-        
+        for ii, line in enumerate(lines.lines[2:]):
+            outfile = self.get_outfile(data.name, output_dir, ext='_q2I_fit{}.dat'.format(ii))
+            line.save_data(outfile)
+
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
         lines.plot(save=outfile, **run_args)        
         
