@@ -663,7 +663,10 @@ class Protocol(object):
             ext = self.default_ext
             
         if extra is None:
-            extra = self.extra
+            if hasattr(self, 'extra'):
+                extra = self.extra
+            else:
+                extra = ''
             
         if ir:
             name = '{:02d}_{}{}{}'.format(self.ir, name, extra, ext)

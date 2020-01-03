@@ -137,8 +137,94 @@ class sum_images(ProtocolMultiple):
         return data
     
     
+class stitch_images_position(ProtocolMultiple):
+    '''Stitches images together into a single effective detector
+    image, where the beam position may be different for the different
+    images.'''
+    
+    def __init__(self, name='stitched', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.npy'
+        self.run_args = {
+                        'file_extension' : '.tiff',
+                        'verbosity' : 3,
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, datas, output_dir, basename, **run_args):
+        
+        results = {}
+        
+        outfile = self.get_outfile(basename, output_dir, ext=run_args['file_extension'])
+        
+        
+        # Determine total image size
+        h, w = datas[0].data.shape
+        min_x, min_y = datas[0].calibration.x0, datas[0].calibration.y0
+        max_x, max_y = min_x, min_y
+        for data, position in zip(datas, run_args['positions']):
+            data.calibration.use_beam_position(position)
+            x0, y0 = data.calibration.x0, data.calibration.y0
+            if run_args['verbosity']>=5:
+                print("    Position '{}' (x0, y0) = ({:,.1f}, {:,.1f}) for {}".format(position, x0, y0, data.name))
+            if x0<min_x: min_x = x0
+            if x0>max_x: max_x = x0
+            if y0<min_y: min_y = y0
+            if y0>max_y: max_y = y0
+
+        span_x, span_y = int(np.ceil(max_x-min_x)), int(np.ceil(max_y-min_y))
+        if run_args['verbosity']>=5:
+            print("    Each detector image is: ({:d}, {:d})".format(w, h))
+            print("    Maximum spread in beam positions: ({:d}, {:d})".format(span_x, span_y))
+            print("    Full image is: ({:d}, {:d})".format(w+span_x, h+span_y))
+            
+            
+        # Create an image array big enough to hold all detector images
+        Intensity_map = np.zeros( (h+span_y, w+span_x) )
+        count_map = np.zeros( (h+span_y, w+span_x) )
+        
+        # Copy each image into the full array
+        for data, position in zip(datas, run_args['positions']):
+            data.calibration.use_beam_position(position)
+            x0, y0 = data.calibration.x0, data.calibration.y0
+            
+            xi = max_x - x0
+            yi = max_y - y0
+            xf = xi+w
+            yf = yi+h
+            Intensity_map[yi:yf, xi:xf] += data.data[:,:]
+            
+            if data.mask is None:
+                count_map[yi:yf, xi:xf] += np.ones(data.data.shape)
+            else:
+                count_map[yi:yf, xi:xf] += data.mask.data
+            
+
+        Intensity_map = np.nan_to_num( Intensity_map/count_map )
+        Intensity_map = Intensity_map.astype(np.uint32)
+
+
+        results['files_saved'] = [
+            { 'filename': '{}'.format(outfile) ,
+             'description' : 'merging of multiple images into common detector image (tiff format)' ,
+             'type' : 'data' # 'data', 'plot'
+            } ,
+            ]
+        img = PIL.Image.fromarray(Intensity_map)
+        img.save(outfile)
+        
+
+        
+        return results
+            
     
 class merge_images_position(ProtocolMultiple):
+    '''Merges images into reciprocal-space, where the different images
+    have different detector positions.'''
     
     def __init__(self, name='merge_images', **kwargs):
         
@@ -181,14 +267,14 @@ class merge_images_position(ProtocolMultiple):
 
 
         
+        import re
+        name_re = re.compile('.+_(pos\d)_.+')
         for data in datas:
-            # WARNING TODO: This is just a hard-coded (test) for now
-            if '_pos2_' in data.name:
-                #data.calibration.set_beam_position(484, 1043-379) # pos2
-                data.calibration.set_beam_position(456, 1043-362) # pos2
+            m = name_re.match(data.name)
+            if m:
+                data.calibration.use_beam_position( m.groups()[0] )
             else:
-                #data.calibration.set_beam_position(237, 1043-379)
-                data.calibration.set_beam_position(456, 1043-392)
+                data.calibration.use_beam_position('default')
             data.calibration.clear_maps()
             
             remesh_data, num_per_pixel = data.remesh_q_bin_explicit(qx_min=q_range[0], qx_max=q_range[1], num_qx=len(qxs), qz_min=q_range[2], qz_max=q_range[3], num_qz=len(qzs), **run_args)
@@ -259,6 +345,9 @@ class merge_images_position(ProtocolMultiple):
             
     
 class merge_images_gonio_phi(ProtocolMultiple):
+    '''Merges images into reciprocal-space, where the different images
+    have different detector angular positions (for detectors on a
+    goniometer circle centered around the sample)..'''
     
     def __init__(self, name='merge_images', **kwargs):
         

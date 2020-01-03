@@ -1203,6 +1203,7 @@ class Calibration(object):
         self.pixel_size_um = pixel_size_um
         
         self.sample_normal = None
+        self._beam_positions = {}
         
         
         # Data structures will be generated as needed
@@ -1280,12 +1281,20 @@ class Calibration(object):
             self.pixel_size_um = pixel_size_mm*1000.0
         
         
-    def set_beam_position(self, x0, y0):
+    def set_beam_position(self, x0, y0, named=None):
         '''Sets the direct beam position in the detector images (in pixel 
         coordinates).'''
         
-        self.x0 = x0
-        self.y0 = y0
+        if named is not None:
+            self._beam_positions[named] = [x0, y0]
+        else:
+            self._beam_positions['default'] = [x0, y0]
+            self.x0 = x0
+            self.y0 = y0
+        
+        
+    def use_beam_position(self, name):
+        self.x0, self.y0 = self._beam_positions[name]
         
         
     def set_image_size(self, width, height=None):
