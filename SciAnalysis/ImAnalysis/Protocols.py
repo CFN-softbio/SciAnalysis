@@ -766,6 +766,7 @@ class particles(Protocol):
                         'diagonal_detection' : False,
                         'cmap' : mpl.cm.bone,
                         'preprocess' : 'default',
+                        'hist_bins' : 100,
                         }
         self.run_args.update(kwargs)
 
@@ -780,17 +781,11 @@ class particles(Protocol):
         data.maximize_intensity_spread()        
         
         return data
-        
 
-    @run_default
-    def run(self, data, output_dir, **run_args):
-        
-        output_dir = os.path.join(output_dir, data.name)
-        make_dir(output_dir)
-        
-        
-        results = {}
-        
+
+    def _find_objects(self, data, output_dir, results, **run_args):
+        # results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
+
         if run_args['verbosity']>=5:
             im = PIL.Image.fromarray( np.uint8(data.data) )
             outfile = self.get_outfile('original', output_dir, ext='.png', ir=True)
@@ -867,12 +862,52 @@ class particles(Protocol):
                 [0,1,0]]
         
         labeled_array, num_features = ndimage.measurements.label(data.data, structure=s)
-        
-        # TODO: Implement
-        #if 'min_area' in run_args or 'max_area' in run_args:
-        
         results['num_particles'] = num_features
+
+        # Remove objects not meeting size criteria
+        for i in range(np.max(labeled_array)):
+            particle = (labeled_array==i).astype(np.uint8)
+            area_pix = np.sum(particle)
+            area_nm2 = area_pix*data.x_scale*data.y_scale # nm^2
+            radius_nm = np.sqrt(area_nm2/np.pi) # nm
+
+            # Select only desired particles
+            exclude = False
+            if 'area_min' in run_args and area_nm2<run_args['area_min']:
+                exclude = True
+            if 'area_max' in run_args and area_nm2>run_args['area_max']:
+                exclude = True
+            if 'radius_min' in run_args and radius_nm<run_args['radius_min']:
+                exclude = True
+            if 'radius_max' in run_args and radius_nm>run_args['radius_max']:
+                exclude = True
             
+            if exclude:
+                idx = np.where(labeled_array==i)
+                labeled_array[idx] = 0
+            
+        data.data = ( labeled_array>0 )*255
+
+        if run_args['verbosity']>=4:
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('excluded', output_dir, ext='.png', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
+            
+        
+        return results, labeled_array
+    
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+        
+        
+        results = {}
+        
+        results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
+
 
         if run_args['verbosity']>=3 and False:
             # Colored image
@@ -940,6 +975,7 @@ class particles(Protocol):
         coverage = particle_pixels*1./(total_pixels*1.)
         results['coverage'] = coverage
         if run_args['verbosity']>=4:
+            print('    {} particles'.format(results['num_particles']))
             print('    Particle coverage: {:.1f}%'.format(coverage*100.))
         
         
@@ -976,6 +1012,93 @@ class particles(Protocol):
         results['radius_median'] = np.median(particle_radii)
         
         
+        # Compute additional properties of of each particle
+        import skimage.measure as measure
+        analyzed_image = np.zeros((h,w,3))
+        PrAs = []
+        eccentricities = []
+        for i in range(np.max(labeled_array)):
+            
+            if i>0: # Ignore the background object (index 0)
+                
+                # Extract just this particle
+                #particle = np.where(labeled_array==i, 1, 0)
+                particle = (labeled_array==i).astype(np.uint8)
+                area_pix = np.sum(particle)
+                area_nm2 = area_pix*data.x_scale*data.y_scale # nm^2
+                radius_nm = np.sqrt(area_nm2/np.pi) # nm
+
+                # Select only desired particles
+                analyze = True
+                if 'area_min' in run_args and area_nm2<run_args['area_min']:
+                    analyze = False
+                if 'area_max' in run_args and area_nm2>run_args['area_max']:
+                    analyze = False
+                if 'radius_min' in run_args and radius_nm<run_args['radius_min']:
+                    analyze = False
+                if 'radius_max' in run_args and radius_nm>run_args['radius_max']:
+                    analyze = False
+
+
+                h, w = labeled_array.shape
+                
+
+                if analyze:
+                        
+                    scale = (data.x_scale + data.y_scale)*0.5
+                    perimeter_pix = measure.perimeter(particle)
+                    perimeter_nm = perimeter_pix*scale
+                    PrA = perimeter_nm*radius_nm/area_nm2
+                    PrAs.append(PrA)
+                
+                    # Fit the particle to an ellipse
+                    contour = measure.find_contours(particle, 0.5)[0]
+                    ellipse = measure.EllipseModel()
+                    ellipse.estimate(contour)
+                    xc, yc, a, b, theta = ellipse.params
+                    if a>=b:
+                        eccentricity = np.sqrt(1 - b**2/a**2)
+                    else:
+                        eccentricity = np.sqrt(1 - a**2/b**2)
+                    eccentricities.append(eccentricity)
+
+                    if run_args['verbosity']>=4:
+                        print('    Particle {} ({} pixels)'.format(i, area_pix))
+                        print('      A = {:.1f} nm^2; r = {:.1f} nm'.format(area_nm2, radius_nm))
+                        print('      P = {:.1f} nm; P/A = {:.2g} 1/nm; Pr/A = {:.2f}'.format(perimeter_nm, perimeter_nm/area_nm2, PrA))
+                        print('      e = {:.2f}'.format(eccentricity))
+
+                    if run_args['verbosity']>=5:
+                        analyzed_image += np.stack( (particle*255, particle*255, particle*255), axis=-1 )
+                        xy = ellipse.predict_xy( np.linspace(0, 2*np.pi, 90) )
+                        for y, x in xy:
+                            if x>=0 and y>=0 and x<w and y<h:
+                                analyzed_image[int(y),int(x)] = [255, 0, 0]
+                    
+                    if run_args['verbosity']>=10:
+                        # Output image of each particle separately (mostly for debugging)
+                        outfile = self.get_outfile('particle{}'.format(i), output_dir, ext='.png', ir=False)
+                        import scipy.misc
+                        scipy.misc.toimage(particle*255).save(outfile)
+
+
+        results['PrA_average'] = np.average(PrAs)
+        results['PrA_std'] = np.std(PrAs)
+        results['PrA_median'] = np.median(PrAs)
+
+        results['eccentricity_average'] = np.average(eccentricities)
+        results['eccentricity_std'] = np.std(eccentricities)
+        results['eccentricity_median'] = np.median(eccentricities)
+
+
+                    
+        if run_args['verbosity']>=5:
+            outfile = self.get_outfile('analyzed', output_dir, ext='.png', ir=True)
+            import scipy.misc
+            scipy.misc.toimage(analyzed_image).save(outfile)
+                
+            
+        
         
         if run_args['verbosity']>=1:
             
@@ -998,9 +1121,13 @@ class particles(Protocol):
                     self.ax.axvline(lm_result.params['x_center'], color='r', linewidth=2.0)
                     self.ax.plot(fit_line_e.x, fit_line_e.y, 'r', linewidth=2.0)
                     
-                    
+                    # Determine the units for the values
                     els = self.x_rlabel.split('\,')
-                    s = '{}= {:.1f} \pm {:.1f} \, {}'.format( els[0], self.mean, self.std, els[1].replace('(','').replace(')','') )
+                    if len(els)>1:
+                        s = '{}= {:.1f} \pm {:.1f} \, {}'.format( els[0], self.mean, self.std, els[1].replace('(','').replace(')','') )
+                    else:
+                        s = '{}= {:.1f} \pm {:.1f}$'.format( els[0][:-1], self.mean, self.std )
+                    
                     self.ax.text(xf, yf, s, size=30, verticalalignment='top', horizontalalignment='right')
                     
                     self.ax.axis( [xi, xf, yi, yf] )
@@ -1042,7 +1169,7 @@ class particles(Protocol):
                     
             
             # Histogram of areas
-            y, x = np.histogram(particle_sizes, bins=150, range=[0, max(particle_sizes)*1.05])
+            y, x = np.histogram(particle_sizes, bins=run_args['hist_bins'], range=[0, max(particle_sizes)*1.05])
             
             # Instead of having x be ranges for each bar, center the x on the average of each range
             xc = [ (x[i]+x[i+1])/2.0 for i in range(len(x)-1) ]
@@ -1058,7 +1185,7 @@ class particles(Protocol):
             
             
             # Histogram of radii
-            y, x = np.histogram(particle_radii, bins=150, range=[0, max(particle_radii)*1.05])
+            y, x = np.histogram(particle_radii, bins=run_args['hist_bins'], range=[0, max(particle_radii)*1.05])
             
             # Instead of having x be ranges for each bar, center the x on the average of each range
             xc = [ (x[i]+x[i+1])/2.0 for i in range(len(x)-1) ]
@@ -1072,7 +1199,38 @@ class particles(Protocol):
             outfile = self.get_outfile('particle_radii', output_dir, ext='.png')
             hist.plot(save=outfile, plot_range=[0, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
             
+           
+            # Histogram of eccentricities
+            y, x = np.histogram(eccentricities, bins=run_args['hist_bins'], range=[0, 1])
             
+            # Instead of having x be ranges for each bar, center the x on the average of each range
+            xc = [ (x[i]+x[i+1])/2.0 for i in range(len(x)-1) ]
+            x = x[:-1]
+            
+            hist = DataHistogram_current(x=x, y=y, x_label='Eccentricity', x_rlabel='$\mathrm{eccentricity}$', y_label='count')
+            hist.mean = results['eccentricity_average']
+            hist.std = results['eccentricity_std']
+            hist.median = results['eccentricity_median']
+            
+            outfile = self.get_outfile('eccentricities', output_dir, ext='.png')
+            hist.plot(save=outfile, plot_range=[0, 1, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+            
+            
+            # Histogram of PrAs
+            y, x = np.histogram(PrAs, bins=run_args['hist_bins'], range=[2, max(PrAs)*1.05])
+            
+            # Instead of having x be ranges for each bar, center the x on the average of each range
+            xc = [ (x[i]+x[i+1])/2.0 for i in range(len(x)-1) ]
+            x = x[:-1]
+            
+            hist = DataHistogram_current(x=x, y=y, x_label='PrA', x_rlabel=r'$\frac{Pr}{A}$', y_label='count')
+            hist.mean = results['PrA_average']
+            hist.std = results['PrA_std']
+            hist.median = results['PrA_median']
+            
+            outfile = self.get_outfile('PrA', output_dir, ext='.png')
+            hist.plot(save=outfile, plot_range=[2, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+                                    
         
         
         return results
@@ -1080,7 +1238,58 @@ class particles(Protocol):
 
 
 
-            
+class particles_annotated(particles):
+    
+    def __init__(self, name='particles', **kwargs):
+        
+        super().__init__(name=name, **kwargs)
+        
+        self.run_args['annotate_color'] = [1,0,0]
+        self.run_args['annotate_threshold'] = 0.7
+        self.run_args.update(kwargs)    
+        
+    
+    def _find_objects(self, data, output_dir, results, **run_args):
+        # results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
+        
+        import scipy
+        
+        distance = np.linalg.norm(data.data_rgb - np.asarray(run_args['annotate_color'])*255.0, axis=-1)
+        edges = ( distance<run_args['annotate_threshold']*255 )*255.0
+        edges = edges.astype(np.uint8)
+        
+        filled = ( scipy.ndimage.morphology.binary_fill_holes(edges) )*255.0
+        filled = filled.astype(np.uint8)
+
+        
+        if run_args['verbosity']>=6:
+            outfile = self.get_outfile('distance', output_dir, ext='.png', ir=True)
+            scipy.misc.toimage(distance).save(outfile)
+        if run_args['verbosity']>=5:
+            outfile = self.get_outfile('edges', output_dir, ext='.png', ir=True)
+            scipy.misc.toimage(edges).save(outfile)
+        if run_args['verbosity']>=4:
+            outfile = self.get_outfile('filled', output_dir, ext='.png', ir=True)
+            scipy.misc.toimage(filled).save(outfile)
+
+        
+        # Identify particles positions
+        if 'diagonal_detection' in run_args and run_args['diagonal_detection']:
+            #s = [[1,1,1],
+            #    [1,1,1],
+            #    [1,1,1]]
+            s = ndimage.generate_binary_structure(2,2)
+        else:
+            s = [[0,1,0],
+                [1,1,1],
+                [0,1,0]]
+        
+        labeled_array, num_features = ndimage.measurements.label(filled, structure=s)
+        results['num_particles'] = num_features
+        
+        
+        return results, labeled_array
+    
             
 class grain_size_hex(Protocol):
     
