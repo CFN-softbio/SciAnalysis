@@ -20,8 +20,12 @@
 #  Search for "TODO" below.
 ################################################################################
 
-from .Data import *
-from ..tools import *
+#from .Data import *
+#from ..tools import *
+
+from SciAnalysis.XSAnalysis.Data import *
+from SciAnalysis.tools import *
+from SciAnalysis.XSAnalysis.IO_HDF import *
 
 import copy
 
@@ -128,6 +132,21 @@ class thumbnails(Protocol):
             ]
         data.plot_image(outfile, **run_args)
         
+        if 'toh5' in run_args:
+            if 'overwrite_h5' in run_args:
+                overwrite_h5 =  run_args['overwrite_h5']
+            else:
+                overwrite_h5 = True
+            label =  [  'data'   ]
+            results2 = {}
+            results2['files_saved'] = { 'filename': '{}'.format(outfile) ,
+             'description' : 'quick view (thumbnail) image' ,
+             'type' : 'plot' # 'data', 'plot'
+            }        
+            Res = {    'data': data.data, 'label': label, 'results':results2    } 
+            fout = '/'.join( output_dir.split('/')[:-1] ) + '/' + data.name + '.h5'  
+            dicttoh5( Res,  fout,    overwrite_data=overwrite_h5, h5path='/%s'%self.name,  mode='a'  )        
+            #print(fout)
         return results
         
         
@@ -168,6 +187,19 @@ class circular_average(Protocol):
             line.plot(save=outfile, **run_args)
         except ValueError:
             pass
+        
+        #print( run_args )
+        if 'toh5' in run_args:
+            if 'overwrite_h5' in run_args:
+                overwrite_h5 =  run_args['overwrite_h5']
+            else:
+                overwrite_h5 = True
+            label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
+            data_xy = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T              
+            Res = {    'data': data_xy, 'label': label    }            
+            fout = '/'.join( output_dir.split('/')[:-1] ) + '/' + data.name + '.h5'  
+            dicttoh5( Res,  fout,    overwrite_data=overwrite_h5, h5path='/%s'%self.name,  mode='a'  )    
+            #print(fout)
 
        
         return results
@@ -278,7 +310,18 @@ class circular_average_q2I(Protocol):
         line.plot(save=outfile, **run_args)
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
-        line.save_data(outfile)        
+        line.save_data(outfile)       
+        
+        if 'toh5' in run_args:
+            if 'overwrite_h5' in run_args:
+                overwrite_h5 =  run_args['overwrite_h5']
+            else:
+                overwrite_h5 = False
+            label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
+            data_xy = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T              
+            Res = {    'data': data_xy, 'label': label    }            
+            fout = '/'.join( output_dir.split('/')[:-1] ) + '/' + data.name + '.h5'  
+            dicttoh5( Res,  fout,    overwrite_data=overwrite_h5, h5path='/%s'%self.name,  mode='a'  )        
         
         return results
                        
@@ -601,7 +644,17 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
                 lines.lines[1].save_data(outfile)            
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-        lines.plot(save=outfile, **run_args)        
+        lines.plot(save=outfile, **run_args)     
+        if 'toh5' in run_args:
+            if 'overwrite_h5' in run_args:
+                overwrite_h5 =  run_args['overwrite_h5']
+            else:
+                overwrite_h5 = True
+            label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
+            data_xy = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T              
+            Res = {   'results': results,  'data': data_xy, 'label': label    }            
+            fout = '/'.join( output_dir.split('/')[:-1] ) + '/' + data.name + '.h5'  
+            dicttoh5( Res,  fout,    overwrite_data=overwrite_h5, h5path='/%s'%self.name,  mode='a'  )        
         
         return results
          
