@@ -71,6 +71,11 @@ protocols = [
     #Protocols.calibration_check(show=False, AgBH=True, q0=0.010, num_rings=4, ztrim=[0.05, 0.05], ) ,
     #Protocols.circular_average(ylog=True, plot_range=[0, 0.12, None, None]) ,
     Protocols.thumbnails(crop=None, resize=1.0, blur=None, cmap=cmap_vge, ztrim=[0.01, 0.001]) ,
+    
+    #if save results to a h5 file using
+    #Protocols.thumbnails(crop=None, resize=1.0, blur=None, cmap=cmap_vge, ztrim=[0.01, 0.001], toh5=True, overwrite_h5 = True) ,
+    #Protocols.circular_average(ylog=True, plot_range=[0, 0.12, None, None],  toh5=True, overwrite_h5 = True) ,
+    
     ]
     
 
