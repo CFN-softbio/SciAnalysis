@@ -750,6 +750,8 @@ class local_avg_realspace(Protocol):
     
     
     
+
+
     
     
     
@@ -1182,6 +1184,9 @@ class particles(Protocol):
             
             outfile = self.get_outfile('particle_areas', output_dir, ext='.png')
             hist.plot(save=outfile, plot_range=[0, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+            outfile = self.get_outfile('particle_areas', output_dir, ext='.dat')
+            np.savetxt(outfile, np.transpose([x, y]))
+            
             
             
             # Histogram of radii
@@ -1198,6 +1203,8 @@ class particles(Protocol):
             
             outfile = self.get_outfile('particle_radii', output_dir, ext='.png')
             hist.plot(save=outfile, plot_range=[0, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+            outfile = self.get_outfile('particle_radii', output_dir, ext='.dat')
+            np.savetxt(outfile, np.transpose([x, y]))
             
            
             # Histogram of eccentricities
@@ -1214,6 +1221,8 @@ class particles(Protocol):
             
             outfile = self.get_outfile('eccentricities', output_dir, ext='.png')
             hist.plot(save=outfile, plot_range=[0, 1, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+            outfile = self.get_outfile('eccentricities', output_dir, ext='.dat')
+            np.savetxt(outfile, np.transpose([x, y]))
             
             
             # Histogram of PrAs
@@ -1230,6 +1239,8 @@ class particles(Protocol):
             
             outfile = self.get_outfile('PrA', output_dir, ext='.png')
             hist.plot(save=outfile, plot_range=[2, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+            outfile = self.get_outfile('PrA', output_dir, ext='.dat')
+            np.savetxt(outfile, np.transpose([x, y]))
                                     
         
         
