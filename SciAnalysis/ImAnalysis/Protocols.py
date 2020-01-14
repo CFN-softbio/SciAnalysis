@@ -115,6 +115,68 @@ class shell(Protocol):
     
     
     
+class preprocess(object):
+    '''Base class to allow Protocols to run generic pre-processing
+    routines on images.'''
+    
+    def preprocess(self, data, **run_args):
+        # Usage: data = self.preprocess(data, **run_args)
+        if 'preprocess' not in run_args:
+            run_args['preprocess'] = 'default'
+            
+        if run_args['preprocess'] is None or run_args['preprocess']=='None':
+            pass
+        else:
+            data = getattr(self, 'preprocess_{}'.format(run_args['preprocess']))(data, **run_args)
+        
+        return data
+
+
+    def preprocess_default(self, data, **run_args):
+        # Generic
+        #data.equalize()
+        #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        data.lowkill(run_args['q0']*0.1)
+        data.blur(2.0) # lowpass
+        #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
+        #data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
+            
+
+    def preprocess_AFM(self, data, **run_args):
+        
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
+
+    def preprocess_SEM(self, data, **run_args):
+
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
+        
+    def preprocess_blur(self, data, **run_args):
+
+        #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(20):
+            data.blur(2)
+                            
+        data.maximize_intensity_spread()
+        
+        return data
+    
+    
 
 class thumbnails(Protocol):
     
@@ -645,7 +707,7 @@ class fft(Protocol):
 
 
 
-class local_avg_realspace(Protocol):
+class local_avg_realspace(Protocol, preprocess):
     
     
     def __init__(self, name='local_avg_realspace', **kwargs):
@@ -656,9 +718,21 @@ class local_avg_realspace(Protocol):
         self.run_args = {
                         'local_partition_image_size' : 75, # pixels
                         'local_partition_step' : 1.0, # relative to image_size
+                        'preprocess' : 'default',
                         }
         self.run_args.update(kwargs)
+
+
+    def preprocess_default(self, data, **run_args):
+        data.equalize()
+        #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        #data.lowkill(run_args['q0']*0.1)
+        #data.blur(1.0)
+        data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
+        data.maximize_intensity_spread()
         
+        return data
+            
 
         
     @run_default
@@ -680,14 +754,8 @@ class local_avg_realspace(Protocol):
         
 
 
-        # Pre-process
-        data.equalize()
-        #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-        #data.lowkill(run_args['q0']*0.1)
-        #data.blur(1.0)
-        data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
-        data.maximize_intensity_spread()
-        
+        # Pre-process image
+        data = self.preprocess(data, **run_args)
         
         
         if run_args['verbosity']>=5:
@@ -750,10 +818,13 @@ class local_avg_realspace(Protocol):
     
     
     
+
+
+        
     
     
     
-class particles(Protocol):
+class particles(Protocol, preprocess):
     
     def __init__(self, name='particles', **kwargs):
         
@@ -794,46 +865,9 @@ class particles(Protocol):
             outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
             data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
         
-        # Pre-process
-        #TODO: Make these methods of the class
-        if run_args['preprocess']=='None':
-            pass
         
-        elif run_args['preprocess']=='AFM':
-            data.equalize()
-            data.maximize_intensity_spread()
-
-        elif run_args['preprocess']=='SEM':
-            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            for i in range(2):
-                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            data.blur(2.0) # lowpass
-            data.blur(2.0) # lowpass
-            data.equalize()
-            data.maximize_intensity_spread()
-
-        elif run_args['preprocess']=='blur':
-            #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            for i in range(2):
-                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            for i in range(20):
-                data.blur(2)
-                               
-            data.maximize_intensity_spread()
-
-        elif run_args['preprocess']=='default':
-            # Generic
-            #data.equalize()
-            #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            data.lowkill(run_args['q0']*0.1)
-            data.blur(2.0) # lowpass
-            #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
-            #data.equalize()
-            data.maximize_intensity_spread()
-            
-        else:
-            data = getattr(self, 'preprocess_{}'.format(run_args['preprocess']))(data, **run_args)
-        
+        # Pre-process image
+        data = self.preprocess(data, **run_args)
         
 
 
@@ -1182,6 +1216,9 @@ class particles(Protocol):
             
             outfile = self.get_outfile('particle_areas', output_dir, ext='.png')
             hist.plot(save=outfile, plot_range=[0, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+            outfile = self.get_outfile('particle_areas', output_dir, ext='.dat')
+            np.savetxt(outfile, np.transpose([x, y]))
+            
             
             
             # Histogram of radii
@@ -1198,6 +1235,8 @@ class particles(Protocol):
             
             outfile = self.get_outfile('particle_radii', output_dir, ext='.png')
             hist.plot(save=outfile, plot_range=[0, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+            outfile = self.get_outfile('particle_radii', output_dir, ext='.dat')
+            np.savetxt(outfile, np.transpose([x, y]))
             
            
             # Histogram of eccentricities
@@ -1214,6 +1253,8 @@ class particles(Protocol):
             
             outfile = self.get_outfile('eccentricities', output_dir, ext='.png')
             hist.plot(save=outfile, plot_range=[0, 1, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+            outfile = self.get_outfile('eccentricities', output_dir, ext='.dat')
+            np.savetxt(outfile, np.transpose([x, y]))
             
             
             # Histogram of PrAs
@@ -1230,6 +1271,8 @@ class particles(Protocol):
             
             outfile = self.get_outfile('PrA', output_dir, ext='.png')
             hist.plot(save=outfile, plot_range=[2, None, 0, None], plot_buffers=[0.15,0.05,0.18,0.05],)
+            outfile = self.get_outfile('PrA', output_dir, ext='.dat')
+            np.savetxt(outfile, np.transpose([x, y]))
                                     
         
         
@@ -1291,7 +1334,7 @@ class particles_annotated(particles):
         return results, labeled_array
     
             
-class grain_size_hex(Protocol):
+class grain_size_hex(Protocol, preprocess):
     
     def __init__(self, name='grain_size_hex', **kwargs):
         
@@ -1307,7 +1350,46 @@ class grain_size_hex(Protocol):
                         'preprocess' : 'default',
                         }
         self.run_args.update(kwargs)
+
+
+    def preprocess_default(self, data, **run_args):
+        #data.equalize()
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        #data.lowkill(run_args['q0']*0.1)
         
+        data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        #data.blur(1.0) # lowpass
+        #data.blur(0.6) # lowpass
+        #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
+
+    def preprocess_custom(self, data, **run_args):
+        data.blur(0.6) # lowpass
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.blur(0.8) # lowpass
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data        
+    
+    def preprocess_SEM(self, data, **run_args):
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
 
     @run_default
     def run(self, data, output_dir, **run_args):
@@ -1328,50 +1410,8 @@ class grain_size_hex(Protocol):
             data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
 
         
-        # Pre-process
-        if run_args['preprocess']=='None':
-            pass
-        
-        elif run_args['preprocess']=='AFM':
-            # Typical processing for AFM images:
-            data.equalize()
-            data.maximize_intensity_spread()
-
-        elif run_args['preprocess']=='custom':
-            data.blur(0.6) # lowpass
-            for i in range(2):
-                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            for i in range(2):
-                data.blur(0.8) # lowpass
-            data.equalize()
-            data.maximize_intensity_spread()
-
-        elif run_args['preprocess']=='SEM':
-            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            for i in range(2):
-                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            data.blur(2.0) # lowpass
-            data.blur(2.0) # lowpass
-            data.equalize()
-            data.maximize_intensity_spread()
-
-        else:
-            #data.equalize()
-            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            for i in range(2):
-                data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-            #data.lowkill(run_args['q0']*0.1)
-            
-            data.blur(2.0) # lowpass
-            data.blur(2.0) # lowpass
-            #data.blur(1.0) # lowpass
-            #data.blur(0.6) # lowpass
-            #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
-            data.equalize()
-            data.maximize_intensity_spread()
-        
-        
-
+        # Pre-process image
+        data = self.preprocess(data, **run_args)
 
 
         if run_args['verbosity']>=4:
@@ -2070,6 +2110,16 @@ class grain_size(grain_size_hex):
                         }
         self.run_args.update(kwargs)
             
+            
+    def preprocess_SEM(self, data, **run_args):
+        data.blur(2.0) # lowpass
+        data.enhance(contrast=1.3, contrast_passes=2, resharpen_passes=2)
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
+    
+            
     @run_default
     def run(self, data, output_dir, **run_args):
         
@@ -2088,29 +2138,11 @@ class grain_size(grain_size_hex):
             outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
             data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
         
-        # Pre-process
-        #data.equalize()
-        #data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-        #data.lowkill(run_args['q0']*0.1)
         
         
-        if run_args['preprocess']=='None':
-            pass
-        
-        elif run_args['preprocess']=='AFM':
-            # Typical processing for AFM images:
-            data.equalize()
-            data.maximize_intensity_spread()
-            
-        else:
-            # Typical processing for SEM images:
-            data.blur(2.0) # lowpass
-            data.enhance(contrast=1.3, contrast_passes=2, resharpen_passes=2)
-            data.equalize()
-            data.maximize_intensity_spread()
+        # Pre-process image
+        data = self.preprocess(data, **run_args)
 
-        
-        
 
         if run_args['verbosity']>=4:
             data.set_z_display( [None, None, 'gamma', 1.0] )
@@ -2503,6 +2535,24 @@ class defects_lines(grain_size_hex):
                         }
         self.run_args.update(kwargs)
         
+        
+    def preprocess_default(self, data, **run_args):
+        #data.equalize()
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        #data.lowkill(run_args['q0']*0.1)
+        
+        data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        #data.blur(1.0) # lowpass
+        #data.blur(0.6) # lowpass
+        #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
+        
 
     @run_default
     def run(self, data, output_dir, **run_args):
@@ -2523,21 +2573,8 @@ class defects_lines(grain_size_hex):
             data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
 
         
-        # Pre-process
-        #data.equalize()
-        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-        for i in range(2):
-            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
-        #data.lowkill(run_args['q0']*0.1)
-        
-        data.blur(2.0) # lowpass
-        data.blur(2.0) # lowpass
-        #data.blur(1.0) # lowpass
-        #data.blur(0.6) # lowpass
-        #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
-        data.equalize()
-        data.maximize_intensity_spread()
-
+        # Pre-process image
+        data = self.preprocess(data, **run_args)
 
 
         if run_args['verbosity']>=4:
