@@ -76,6 +76,31 @@ class ProcessorXS(Processor):
         return data
         
         
+        
+class HDF5(Protocol):
+
+    def __init__(self, name='HDF5', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.h5'
+        self.run_args = {
+            }
+        self.run_args.update(kwargs)
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if 'hdf5' in run_args['save_results']:
+            self.save_Data2D_HDF5(data, 'raw detector image', output_dir, results=results)
+                                  
+                                  
+        return results
+
+
+        
 
 class thumbnails(Protocol):
     
@@ -120,13 +145,14 @@ class thumbnails(Protocol):
         
         #print(data.stats())
         
-        results['files_saved'] = [
-            { 'filename': '{}'.format(outfile) ,
-             'description' : 'quick view (thumbnail) image' ,
-             'type' : 'plot' # 'data', 'plot'
-            } ,
-            ]
-        data.plot_image(outfile, **run_args)
+        if 'plots' in run_args['save_results']:
+            results['files_saved'] = [
+                { 'filename': '{}'.format(outfile) ,
+                'description' : 'quick view (thumbnail) image' ,
+                'type' : 'plot' # 'data', 'plot'
+                } ,
+                ]
+            data.plot_image(outfile, **run_args)
         
         return results
         
@@ -160,14 +186,16 @@ class circular_average(Protocol):
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
 
-        try:
+        if 'plots' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, **run_args)
-        except ValueError:
-            pass
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
 
        
         return results
@@ -273,12 +301,17 @@ class circular_average_q2I(Protocol):
             line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
             
         
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
+            line.plot(save=outfile, **run_args)
         
-        outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-        line.plot(save=outfile, **run_args)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
         
-        outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
-        line.save_data(outfile)        
         
         return results
                        
@@ -580,9 +613,10 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
             line.y_label = 'q^n*I(q)'
             line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
             
-        
-        outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
-        line.save_data(outfile)        
+
+        if 'txt' in run_args['save_results']:        
+            outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
+            line.save_data(outfile)        
 
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
@@ -600,8 +634,14 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
                 outfile = self.get_outfile(data.name, output_dir, ext='_q2I_fit.dat')
                 lines.lines[1].save_data(outfile)            
         
-        outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-        lines.plot(save=outfile, **run_args)        
+        
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
+            lines.plot(save=outfile, **run_args)        
+        
+        
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
         
         return results
          
