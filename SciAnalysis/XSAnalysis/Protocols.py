@@ -26,7 +26,6 @@
 from SciAnalysis.XSAnalysis.Data import *
 from SciAnalysis.tools import *
 from SciAnalysis.XSAnalysis.IO_HDF import *
-
 import copy
 
 class ProcessorXS(Processor):
@@ -78,9 +77,42 @@ class ProcessorXS(Processor):
 
 
         return data
-        
-        
+                
+def get_output_h5_name( output_dir, name ):
+    '''give the output h5 name as the uppler dir of output_dir + name.h5 '''
+    return '/'.join( output_dir.split('/')[:-1] ) + '/' +  name + '.h5'
 
+def protocol_line_res_to_h5(  line, results, fout, h5path   ):
+    '''Save the protocol line results to a h5 file 
+    Input:
+        line:   line class 
+        results: diction, could be fitting results, or description of the data        
+        fout: output h5 filename  
+        h5path: the group name in the h5 file
+    Output:
+        None    
+    '''     
+    label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
+    data = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T    
+    Res = {    'data': data, 'label': label, 'results':results    }  
+    dicttoh5( Res,  fout,    overwrite_data=True, h5path=h5path,  mode='a'  )        
+        
+def protocol_data_res_to_h5(  data, label, results, fout, h5path   ):
+    '''Save the protocol results to a h5 file 
+    Input:
+        data: np.array, image types ( N*M )  or  M colums
+        label:  if data is image type, a list of one string
+                if data is M colums, a list of string corresponding to column name
+        results: diction, could be fitting results, or description of the data        
+        fout: output h5 filename  
+        h5path: the group name in the h5 file
+    Output:
+        None    
+    '''     
+    Res = {    'data': data, 'label': label, 'results':results    }  
+    dicttoh5( Res,  fout,    overwrite_data=True, h5path=h5path,  mode='a'  )         
+    
+    
 class thumbnails(Protocol):
     
     def __init__(self, name='thumbnails', **kwargs):
@@ -124,29 +156,23 @@ class thumbnails(Protocol):
         
         #print(data.stats())
         
+        ##YG comment, if possible to make the results['files_saved'] as a dictoinary, then, protocol_res_to_h5 can save it
         results['files_saved'] = [
             { 'filename': '{}'.format(outfile) ,
              'description' : 'quick view (thumbnail) image' ,
              'type' : 'plot' # 'data', 'plot'
             } ,
-            ]
+            ]   
+        #####if can change to dict above, we don't need to define a results2
+         
+        results2={}
+        results2['files_saved'] = results['files_saved'][0]
         data.plot_image(outfile, **run_args)
         
-        if 'toh5' in run_args:
-            if 'overwrite_h5' in run_args:
-                overwrite_h5 =  run_args['overwrite_h5']
-            else:
-                overwrite_h5 = True
-            label =  [  'data'   ]
-            results2 = {}
-            results2['files_saved'] = { 'filename': '{}'.format(outfile) ,
-             'description' : 'quick view (thumbnail) image' ,
-             'type' : 'plot' # 'data', 'plot'
-            }        
-            Res = {    'data': data.data, 'label': label, 'results':results2    } 
-            fout = '/'.join( output_dir.split('/')[:-1] ) + '/' + data.name + '.h5'  
-            dicttoh5( Res,  fout,    overwrite_data=overwrite_h5, h5path='/%s'%self.name,  mode='a'  )        
-            #print(fout)
+        if 'toh5' in run_args:             
+            protocol_data_res_to_h5(  data=data.data, label= ['data'], results=results2, 
+                                      fout=get_output_h5_name( output_dir, data.name ),                                  
+                                      h5path = '/%s'%self.name,   )              
         return results
         
         
@@ -186,22 +212,13 @@ class circular_average(Protocol):
             outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, **run_args)
         except ValueError:
-            pass
-        
-        #print( run_args )
-        if 'toh5' in run_args:
-            if 'overwrite_h5' in run_args:
-                overwrite_h5 =  run_args['overwrite_h5']
-            else:
-                overwrite_h5 = True
-            label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
-            data_xy = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T              
-            Res = {    'data': data_xy, 'label': label    }            
-            fout = '/'.join( output_dir.split('/')[:-1] ) + '/' + data.name + '.h5'  
-            dicttoh5( Res,  fout,    overwrite_data=overwrite_h5, h5path='/%s'%self.name,  mode='a'  )    
-            #print(fout)
+            pass        
 
-       
+        if 'toh5' in run_args:  
+            protocol_line_res_to_h5(  line=line, results=results, 
+                                      fout=get_output_h5_name( output_dir, data.name ),
+                                      h5path = '/%s'%self.name,   )    
+        
         return results
 
 
@@ -265,7 +282,7 @@ class circular_average_sum(circular_average):
 
         outfile = self.get_outfile(data.name, output_dir, ext='.dat')
         line.save_data(outfile)
-
+         
         return results
                 
                 
@@ -310,18 +327,12 @@ class circular_average_q2I(Protocol):
         line.plot(save=outfile, **run_args)
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
-        line.save_data(outfile)       
+        line.save_data(outfile)     
         
-        if 'toh5' in run_args:
-            if 'overwrite_h5' in run_args:
-                overwrite_h5 =  run_args['overwrite_h5']
-            else:
-                overwrite_h5 = False
-            label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
-            data_xy = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T              
-            Res = {    'data': data_xy, 'label': label    }            
-            fout = '/'.join( output_dir.split('/')[:-1] ) + '/' + data.name + '.h5'  
-            dicttoh5( Res,  fout,    overwrite_data=overwrite_h5, h5path='/%s'%self.name,  mode='a'  )        
+        if 'toh5' in run_args:  
+            protocol_line_res_to_h5(  line=line, results=results, 
+                                      fout=get_output_h5_name( output_dir, data.name ),
+                                      h5path = '/%s'%self.name,   )   
         
         return results
                        
@@ -645,16 +656,11 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
         
         outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
         lines.plot(save=outfile, **run_args)     
-        if 'toh5' in run_args:
-            if 'overwrite_h5' in run_args:
-                overwrite_h5 =  run_args['overwrite_h5']
-            else:
-                overwrite_h5 = True
-            label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
-            data_xy = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T              
-            Res = {   'results': results,  'data': data_xy, 'label': label    }            
-            fout = '/'.join( output_dir.split('/')[:-1] ) + '/' + data.name + '.h5'  
-            dicttoh5( Res,  fout,    overwrite_data=overwrite_h5, h5path='/%s'%self.name,  mode='a'  )        
+        
+        if 'toh5' in run_args:  
+            protocol_line_res_to_h5(  line=line, results=results, 
+                                      fout=get_output_h5_name( output_dir, data.name ),
+                                      h5path = '/%s'%self.name,   )   
         
         return results
          
