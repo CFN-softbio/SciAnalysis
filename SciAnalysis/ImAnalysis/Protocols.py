@@ -1347,6 +1347,9 @@ class grain_size_hex(Protocol, preprocess):
                         'invert' : False,
                         'diagonal_detection' : False,
                         'cmap' : mpl.cm.bone,
+                        'correlation_edge_exclusion' : 10,
+                        'correlation_step_size_points' : 5,
+                        'trim_r_curve' : 0.8, # 1.0 doesn't trim anything; 0.8 trims the last 20% of the g(r)-curve
                         'preprocess' : 'default',
                         }
         self.run_args.update(kwargs)
@@ -1637,15 +1640,15 @@ class grain_size_hex(Protocol, preprocess):
 
         angle_max_rad = 2.0*np.pi/run_args['symmetry']
 
+
+        # Compute angle map
+        from scipy.interpolate import griddata
+        positions = np.column_stack((x_positions,y_positions))
+        grid_x, grid_y = np.mgrid[ 0:len(labeled_array) , 0:len(labeled_array[0]) ]
+        angle_map = griddata(positions, angles, (grid_y, grid_x), method='nearest') # Avoids artifacts
+
         if run_args['verbosity']>=3:
             # False-color map of angles
-            
-            from scipy.interpolate import griddata
-            
-            positions = np.column_stack((x_positions,y_positions))
-            grid_x, grid_y = np.mgrid[ 0:len(labeled_array) , 0:len(labeled_array[0]) ]
-            angle_map = griddata(positions, angles, (grid_y, grid_x), method='nearest') # Avoids artifacts
-            
             data_angles = Data2D()
             data_angles.data = angle_map
             data_angles.set_z_display([0, angle_max_rad, 'linear', 1.0])
@@ -1732,13 +1735,11 @@ class grain_size_hex(Protocol, preprocess):
             results.update(new_results)
             
             
-
-        # TODO:
         # Compute correlation function.
         if 'scale' not in run_args:
             run_args['scale'] = (data.x_scale+data.y_scale)*0.5
-        #new_results = self.correlation_function(x_positions, y_positions, angles, output_dir=output_dir, **run_args)
-        #results.update(new_results)
+        new_results = self.correlation_function(angle_map, output_dir=output_dir, **run_args)
+        results.update(new_results)
 
             
         return results
@@ -2020,7 +2021,10 @@ class grain_size_hex(Protocol, preprocess):
         if run_args['verbosity']>=3:
             outfile = self.get_outfile('orientation', output_dir, ext='.png', ir=True)
             r = 360.0/run_args['symmetry']
-            plot_range = [-r/2, +r/2, 0, np.max(line.y)*1.2]
+            if np.min(line.x)>=0:
+                plot_range = [0, +r, 0, np.max(line.y)*1.2]
+            else:
+                plot_range = [-r/2, +r/2, 0, np.max(line.y)*1.2]
             lines.plot(save=outfile, plot_range=plot_range)
 
         if run_args['verbosity']>=3:
@@ -2086,116 +2090,6 @@ class grain_size_hex(Protocol, preprocess):
             
         return angle
 
-
-
-    
-class grain_size(grain_size_hex):
-
-    def __init__(self, name='grain_size', **kwargs):
-        
-        self.name = self.__class__.__name__ if name is None else name
-        
-        self.default_ext = '.png'
-        self.run_args = {
-                        'symmetry': 2,
-                        'cmap' : mpl.cm.bone,
-                        'blur_size_rel_d0' : 0.25,
-                        'blur_orientation_image' : True,
-                        'blur_orientation_image_num_passes' : 3,
-                        'blur_orientation_image_size_rel' : 0.25,
-                        'correlation_edge_exclusion' : 10,
-                        'correlation_step_size_points' : 5,
-                        'trim_r_curve' : 0.8, # 1.0 doesn't trim anything; 0.8 trims the last 20% of the g(r)-curve
-                        'preprocess' : 'default',
-                        }
-        self.run_args.update(kwargs)
-            
-            
-    def preprocess_SEM(self, data, **run_args):
-        data.blur(2.0) # lowpass
-        data.enhance(contrast=1.3, contrast_passes=2, resharpen_passes=2)
-        data.equalize()
-        data.maximize_intensity_spread()
-        
-        return data
-    
-            
-    @run_default
-    def run(self, data, output_dir, **run_args):
-        
-        output_dir = os.path.join(output_dir, data.name)
-        make_dir(output_dir)
-        
-        results = {}
-        
-        #orig_data = data.data.copy()
-
-        if run_args['verbosity']>=5:
-            im = PIL.Image.fromarray( np.uint8(data.data) )
-            outfile = self.get_outfile('original', output_dir, ext='.png', ir=True)
-            im.save(outfile)
-            data.set_z_display( [None, None, 'gamma', 1.0] )
-            outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
-            data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
-        
-        
-        
-        # Pre-process image
-        data = self.preprocess(data, **run_args)
-
-
-        if run_args['verbosity']>=4:
-            data.set_z_display( [None, None, 'gamma', 1.0] )
-            outfile = self.get_outfile('processed', output_dir, ext='.jpg', ir=True)
-            data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
-            
-        orig_data = data.data.copy()
-            
-        angles = self.orientation_angle_map(data, output_dir, **run_args)
-        angle_max_rad = +np.pi/2
-        
-        if run_args['verbosity']>=3:
-            
-            data_angles = Data2D()
-            data_angles.data = angles
-            data_angles.set_z_display( [None, None, 'linear', 1.0] )
-            outfile = self.get_outfile('angles', output_dir, ext='.png', ir=True)
-            data_angles.plot_image(save=outfile, zmin=-np.pi/2, zmax=+np.pi/2, cmap=cmap_cyclic_spectrum)
-            
-            # Overlay
-            cur_data = orig_data - np.min(orig_data)
-            cur_data = cur_data*(255.0/np.max(cur_data))
-            img1 = PIL.Image.fromarray( np.uint8(cur_data) )
-            img1 = img1.convert('RGBA')
-            
-            cmap = cmap_cyclic_spectrum
-            Z = (data_angles.data+angle_max_rad)/(2*angle_max_rad)
-            img2 = PIL.Image.fromarray(np.uint8(cmap(Z)*255))
-            img2 = img2.convert('RGBA')
-            
-            img_blend = PIL.Image.blend(img1, img2, 0.5)
-            outfile = self.get_outfile('angles', output_dir, ext='.png', ir=True)
-            img_blend.save(outfile)
-
-
-        # Angle histogram
-        # TODO: Fix the angle histograms.
-        hist, bin_edges = np.histogram(angles, bins=100, range=[-angle_max_rad,angle_max_rad])
-        bin_edges += bin_edges[1]-bin_edges[0]
-        new_results = self.orientation_fit(np.degrees(bin_edges[:-1]), hist, output_dir, result_prepend='ori_', **run_args)
-        results.update(new_results)     
-
-
-
-        # Compute correlation function
-        if 'scale' not in run_args:
-            run_args['scale'] = data.get_scale()
-        new_results = self.correlation_function(angles, output_dir=output_dir, **run_args)
-        results.update(new_results)
-
-        
-        return results
-    
 
 
     def correlation_function(self, angles, output_dir='./', fit_curve=True, **run_args):
@@ -2516,6 +2410,116 @@ class grain_size(grain_size_hex):
         # angles are in radians, from -pi/2 to +pi/2
         
         return angles
+
+
+    
+class grain_size(grain_size_hex):
+
+    def __init__(self, name='grain_size', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+                        'symmetry': 2,
+                        'cmap' : mpl.cm.bone,
+                        'blur_size_rel_d0' : 0.25,
+                        'blur_orientation_image' : True,
+                        'blur_orientation_image_num_passes' : 3,
+                        'blur_orientation_image_size_rel' : 0.25,
+                        'correlation_edge_exclusion' : 10,
+                        'correlation_step_size_points' : 5,
+                        'trim_r_curve' : 0.8, # 1.0 doesn't trim anything; 0.8 trims the last 20% of the g(r)-curve
+                        'preprocess' : 'default',
+                        }
+        self.run_args.update(kwargs)
+            
+            
+    def preprocess_SEM(self, data, **run_args):
+        data.blur(2.0) # lowpass
+        data.enhance(contrast=1.3, contrast_passes=2, resharpen_passes=2)
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
+    
+            
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+        
+        results = {}
+        
+        #orig_data = data.data.copy()
+
+        if run_args['verbosity']>=5:
+            im = PIL.Image.fromarray( np.uint8(data.data) )
+            outfile = self.get_outfile('original', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
+        
+        
+        
+        # Pre-process image
+        data = self.preprocess(data, **run_args)
+
+
+        if run_args['verbosity']>=4:
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('processed', output_dir, ext='.jpg', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=run_args['cmap'])
+            
+        orig_data = data.data.copy()
+            
+        angles = self.orientation_angle_map(data, output_dir, **run_args)
+        angle_max_rad = +np.pi/2
+        
+        if run_args['verbosity']>=3:
+            
+            data_angles = Data2D()
+            data_angles.data = angles
+            data_angles.set_z_display( [None, None, 'linear', 1.0] )
+            outfile = self.get_outfile('angles', output_dir, ext='.png', ir=True)
+            data_angles.plot_image(save=outfile, zmin=-np.pi/2, zmax=+np.pi/2, cmap=cmap_cyclic_spectrum)
+            
+            # Overlay
+            cur_data = orig_data - np.min(orig_data)
+            cur_data = cur_data*(255.0/np.max(cur_data))
+            img1 = PIL.Image.fromarray( np.uint8(cur_data) )
+            img1 = img1.convert('RGBA')
+            
+            cmap = cmap_cyclic_spectrum
+            Z = (data_angles.data+angle_max_rad)/(2*angle_max_rad)
+            img2 = PIL.Image.fromarray(np.uint8(cmap(Z)*255))
+            img2 = img2.convert('RGBA')
+            
+            img_blend = PIL.Image.blend(img1, img2, 0.5)
+            outfile = self.get_outfile('angles', output_dir, ext='.png', ir=True)
+            img_blend.save(outfile)
+
+
+        # Angle histogram
+        # TODO: Fix the angle histograms.
+        hist, bin_edges = np.histogram(angles, bins=100, range=[-angle_max_rad,angle_max_rad])
+        bin_edges += bin_edges[1]-bin_edges[0]
+        new_results = self.orientation_fit(np.degrees(bin_edges[:-1]), hist, output_dir, result_prepend='ori_', **run_args)
+        results.update(new_results)     
+
+
+
+        # Compute correlation function
+        if 'scale' not in run_args:
+            run_args['scale'] = data.get_scale()
+        new_results = self.correlation_function(angles, output_dir=output_dir, **run_args)
+        results.update(new_results)
+
+        
+        return results
+    
 
 
             
