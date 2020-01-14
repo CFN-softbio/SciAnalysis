@@ -1,4 +1,10 @@
 ##Octo 20, 2019 @CFN 
+## This code is essentially to save dictionary as h5 file and load h5 file as dictionary
+## Two important functions are    dicttoh5,  h5todict
+## Examples:
+# save dictionary as h5 file: dicttoh5( dictionary,  output_filename, h5path= key,  mode='a'  )        
+# load h5 as dictionary:  h5todict( input_filename )
+## This code is developed based on silx
 
 import numpy as np
 from PIL import Image
@@ -8,74 +14,51 @@ from os.path import isfile, join
 import h5py, sys, enum
 import pandas as pds
 import collections
-from pyScatt.generic_functions import (    bstring_to_string  )
 import logging
 logger = logging.getLogger(__name__)
 
-
-def bstring_to_string( bstring ):
-    '''Y.G., Dev@CFN Nov 20, 2019 convert a btring to string
-     
-    Parameters
-    ----------
-        bstring: bstring or list of bstring 
-    Returns
-    -------  
-        string:    
-    '''
-    s =  np.array( bstring )
-    if not len(s.shape):
-        s=s.reshape( 1, )
-        return s[0].decode('utf-8')
-    else:
-        return np.char.decode( s )
-    
+## a global string type     
 string_types = (basestring,) if sys.version_info[0] == 2 else (str,)
-def _prepare_hdf5_dataset(array_like):
-    if isinstance(array_like, string_types):
-        array_like = np.string_(array_like)    
-    if not isinstance(array_like, (np.ndarray, np.string_)):
-        array = np.array(array_like)
-    else:
-        array = array_like    
-    if not isinstance(array, np.string_):
-        data_kind = array.dtype.kind
-        if data_kind.lower() in ["s", "u"]:
-            array = np.asarray(array, dtype=np.string_)
-    return array
-
-class _SafeH5FileWrite(object):
-    def __init__(self, h5file, mode="w"):
-        self.raw_h5file = h5file
-        self.mode = mode
-    def __enter__(self):
-        if not isinstance(self.raw_h5file, h5py.File):
-            self.h5file = h5py.File(self.raw_h5file, self.mode)
-            self.close_when_finished = True
-        else:
-            self.h5file = self.raw_h5file
-            self.close_when_finished = False
-        return self.h5file
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.close_when_finished:
-            self.h5file.close()
-class _SafeH5FileRead(object):
-    def __init__(self, h5file):
-        self.raw_h5file = h5file 
-    def __enter__(self):
-        if not is_file(self.raw_h5file):
-            self.h5file = h5py.File(self.raw_h5file, "r") 
-            self.close_when_finished = True
-        else:
-            self.h5file = self.raw_h5file
-            self.close_when_finished = False 
-        return self.h5file
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.close_when_finished:
-            self.h5file.close()            
-def dicttoh5(treedict, h5file, h5path='/',
-             mode="w", overwrite_data=False,
-             create_dataset_args=None):
+def dicttoh5(treedict, h5file, h5path='/',mode="w", overwrite_data=False, create_dataset_args=None):
+    '''Save dictionary as a h5 file
+    Input:
+        treedict:  dictionary, could be nested format
+        h5file: the filename the output h5 file
+        h5path,  group in the output h5 file, default '/' (the root key)
+        mode:   Can be 
+                    ``"r+"`` (read/write, file must exist)
+                    ``"w"`` (write, existing file is lost)
+                    ``"w-"`` (write, fail ifexists)
+                    ``"a"`` (read/write if exists, create otherwise).
+        overwrite_data: bool, 
+                if True, existing groups and datasets can be overwritten
+                if False, they are skipped. This parameter is only relevant if ``h5file_mode`` is ``"r+"`` or ``"a"``
+        create_dataset_args: dictionary, specify filters andcompression parameters
+    Output:
+        None
+    Example1:
+        d = { 'data': np.arange(10), 'label':'data', 'results': {  'collected time': '2019/10/10', 'fit_res': { 'p0': 10 } } }
+        dicttoh5( d, 'test.h5', h5path='/', mode='a')
+        
+        --> if do h5todict( 'test.h5' )
+            get: -->
+                    {'data': array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+                      'label': 'data',                      
+                      'results': {'collected time': '2019/10/10', 'fit_res': {'p0': array(10)}}}
+                
+    Example2:
+        d = { 'data': np.arange(10), 'label':'data', 'results': {  'collected time': '2019/10/10', 'fit_res': { 'p0': 10 } } }
+        dicttoh5( d, 'test.h5', h5path='/cms/', mode='a')
+        
+        --> if do h5todict( 'test.h5' )
+            get: -->
+                    {'cms': 
+                        {'data': array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+                          'label': 'data',                      
+                          'results': {'collected time': '2019/10/10', 'fit_res': {'p0': array(10)}}}    
+                    }
+    
+    '''   
     if create_dataset_args is None:
         create_dataset_args = {'compression': "gzip", 'shuffle': True,  'fletcher32': True}    
     compssion,shuffle,fletcher32 = ( create_dataset_args['compression'], 
@@ -115,7 +98,115 @@ def dicttoh5(treedict, h5file, h5path='/',
                         else:
                             logger.warning('key (%s) already exists. ' 'Not overwriting.' % (h5path + key))
                             continue
-                    h5f.create_dataset(h5path + key, data=ds, **create_dataset_args)                    
+                    h5f.create_dataset(h5path + key, data=ds, **create_dataset_args)                     
+def h5todict(h5file, path="/", exclude_names=None, asarray=True):
+    '''Load h5 to a dictionary 
+    Input:         
+        h5file: the filename the input h5 file
+        path,  group in the input h5 file, default '/' (the root key)
+        exclude_names:  will not load that exclude_names group
+        asarray: bool, 
+                if True, (default) to read scalar as arrays
+                if False, to read them as scalar
+                if False, they are skipped. This parameter is only relevant if ``h5file_mode`` is ``"r+"`` or ``"a"``         
+    Output:
+        dictionary
+    Example:
+        d = { 'data': np.arange(10), 'label':'data', 'results': {  'collected time': '2019/10/10', 'fit_res': { 'p0': 10 } } }
+        dicttoh5( d, 'test.h5', h5path='/cms/', mode='a')
+        
+        --> if do h5todict( 'test.h5' )
+            get: -->
+                    {'cms': 
+                        {'data': array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
+                          'label': 'data',                      
+                          'results': {'collected time': '2019/10/10', 'fit_res': {'p0': array(10)}}}    
+                    }
+    
+    '''     
+    with _SafeH5FileRead(h5file) as h5f:
+        ddict = {}        
+        for key in h5f[path]:
+            if _name_contains_string_in_list(key, exclude_names):
+                continue
+            if is_group(h5f[path + "/" + key]):
+                ddict[key] = h5todict(h5f,path + "/" + key, exclude_names=exclude_names, asarray=asarray)
+            else:                
+                data = h5f[path + "/" + key][()]
+                if asarray:  # Convert HDF5 dataset to numpy array
+                    if isinstance( data , bytes):
+                        data = bstring_to_string( data )
+                    elif ( isinstance( data, np.ndarray )  or isinstance( data, list )  ):
+                        if isinstance( data[0] , bytes):
+                            data = bstring_to_string( data )  
+                    elif ( isinstance( data, float )  or isinstance( data, int )   or isinstance( data, str ) ):
+                        pass                                                    
+                    else:
+                        data = np.array(data, copy=False)                      
+                ddict[key] = data
+    return ddict
+def bstring_to_string( bstring ):
+    '''Y.G., Dev@CFN Nov 20, 2019 convert a btring to string
+     
+    Parameters
+    ----------
+        bstring: bstring or list of bstring 
+    Returns
+    -------  
+        string:    
+    '''
+    s =  np.array( bstring )
+    if not len(s.shape):
+        s=s.reshape( 1, )
+        return s[0].decode('utf-8')
+    else:
+        return np.char.decode( s )    
+def _prepare_hdf5_dataset(array_like):
+    '''A python object into a numpy array in a HDF5 friendly format.'''
+    if isinstance(array_like, string_types):
+        array_like = np.string_(array_like)    
+    if not isinstance(array_like, (np.ndarray, np.string_)):
+        array = np.array(array_like)
+    else:
+        array = array_like    
+    if not isinstance(array, np.string_):
+        data_kind = array.dtype.kind
+        if data_kind.lower() in ["s", "u"]:
+            array = np.asarray(array, dtype=np.string_)
+    return array
+
+class _SafeH5FileWrite(object):
+    ''' A class for safe write h5 file, close the file on exiting.'''
+    def __init__(self, h5file, mode="w"):
+        self.raw_h5file = h5file
+        self.mode = mode
+    def __enter__(self):
+        if not isinstance(self.raw_h5file, h5py.File):
+            self.h5file = h5py.File(self.raw_h5file, self.mode)
+            self.close_when_finished = True
+        else:
+            self.h5file = self.raw_h5file
+            self.close_when_finished = False
+        return self.h5file
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.close_when_finished:
+            self.h5file.close()
+class _SafeH5FileRead(object):
+    ''' A class for safe read h5 file, close the file on exiting.'''
+    def __init__(self, h5file):
+        self.raw_h5file = h5file 
+    def __enter__(self):
+        if not is_file(self.raw_h5file):
+            self.h5file = h5py.File(self.raw_h5file, "r") 
+            self.close_when_finished = True
+        else:
+            self.h5file = self.raw_h5file
+            self.close_when_finished = False 
+        return self.h5file
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.close_when_finished:
+            self.h5file.close()            
+               
 def _name_contains_string_in_list(name, strlist):
     if strlist is None:
         return False
@@ -124,6 +215,7 @@ def _name_contains_string_in_list(name, strlist):
             return True
     return False
 class H5Type(enum.Enum):    
+    '''Identify a set of HDF5 format'''
     DATASET = 1
     GROUP = 2
     FILE = 3
@@ -131,6 +223,8 @@ class H5Type(enum.Enum):
     EXTERNAL_LINK = 5
     HARD_LINK = 6
 def _get_classes_type():   
+    '''Returns a mapping between Python classes and HDF5 concepts.    
+    '''        
     _CLASSES_TYPE = collections.OrderedDict()
     _CLASSES_TYPE[h5py.Dataset] = H5Type.DATASET
     _CLASSES_TYPE[h5py.File] = H5Type.FILE
@@ -140,6 +234,7 @@ def _get_classes_type():
     _CLASSES_TYPE[h5py.ExternalLink] = H5Type.EXTERNAL_LINK
     return _CLASSES_TYPE
 def get_h5_class(obj=None, class_=None):
+    '''Returns the HDF5 type relative to the object or to the class.'''
     if class_ is None:
         class_ = obj.__class__
     classes = _get_classes_type()
@@ -180,26 +275,3 @@ def is_group(obj):
 def is_file(obj):
     t = get_h5_class(obj)
     return t == H5Type.FILE
-def h5todict(h5file, path="/", exclude_names=None, asarray=True):
-    with _SafeH5FileRead(h5file) as h5f:
-        ddict = {}        
-        for key in h5f[path]:
-            if _name_contains_string_in_list(key, exclude_names):
-                continue
-            if is_group(h5f[path + "/" + key]):
-                ddict[key] = h5todict(h5f,path + "/" + key, exclude_names=exclude_names, asarray=asarray)
-            else:                
-                data = h5f[path + "/" + key][()]
-                if asarray:  # Convert HDF5 dataset to numpy array
-                    if isinstance( data , bytes):
-                        data = bstring_to_string( data )
-                    elif ( isinstance( data, np.ndarray )  or isinstance( data, list )  ):
-                        if isinstance( data[0] , bytes):
-                            data = bstring_to_string( data )  
-                    elif ( isinstance( data, float )  or isinstance( data, int )   or isinstance( data, str ) ):
-                        pass                                                    
-                    else:
-                        data = np.array(data, copy=False)                      
-                ddict[key] = data
-    return ddict
-
