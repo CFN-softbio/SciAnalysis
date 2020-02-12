@@ -26,7 +26,7 @@
 # of the import commands (above) will need to be turned on.
 import numpy as np
 import h5py, sys, enum
-
+import collections
 ## a global string type     
 string_types = (basestring,) if sys.version_info[0] == 2 else (str,)
 def dicttoh5(treedict, h5file, h5path='/',mode="w", overwrite_data=False, create_dataset_args=None):
