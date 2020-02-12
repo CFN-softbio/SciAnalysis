@@ -5,7 +5,9 @@ import re
 import random
 
 import numpy as np
-import scipy.misc
+#import scipy.misc
+import imageio
+from PIL import Image
 
 
 
@@ -78,6 +80,28 @@ if True:
 #exit()
 
 
+def sm_imresize(image, size, handle_float=False):
+    '''Replacement for deprecated scipy.misc.imresize function.'''
+    #image = scipy.misc.imresize(image, size) # Deprecated
+    
+    h, w, c = image.shape
+    if isinstance(size, (int, float)):
+        hn = int(h*size)
+        wn = int(w*size)
+    elif len(size)==2:
+        hn, wn = size
+    else:
+        print('Error in sm_imresize.')
+    
+    if handle_float:
+        image = np.copy(image)*255
+        image = np.array( Image.fromarray( image.astype(np.uint8) ).resize((wn,hn)) )
+        image = image/255
+    else:
+        image = np.array( Image.fromarray( image.astype(np.uint8) ).resize((wn,hn)) )
+        #image = resize(image, output_shape=(hn,wn), preserve_range=True) # Doesn't work
+                        
+    return image
 
 
 class Canvas():
@@ -137,7 +161,9 @@ class Canvas():
         im_scaling *= im_scaling_tweak
         canvas_scaling = canvas_scaling if canvas_scaling is not None else self.canvas_scaling
         
-        im = scipy.misc.imread(infile)
+        #im = scipy.misc.imread(infile) # Deprecated
+        im = imageio.imread(infile)
+        
         h, w, c = im.shape
         
 
@@ -150,10 +176,12 @@ class Canvas():
                 im = im[mid-w//2:mid+w//2,:,:]
                 
         if force_size is not None:
-            im = scipy.misc.imresize(im, [force_size, force_size]) 
+            #im = scipy.misc.imresize(im, [force_size, force_size]) # Deprecated
+            im = sm_imresize(im, [force_size, force_size])
             
         if abs(im_scaling-1.0)>0.01:
-            im = scipy.misc.imresize(im, im_scaling)
+            #im = scipy.misc.imresize(im, im_scaling) # Deprecated
+            im = sm_imresize(im, im_scaling)
             h, w, c = im.shape
                 
         
@@ -187,7 +215,8 @@ class Canvas():
         
         
     def save(self, outfile='output.png'):
-        scipy.misc.imsave(outfile, self.image)
+        #scipy.misc.imsave(outfile, self.image) # Deprecated
+        imageio.imsave(outfile, self.image)
         
         
         

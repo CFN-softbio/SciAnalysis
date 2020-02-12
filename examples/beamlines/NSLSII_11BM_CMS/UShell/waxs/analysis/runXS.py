@@ -5,6 +5,7 @@
 ########################################
 
 import sys, os
+# Update this to point to the directory where you copied the SciAnalysis base code
 #SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
 SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
@@ -49,7 +50,7 @@ else:
     calibration.set_distance(0.355)
 
     mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
-    mask = Mask(mask_dir+'Dectris/Pilatus800kcustom-mask.png')
+    mask = Mask(mask_dir+'Dectris/Pilatus800k_gaps-mask.png')
     #mask.load('./Pilatus800k_current-mask.png')
 
 
@@ -57,7 +58,7 @@ else:
 
 # Files to analyze
 ########################################
-source_dir = '../'
+source_dir = '../raw/'
 output_dir = './'
 
 pattern = '*'

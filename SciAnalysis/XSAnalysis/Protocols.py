@@ -20,8 +20,9 @@
 #  Search for "TODO" below.
 ################################################################################
 
-from .Data import *
-from ..tools import *
+from SciAnalysis.XSAnalysis.Data import * #from .Data import *
+from SciAnalysis.tools import * #from ..tools import *
+#from SciAnalysis.IO_HDF import *
 
 import copy
 
@@ -76,6 +77,31 @@ class ProcessorXS(Processor):
         return data
         
         
+        
+class HDF5(Protocol):
+
+    def __init__(self, name='HDF5', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.h5'
+        self.run_args = {
+            }
+        self.run_args.update(kwargs)
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if 'hdf5' in run_args['save_results']:
+            self.save_Data2D_HDF5(data, 'raw detector image', output_dir, results=results)
+                                  
+                                  
+        return results
+
+
+        
 
 class thumbnails(Protocol):
     
@@ -85,14 +111,14 @@ class thumbnails(Protocol):
         
         self.default_ext = '.jpg'
         self.run_args = {
-                        'crop' : None,
-                        'shift_crop_up' : 0.0,
-                        'make_square' : False,
-                        'blur' : 2.0,
-                        'resize' : 0.2,
-                        'ztrim' : [0.05, 0.005],
-                        'preserve_data' : True,
-                        }
+            'crop' : None,
+            'shift_crop_up' : 0.0,
+            'make_square' : False,
+            'blur' : 2.0,
+            'resize' : 0.2,
+            'ztrim' : [0.05, 0.005],
+            'preserve_data' : True,
+            }
         self.run_args.update(kwargs)
         
 
@@ -120,13 +146,14 @@ class thumbnails(Protocol):
         
         #print(data.stats())
         
-        results['files_saved'] = [
-            { 'filename': '{}'.format(outfile) ,
-             'description' : 'quick view (thumbnail) image' ,
-             'type' : 'plot' # 'data', 'plot'
-            } ,
-            ]
-        data.plot_image(outfile, **run_args)
+        if 'plots' in run_args['save_results']:
+            results['files_saved'] = [
+                { 'filename': '{}'.format(outfile) ,
+                'description' : 'quick view (thumbnail) image' ,
+                'type' : 'plot' # 'data', 'plot'
+                } ,
+                ]
+            data.plot_image(outfile, **run_args)
         
         return results
         
@@ -168,14 +195,16 @@ class circular_average(Protocol):
 							'title': data.name,
                             }
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
 
-        try:
+        if 'plots' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, **run_args)
-        except ValueError:
-            pass
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
 
        
         return results
@@ -212,7 +241,7 @@ class circular_average_sum(circular_average):
         line_sub = line.sub_range(run_args['sum_range'][0], run_args['sum_range'][1])
         results['values_sum'] = np.sum(line_sub.y)
 
-        outfile = self.get_outfile(data.name, output_dir)
+        
 
 
         # Plot and save data
@@ -234,13 +263,17 @@ class circular_average_sum(circular_average):
         lines.copy_labels(line)
         lines.results = results
 
-        try:
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
             lines.plot(save=outfile, **run_args)
-        except ValueError:
-            pass
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
+
 
         return results
                 
@@ -281,12 +314,17 @@ class circular_average_q2I(Protocol):
             line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
             
         
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
+            line.plot(save=outfile, **run_args)
         
-        outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-        line.plot(save=outfile, **run_args)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
         
-        outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
-        line.save_data(outfile)        
         
         return results
                        
@@ -344,39 +382,47 @@ class fit_peaks(Protocol):
                     line = self.lines[0]
                 
                 yf = np.max(line.y)*1.5
-                self.ax.axis([xi, xf, yi, yf])                
+
+                self.ax.axis([xi, xf, yi, yf])
+
                 
-                font_size = 20
+                font_size = self._run_args['font_size'] if 'font_size' in self._run_args else 18
+                v_spacing = (yf-yi)*0.065*(font_size/20)
+
                 s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_peaks_chi_squared'])
                 self.ax.text(xi, yi, s, size=font_size, color='b', verticalalignment='bottom', horizontalalignment='left')
 
-                v_spacing = (yf-yi)*0.08
-                
-                for i in range(run_args['num_curves']):
-                    if i<=1: yp=yf
-                    else: yp -= v_spacing
-                    if i==0: ha, xp = 'right', xf
-                    else: ha, xp = 'left', xi
+
+                for i in range(self._run_args['num_curves']):
                     
-                    s = '$ prefactor{} = \, {:.1f} \,$'.format(i+1, self.results['{}_prefactor{}'.format(fit_name, i+1)]['value'])               
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
-                    
-                    yp -= v_spacing
-                    s = '$q_0 = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['{}_x_center{}'.format(fit_name, i+1)]['value'])
+                    if i<=1:
+                        yp = yf
+                    else:
+                        yp -= v_spacing*1.5
+                    if i==0:
+                        ha, xp = 'right', xf
+                    else:
+                        ha, xp = 'left', xi
+        
+                    s = '$p_{{ {:d} }} = \, {:.3g}$'.format(i+1, self.results['fit_peaks_prefactor{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = r'$d_0 \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['{}_d0{}'.format(fit_name, i+1)])
+                    s = '$q = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['{}_sigma{}'.format(fit_name, i+1)]['value'])
+                    s = r'$d \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+
+                    yp -= v_spacing
+                    s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
                     
                     yp -= v_spacing
-                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['{}_grain_size{}'.format(fit_name, i+1)])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
-   
+                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)        
+                    
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
         if 'num_curves' in run_args and run_args['num_curves']>1 and 'show_curves' in run_args and run_args['show_curves']:
@@ -580,21 +626,35 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
             line.y_label = 'q^n*I(q)'
             line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
             
-        
-        outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
-        line.save_data(outfile)        
+
+        if 'txt' in run_args['save_results']:        
+            outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
+            line.save_data(outfile)        
 
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
         
         lines = self._fit(line, results, **run_args)
         #lines = DataLines([line])
-        for ii, line in enumerate(lines.lines[2:]):
-            outfile = self.get_outfile(data.name, output_dir, ext='_q2I_fit{}.dat'.format(ii))
-            line.save_data(outfile)
-
-        outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-        lines.plot(save=outfile, **run_args)        
+        
+        if 'save_fit' in run_args and run_args['save_fit']:
+            # lines.lines contains: line, fit_line, fit_line_extended, fit_curve1, fit_curve2, ...
+            if 'show_curves' in run_args and run_args['show_curves']:
+                for i, line in enumerate(lines.lines[2:]):
+                    outfile = self.get_outfile(data.name, output_dir, ext='_q2I_fit{}.dat'.format(i))
+                    line.save_data(outfile)            
+            else:
+                outfile = self.get_outfile(data.name, output_dir, ext='_q2I_fit.dat')
+                lines.lines[1].save_data(outfile)            
+        
+        
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
+            lines.plot(save=outfile, **run_args)        
+        
+        
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
         
         return results
          
@@ -610,9 +670,12 @@ class sector_average(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'error' : True, 
-                        'show_region' : False,
-                        }
+            'bins_relative' : 1.0,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            'error' : True, 
+            'show_region' : False,
+            }
         self.run_args.update(kwargs)
     
         
@@ -639,19 +702,22 @@ class sector_average(Protocol):
 							'title': data.name,
                             }
         
-        
         if 'show_region' in run_args and run_args['show_region']:
             data.plot(show=True)
         
-        outfile = self.get_outfile(data.name, output_dir, extra=extra)
         
-        try:
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
-        except ValueError:
-            pass
 
-        outfile = self.get_outfile(data.name, output_dir, extra=extra, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:          
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
+
+        
         
         return results
                                 
@@ -663,7 +729,9 @@ class roi(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.txt'
-        self.run_args = {}
+        self.run_args = {
+            'extra' : '',
+            }
         self.run_args.update(kwargs)
         
 
@@ -696,11 +764,12 @@ class linecut_angle(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [-180, 180, 0, None],
-                         'markersize' : 0,
-                         'linewidth' : 1.5,
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [-180, 180, 0, None],
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            }
         self.run_args.update(kwargs)
     
         
@@ -746,9 +815,10 @@ class linecut_qr(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [None, None, 0, None]
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [None, None, 0, None]
+            }
         self.run_args.update(kwargs)
     
         
@@ -783,9 +853,10 @@ class linecut_qz(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [None, None, 0, None]
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [None, None, 0, None]
+            }
         self.run_args.update(kwargs)
     
         
@@ -821,9 +892,10 @@ class linecut_q(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [None, None, 0, None]
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [None, None, 0, None]
+            }
         self.run_args.update(kwargs)
     
         
@@ -840,15 +912,20 @@ class linecut_q(Protocol):
         
         
         #line.smooth(2.0, bins=10)
-        
-        outfile = self.get_outfile(data.name, output_dir)
-        line.plot(save=outfile, **run_args)
 
-        #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
-        #line.plot_polar(save=outfile, **run_args)
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+            #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+            #line.plot_polar(save=outfile, **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)          
         
         return results
 
@@ -865,10 +942,11 @@ class linecut_qr_fit(linecut_qr, fit_peaks):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False ,
-                         'plot_range' : [None, None, 0, None] ,
-                         'num_curves' : 1 ,
-                         }
+        self.run_args = {
+            'show_region' : False ,
+            'plot_range' : [None, None, 0, None] ,
+            'num_curves' : 1 ,
+            }
         self.run_args.update(kwargs)    
     
     @run_default
@@ -883,8 +961,9 @@ class linecut_qr_fit(linecut_qr, fit_peaks):
         
         #line.smooth(2.0, bins=10)
         
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
         
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
@@ -892,8 +971,13 @@ class linecut_qr_fit(linecut_qr, fit_peaks):
         lines = self._fit(line, results, **run_args)
         #lines = DataLines([line])
 
-        outfile = self.get_outfile(data.name, output_dir)
-        lines.plot(save=outfile, **run_args)        
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            lines.plot(save=outfile, **run_args)        
+        
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)          
+        
         
         return results
 
@@ -1168,12 +1252,13 @@ class linecut_qz_fit(linecut_qz):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [None, None, 0, None],
-                         'show_guides' : True,
-                         'markersize' : 0,
-                         'linewidth' : 1.5,
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [None, None, 0, None],
+            'show_guides' : True,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            }
         self.run_args.update(kwargs)
     
         
@@ -1193,12 +1278,17 @@ class linecut_qz_fit(linecut_qz):
         
         
         #line.smooth(2.0, bins=10)
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
         
-        outfile = self.get_outfile(data.name, output_dir)
-        line.plot(save=outfile, **run_args)
+        
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
 
         
         if 'incident_angle' not in run_args:
@@ -1242,6 +1332,14 @@ class linecut_qz_fit(linecut_qz):
         results['{}_grain_size'.format(fit_name)] = xi       
         
 
+        def angle_to_q(two_theta_s_rad):
+            k = data.calibration.get_k()
+            qz = 2*k*np.sin(two_theta_s_rad/2.0)
+            return qz      
+        def q_to_angle(q):
+            k = data.calibration.get_k()
+            two_theta_s_rad = 2.0*np.arcsin(q/(2.0*k))
+            return two_theta_s_rad
         
         if 'critical_angle_film' in run_args:
             # Account for refraction distortion
@@ -1252,14 +1350,6 @@ class linecut_qz_fit(linecut_qz):
             
             alpha_i_rad = np.arccos( np.cos(theta_incident_rad)/np.cos(theta_c_f_rad) )
             
-            def angle_to_q(two_theta_s_rad):
-                k = data.calibration.get_k()
-                qz = 2*k*np.sin(two_theta_s_rad/2.0)
-                return qz      
-            def q_to_angle(q):
-                k = data.calibration.get_k()
-                two_theta_s_rad = 2.0*np.arcsin(q/(2.0*k))
-                return two_theta_s_rad
             
             # Scattering from incident (refracted) beam
             two_theta_s_rad = q_to_angle(q0)
@@ -1316,14 +1406,14 @@ class linecut_qz_fit(linecut_qz):
                 self.ax.axvline(q0, color=color, linewidth=0.5)
                 self.ax.text(q0, yf, '$q_0$', size=20, color=color, horizontalalignment='center', verticalalignment='bottom')
                 
-                
-                s = '$q_T = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_T = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qT'], self.results['fit_peaks_dT'])
-                self.ax.text(q0, y_fit_max, s, size=15, color='b', horizontalalignment='left', verticalalignment='bottom')
-                self.ax.plot( [q0-self.results['fit_peaks_qT'], q0], [y_fit_max, y_fit_max], '-', color='b' )
+                if 'critical_angle_film' in self.run_args:
+                    s = '$q_T = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_T = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qT'], self.results['fit_peaks_dT'])
+                    self.ax.text(q0, y_fit_max, s, size=15, color='b', horizontalalignment='left', verticalalignment='bottom')
+                    self.ax.plot( [q0-self.results['fit_peaks_qT'], q0], [y_fit_max, y_fit_max], '-', color='b' )
 
-                s = '$q_R = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_R = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qR'], self.results['fit_peaks_dR'])
-                self.ax.text(q0, 0, s, size=15, color='r', horizontalalignment='left', verticalalignment='bottom')
-                self.ax.plot( [q0-self.results['fit_peaks_qR'], q0], [yi, yi], '-', color='r' )
+                    s = '$q_R = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_R = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qR'], self.results['fit_peaks_dR'])
+                    self.ax.text(q0, 0, s, size=15, color='r', horizontalalignment='left', verticalalignment='bottom')
+                    self.ax.plot( [q0-self.results['fit_peaks_qR'], q0], [yi, yi], '-', color='r' )
                 
                 
                 
@@ -1399,16 +1489,15 @@ class linecut_qz_fit(linecut_qz):
         lines.results = results
         lines.run_args = run_args
 
-        outfile = self.get_outfile(data.name+'-fit', output_dir, ext='.png')
         
-        try:
+        
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name+'-fit', output_dir, ext='.png')
             #lines.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
             lines.plot(save=outfile, **run_args)
-        except ValueError:
-            pass
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)  
         
         #print(results)
         
@@ -1508,9 +1597,12 @@ class linecut_angle_fit(linecut_angle):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'show_region' : False,
-                         'plot_range' : [-90, 90, None, None]
-                         }
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [-90, 90, None, None],
+            'do_FWHM' : True,
+            'do_fits' : False,
+            }
         self.run_args.update(kwargs)
         
         
@@ -1534,25 +1626,20 @@ class linecut_angle_fit(linecut_angle):
         line = data.linecut_angle(**run_args)
         
         
-        
-        # Remove the data near chi=0 since this is artificially high (specular ridge)
-        line.kill_x(0, 3)
-        
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
-        
-        # Basic output
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        #line.save_data(outfile)
-        
-        
         # Fine-tune data
+        #line.kill_x(0, 3) # Remove the data near chi=0 since this is artificially high (specular ridge)
         line.x = line.x[1:]
         line.y = line.y[1:]
         line.smooth(2.0)
         
-        do_FWHM = True
-        do_fits = False
+        
+        if 'show_region' in run_args and run_args['show_region']:
+            data.plot(show=True)
+        
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+        
         
         
         # Fit
@@ -1568,7 +1655,7 @@ class linecut_angle_fit(linecut_angle):
                 #yf = max( self.lines[-1].y )*1.5
                 #self.ax.axis( [xi, xf, yi, yf] )
 
-                if do_fits:
+                if run_args['do_fits']:
                     yp = yf
                     s = '$\eta = {:.2f}$'.format(self.results['fit_eta_eta'])
                     self.ax.text(xi, yp, s, size=30, color='b', verticalalignment='top', horizontalalignment='left')
@@ -1578,7 +1665,7 @@ class linecut_angle_fit(linecut_angle):
                     self.ax.text(xf, yp, s, size=30, color='purple', verticalalignment='top', horizontalalignment='right')
                     
                     
-                if do_FWHM:
+                if run_args['do_FWHM']:
                     # FWHM
                     line = self.lines[0]
                     xt, yt = line.target_y(max(line.y))
@@ -1609,7 +1696,7 @@ class linecut_angle_fit(linecut_angle):
         lines.results = {}
             
             
-        if do_fits:
+        if run_args['do_fits']:
             color_list = ['b', 'purple', 'r', 'green', 'orange',]
             for i, fit_name in enumerate(['fit_eta', 'fit_MaierSaupe']):
                 
@@ -1629,14 +1716,17 @@ class linecut_angle_fit(linecut_angle):
             
             
         # Output
-        if run_args['verbosity']>=1:
+        if 'plots' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir)
             lines.lines.reverse()
             lines.plot(save=outfile, **run_args)
 
-        if run_args['verbosity']>=4:
-            outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
-            line.plot_polar(save=outfile, **run_args)
+            if run_args['verbosity']>=4:
+                outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+                line.plot_polar(save=outfile, **run_args)
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)  
 
         return results
     
@@ -1737,7 +1827,9 @@ class calibration_check(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = {'dq': 0.01}
+        self.run_args = {
+            'dq': 0.01,
+            }
         self.run_args.update(kwargs)
     
         
@@ -1799,7 +1891,9 @@ class fit_calibration(Protocol):
         self.name = self.__class__.__name__ if name is None else name
         
         self.default_ext = '.png'
-        self.run_args = { 'material' : 'AgBH01' }
+        self.run_args = {
+            'material' : 'AgBH01',
+            }
         self.run_args.update(kwargs)
     
         
@@ -1940,10 +2034,10 @@ class q_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        }
+            'blur' : None,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            }
         self.run_args.update(kwargs)
         
 
@@ -2024,11 +2118,11 @@ class qr_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        'save_data' : False,
-                        }
+            'blur' : None,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            'save_data' : False,
+            }
         self.run_args.update(kwargs)
         
 
@@ -2087,10 +2181,10 @@ class q_image_special(q_image):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        }
+            'blur' : None,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            }
         self.run_args.update(kwargs)
         
 
@@ -2330,15 +2424,15 @@ class q_phi_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'bins_relative' : 0.5,
-                        'bins_phi' : 360.0/1.0,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        'yticks' : [-180, -90, 0, 90, 180],
-                        'save_data' : False,
-                        'save_data_pickle' : True,
-                        }
+            'blur' : None,
+            'bins_relative' : 0.5,
+            'bins_phi' : 360.0/1.0,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            'yticks' : [-180, -90, 0, 90, 180],
+            'save_data' : False,
+            'save_data_pickle' : True,
+            }
         self.run_args.update(kwargs)
         
 
@@ -2399,19 +2493,19 @@ class export_STL(Protocol):
         
         self.default_ext = '.stl'
         self.run_args = {
-                        'crop' : None ,
-                        'shift_crop_up' : 0.0 ,
-                        'blur' : 0.5 ,
-                        'resize' : 1.0 ,
-                        'ztrim' : [0.05, 0.005] ,
-                        'stl_pedestal' : 75.0 ,
-                        'stl_zscale' : 200.0 ,
-                        'crop_zone' : None ,
-                        'crop_beam' : None , 
-                        'crop_GI' : None ,
-                        'logo_file' : None ,
-                        'logo_resize' : 1.0 ,
-                        }
+            'crop' : None ,
+            'shift_crop_up' : 0.0 ,
+            'blur' : 0.5 ,
+            'resize' : 1.0 ,
+            'ztrim' : [0.05, 0.005] ,
+            'stl_pedestal' : 75.0 ,
+            'stl_zscale' : 200.0 ,
+            'crop_zone' : None ,
+            'crop_beam' : None , 
+            'crop_GI' : None ,
+            'logo_file' : None ,
+            'logo_resize' : 1.0 ,
+            }
         self.run_args.update(kwargs)
         
 
@@ -2567,7 +2661,9 @@ class metadata_extract(Protocol):
                     ['sequence_ID', '.+_(\d+)_[a-zA-Z]axs.+'] ,
                     ]            
             
-        self.run_args = { 'patterns' : patterns }
+        self.run_args = {
+            'patterns' : patterns,
+            }
         self.run_args.update(kwargs)
 
     @run_default

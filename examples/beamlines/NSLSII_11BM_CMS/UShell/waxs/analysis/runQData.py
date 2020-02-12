@@ -5,7 +5,7 @@
 ########################################
 
 import sys, os
-SciAnalysis_PATH='/home/etsai/BNL/Users/software/SciAnalysis/'
+SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob
@@ -50,16 +50,11 @@ run_args = { 'verbosity' : 3,
 process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 
 
-thumb_merged = Protocols.thumbnails(crop=None, resize=1, blur=None, cmap=cmap_vge_hdr, ztrim=[0.1, 0.002])
-thumb_merged.name = 'thumbnails_merged'
-q_images_merged = Protocols.q_image(cmap=cmap_vge, plot_range=[-0.1, 3, 0, 3], xticks=[0, 2, 4, 6], yticks=[0, 2, 4], plot_buffers=[0.2, 0.05, 0.15, 0.05], ztrim=[0.3, 0.001])
-q_images_merged.name = 'q_images_merged'
-
 protocols = [
     #Protocols.calibration_check(show=False, AgBH=True, q0=0.010, num_rings=4, ztrim=[0.05, 0.005], zmin=0) ,
     #Protocols.circular_average(ylog=True, plot_range=[0, 5.5, None, None]) ,
-    thumb_merged,
-    q_images_merged,
+    Protocols.q_image(name='q_images_merged', cmap=cmap_vge, plot_range=[-0.1, 3, 0, 3], xticks=[0, 2, 4, 6], yticks=[0, 2, 4], plot_buffers=[0.2, 0.05, 0.15, 0.05], ztrim=[0.3, 0.001])
+    Protocols.thumbnails(name='thumbnails_merged', crop=None, resize=1, blur=None, cmap=cmap_vge_hdr, ztrim=[0.1, 0.002])
     ]
 
 # Run
@@ -70,3 +65,4 @@ process.run(infiles, protocols, output_dir=output_dir, force=1)
 # Loop
 ########################################
 #process.monitor_loop(source_dir=source_dir, pattern='*.tif', protocols=protocols, output_dir=output_dir, force=False)
+
