@@ -28,7 +28,8 @@ import os
 import time
 import numpy as np
 
-from .settings import *
+#from .settings import *
+from SciAnalysis.settings import *
 try:
     # 'Fancy' xml library
     from lxml import etree
@@ -726,9 +727,10 @@ class Protocol(object):
         with the standard path for HDF5 file saving.'''
         
         head, tail = os.path.split(output_dir)
-        output_dir = '/'.join([head, save_dir])
-        outfile = self.get_outfile(name, output_dir, extra=extra, ext=ext, ir=False)
-        
+        output_dir = '/'.join([head, save_dir])        
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        outfile = self.get_outfile(name, output_dir, extra=extra, ext=ext, ir=False)        
         return outfile    
     
     def save_Data2D_HDF5(self, data, label, output_dir, results=None, extra=None):
@@ -758,12 +760,15 @@ class Protocol(object):
             extra: optional addition to filename
         Output:
             None    
-        '''             
-        outfile = self.get_outfile_HDF5(name, output_dir, extra=extra)
-        
+        '''            
+        outfile = self.get_outfile_HDF5(name, output_dir, extra=extra)        
         from .IO_HDF import dicttoh5
-        label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
-        data = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T    
+        try:
+            label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
+            data = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T    
+        except:
+            label =  [ line.x_label, line.y_label    ]
+            data = np.vstack( [line.x, line.y   ] ).T          
         to_save = { 'data': data, 'label': label, 'results':results }
         # TODO: Handle case where results contain arrays.
         dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')
