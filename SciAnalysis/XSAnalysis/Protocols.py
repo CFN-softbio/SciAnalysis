@@ -20,8 +20,9 @@
 #  Search for "TODO" below.
 ################################################################################
 
-from .Data import *
-from ..tools import *
+from SciAnalysis.XSAnalysis.Data import * #from .Data import *
+from SciAnalysis.tools import * #from ..tools import *
+#from SciAnalysis.IO_HDF import *
 
 import copy
 
@@ -232,7 +233,7 @@ class circular_average_sum(circular_average):
         line_sub = line.sub_range(run_args['sum_range'][0], run_args['sum_range'][1])
         results['values_sum'] = np.sum(line_sub.y)
 
-        outfile = self.get_outfile(data.name, output_dir)
+        
 
 
         # Plot and save data
@@ -254,13 +255,17 @@ class circular_average_sum(circular_average):
         lines.copy_labels(line)
         lines.results = results
 
-        try:
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
             lines.plot(save=outfile, **run_args)
-        except ValueError:
-            pass
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
+
 
         return results
                 
@@ -681,15 +686,19 @@ class sector_average(Protocol):
         if 'show_region' in run_args and run_args['show_region']:
             data.plot(show=True)
         
-        outfile = self.get_outfile(data.name, output_dir)
         
-        try:
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
-        except ValueError:
-            pass
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:          
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
+
+        
         
         return results
                                 
@@ -884,15 +893,20 @@ class linecut_q(Protocol):
         
         
         #line.smooth(2.0, bins=10)
-        
-        outfile = self.get_outfile(data.name, output_dir)
-        line.plot(save=outfile, **run_args)
 
-        #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
-        #line.plot_polar(save=outfile, **run_args)
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+            #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+            #line.plot_polar(save=outfile, **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)          
         
         return results
 
@@ -928,8 +942,9 @@ class linecut_qr_fit(linecut_qr, fit_peaks):
         
         #line.smooth(2.0, bins=10)
         
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
         
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
@@ -937,8 +952,13 @@ class linecut_qr_fit(linecut_qr, fit_peaks):
         lines = self._fit(line, results, **run_args)
         #lines = DataLines([line])
 
-        outfile = self.get_outfile(data.name, output_dir)
-        lines.plot(save=outfile, **run_args)        
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            lines.plot(save=outfile, **run_args)        
+        
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)          
+        
         
         return results
 
@@ -1239,12 +1259,17 @@ class linecut_qz_fit(linecut_qz):
         
         
         #line.smooth(2.0, bins=10)
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
         
-        outfile = self.get_outfile(data.name, output_dir)
-        line.plot(save=outfile, **run_args)
+        
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
 
         
         if 'incident_angle' not in run_args:
@@ -1288,6 +1313,14 @@ class linecut_qz_fit(linecut_qz):
         results['{}_grain_size'.format(fit_name)] = xi       
         
 
+        def angle_to_q(two_theta_s_rad):
+            k = data.calibration.get_k()
+            qz = 2*k*np.sin(two_theta_s_rad/2.0)
+            return qz      
+        def q_to_angle(q):
+            k = data.calibration.get_k()
+            two_theta_s_rad = 2.0*np.arcsin(q/(2.0*k))
+            return two_theta_s_rad
         
         if 'critical_angle_film' in run_args:
             # Account for refraction distortion
@@ -1298,14 +1331,6 @@ class linecut_qz_fit(linecut_qz):
             
             alpha_i_rad = np.arccos( np.cos(theta_incident_rad)/np.cos(theta_c_f_rad) )
             
-            def angle_to_q(two_theta_s_rad):
-                k = data.calibration.get_k()
-                qz = 2*k*np.sin(two_theta_s_rad/2.0)
-                return qz      
-            def q_to_angle(q):
-                k = data.calibration.get_k()
-                two_theta_s_rad = 2.0*np.arcsin(q/(2.0*k))
-                return two_theta_s_rad
             
             # Scattering from incident (refracted) beam
             two_theta_s_rad = q_to_angle(q0)
@@ -1362,14 +1387,14 @@ class linecut_qz_fit(linecut_qz):
                 self.ax.axvline(q0, color=color, linewidth=0.5)
                 self.ax.text(q0, yf, '$q_0$', size=20, color=color, horizontalalignment='center', verticalalignment='bottom')
                 
-                
-                s = '$q_T = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_T = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qT'], self.results['fit_peaks_dT'])
-                self.ax.text(q0, y_fit_max, s, size=15, color='b', horizontalalignment='left', verticalalignment='bottom')
-                self.ax.plot( [q0-self.results['fit_peaks_qT'], q0], [y_fit_max, y_fit_max], '-', color='b' )
+                if 'critical_angle_film' in self.run_args:
+                    s = '$q_T = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_T = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qT'], self.results['fit_peaks_dT'])
+                    self.ax.text(q0, y_fit_max, s, size=15, color='b', horizontalalignment='left', verticalalignment='bottom')
+                    self.ax.plot( [q0-self.results['fit_peaks_qT'], q0], [y_fit_max, y_fit_max], '-', color='b' )
 
-                s = '$q_R = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_R = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qR'], self.results['fit_peaks_dR'])
-                self.ax.text(q0, 0, s, size=15, color='r', horizontalalignment='left', verticalalignment='bottom')
-                self.ax.plot( [q0-self.results['fit_peaks_qR'], q0], [yi, yi], '-', color='r' )
+                    s = '$q_R = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_R = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qR'], self.results['fit_peaks_dR'])
+                    self.ax.text(q0, 0, s, size=15, color='r', horizontalalignment='left', verticalalignment='bottom')
+                    self.ax.plot( [q0-self.results['fit_peaks_qR'], q0], [yi, yi], '-', color='r' )
                 
                 
                 
@@ -1445,16 +1470,15 @@ class linecut_qz_fit(linecut_qz):
         lines.results = results
         lines.run_args = run_args
 
-        outfile = self.get_outfile(data.name+'-fit', output_dir, ext='.png')
         
-        try:
+        
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name+'-fit', output_dir, ext='.png')
             #lines.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
             lines.plot(save=outfile, **run_args)
-        except ValueError:
-            pass
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)  
         
         #print(results)
         
@@ -1556,7 +1580,9 @@ class linecut_angle_fit(linecut_angle):
         self.default_ext = '.png'
         self.run_args = {
             'show_region' : False,
-            'plot_range' : [-90, 90, None, None]
+            'plot_range' : [-90, 90, None, None],
+            'do_FWHM' : True,
+            'do_fits' : False,
             }
         self.run_args.update(kwargs)
         
@@ -1581,25 +1607,20 @@ class linecut_angle_fit(linecut_angle):
         line = data.linecut_angle(**run_args)
         
         
-        
-        # Remove the data near chi=0 since this is artificially high (specular ridge)
-        line.kill_x(0, 3)
-        
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
-        
-        # Basic output
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        #line.save_data(outfile)
-        
-        
         # Fine-tune data
+        #line.kill_x(0, 3) # Remove the data near chi=0 since this is artificially high (specular ridge)
         line.x = line.x[1:]
         line.y = line.y[1:]
         line.smooth(2.0)
         
-        do_FWHM = True
-        do_fits = False
+        
+        if 'show_region' in run_args and run_args['show_region']:
+            data.plot(show=True)
+        
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+        
         
         
         # Fit
@@ -1615,7 +1636,7 @@ class linecut_angle_fit(linecut_angle):
                 #yf = max( self.lines[-1].y )*1.5
                 #self.ax.axis( [xi, xf, yi, yf] )
 
-                if do_fits:
+                if run_args['do_fits']:
                     yp = yf
                     s = '$\eta = {:.2f}$'.format(self.results['fit_eta_eta'])
                     self.ax.text(xi, yp, s, size=30, color='b', verticalalignment='top', horizontalalignment='left')
@@ -1625,7 +1646,7 @@ class linecut_angle_fit(linecut_angle):
                     self.ax.text(xf, yp, s, size=30, color='purple', verticalalignment='top', horizontalalignment='right')
                     
                     
-                if do_FWHM:
+                if run_args['do_FWHM']:
                     # FWHM
                     line = self.lines[0]
                     xt, yt = line.target_y(max(line.y))
@@ -1656,7 +1677,7 @@ class linecut_angle_fit(linecut_angle):
         lines.results = {}
             
             
-        if do_fits:
+        if run_args['do_fits']:
             color_list = ['b', 'purple', 'r', 'green', 'orange',]
             for i, fit_name in enumerate(['fit_eta', 'fit_MaierSaupe']):
                 
@@ -1676,14 +1697,17 @@ class linecut_angle_fit(linecut_angle):
             
             
         # Output
-        if run_args['verbosity']>=1:
+        if 'plots' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir)
             lines.lines.reverse()
             lines.plot(save=outfile, **run_args)
 
-        if run_args['verbosity']>=4:
-            outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
-            line.plot_polar(save=outfile, **run_args)
+            if run_args['verbosity']>=4:
+                outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+                line.plot_polar(save=outfile, **run_args)
+
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)  
 
         return results
     

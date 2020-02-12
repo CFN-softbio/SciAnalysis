@@ -28,7 +28,8 @@ import os
 import time
 import numpy as np
 
-from .settings import *
+from SciAnalysis.settings import * #from .settings import *
+
 try:
     # 'Fancy' xml library
     from lxml import etree
@@ -727,6 +728,8 @@ class Protocol(object):
         
         head, tail = os.path.split(output_dir)
         output_dir = '/'.join([head, save_dir])
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)        
         outfile = self.get_outfile(name, output_dir, extra=extra, ext=ext, ir=False)
         
         return outfile    
@@ -762,8 +765,14 @@ class Protocol(object):
         outfile = self.get_outfile_HDF5(name, output_dir, extra=extra)
         
         from .IO_HDF import dicttoh5
-        label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
-        data = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T    
+        # TODO: Handle case where there is only an x_err or y_err (but not both)
+        if line.x_err is not None and line.y_err is not None:
+            label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
+            data = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T    
+        else:
+            label =  [ line.x_label, line.y_label ]
+            data = np.vstack( [line.x, line.y] ).T    
+            
         to_save = { 'data': data, 'label': label, 'results':results }
         # TODO: Handle case where results contain arrays.
         dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')
