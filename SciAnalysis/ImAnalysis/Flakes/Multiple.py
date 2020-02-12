@@ -71,7 +71,7 @@ class tile_img(ProtocolMultiple):
                         'blur' : None,
                         'verbosity' : 3,
                         'image_contrast' : (0, 1),
-                        'file_extension' : '.jpg',
+                        'file_extension' : '.png',
                         'filename_re' : 'tile_x(\d\d\d)_y(\d\d\d)',
                         'dpi' : 200,
                         'spacing_x' : +1.0,
