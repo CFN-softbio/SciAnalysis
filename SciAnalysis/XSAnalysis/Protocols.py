@@ -20,8 +20,13 @@
 #  Search for "TODO" below.
 ################################################################################
 
-from .Data import *
-from ..tools import *
+#from .Data import *
+#from ..tools import *
+
+from SciAnalysis.XSAnalysis.Data import *
+from SciAnalysis.tools import *
+from SciAnalysis.IO_HDF import *
+import copy
 
 import copy
 
@@ -691,6 +696,15 @@ class sector_average(Protocol):
         outfile = self.get_outfile(data.name, output_dir, ext='.dat')
         line.save_data(outfile)
         
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
+        if 'hdf5' in run_args['save_results']:          
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
+        
         return results
                                 
                 
@@ -893,7 +907,14 @@ class linecut_q(Protocol):
 
         outfile = self.get_outfile(data.name, output_dir, ext='.dat')
         line.save_data(outfile)
-        
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
+        if 'hdf5' in run_args['save_results']:           
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)  
         return results
 
 
