@@ -425,7 +425,7 @@ class DataLine(object):
         if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
-            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+            plt.figtext(0, 1, plot_args['title'], size=size-10, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         
         # Axis scaling
@@ -1659,10 +1659,9 @@ class Data2D(object):
             
             tick_positions = self._plot_z_transform(data=colorbar_labels, set_Z=False)
             #cbar = plt.colorbar(ticks=tick_positions, fraction=0.045, pad=0.02)
-            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.03, aspect=30)
+            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.02, aspect=65)
             colorbar_labels = ["{:.0f}".format(c) for c in colorbar_labels]
-            cbar.ax.set_yticklabels(colorbar_labels, size=18)
-        
+            cbar.ax.set_yticklabels(colorbar_labels, size=13)
         
         if 'plot_range' in plot_args:
             plot_range = plot_args['plot_range']
@@ -1677,7 +1676,7 @@ class Data2D(object):
         if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
-            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+            plt.figtext(0, 1, plot_args['title'], size=15, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         self._plot_extra(**plot_args)
         

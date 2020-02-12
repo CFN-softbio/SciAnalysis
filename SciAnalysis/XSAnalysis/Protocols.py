@@ -159,6 +159,14 @@ class circular_average(Protocol):
         #line.smooth(2.0, bins=10)
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+        line.plot_args = { 'rcParams': {'axes.labelsize': 25,
+                                    'xtick.labelsize': 25,
+                                    'ytick.labelsize': 25,
+                                    'xtick.major.pad': 10,
+                                    'ytick.major.pad': 10,
+                                    },
+							'title': data.name,
+                            }
 
         outfile = self.get_outfile(data.name, output_dir, ext='.dat')
         line.save_data(outfile)
@@ -622,6 +630,14 @@ class sector_average(Protocol):
         
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
+        line.plot_args = { 'rcParams': {'axes.labelsize': 25,
+                                    'xtick.labelsize': 25,
+                                    'ytick.labelsize': 25,
+                                    'xtick.major.pad': 10,
+                                    'ytick.major.pad': 10,
+                                    },
+							'title': data.name,
+                            }
         
         
         if 'show_region' in run_args and run_args['show_region']:
@@ -2040,12 +2056,13 @@ class qr_image(Protocol):
             run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
         
         q_data.set_z_display([None, None, 'gamma', 0.3])
-        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
-                                    'xtick.labelsize': 40,
-                                    'ytick.labelsize': 40,
+        q_data.plot_args = { 'rcParams': {'axes.labelsize': 30,
+                                    'xtick.labelsize': 30,
+                                    'ytick.labelsize': 30,
                                     'xtick.major.pad': 10,
                                     'ytick.major.pad': 10,
                                     },
+							'title': data.name,
                             } 
         q_data.x_label = 'qr'
         q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
