@@ -95,6 +95,15 @@ from SciAnalysis.XSAnalysis import Multiple
 #protocols = [ Multiple.sum_images() ]
 protocols = [ Multiple.stitch_images_position(positions=['pos1', 'pos2']) ]
     
+    
+    
+# Log un-paired files
+def log_file(filename, textstring):
+    file1 = open(filename,'a')
+    file1.write('{}\n'.format(textstring))
+    file1.close() 
+    
+log_filename = output_dir+'stitch_skipped.txt'
 
 
 
@@ -114,29 +123,34 @@ for infile in infiles:
     # Find corresponding "non-pos2" file
     pos1 = None
     m = rename_re.match(infile)
+    file_skipped = False
     if m:
         els = m.groups()
         search_for = '{}{}{}'.format(els[0], '_pos1_', els[2])
-        pos1 = [s for s in allfiles if search_for in s][0]
-        outname = pos1
-        
+        try:
+            pos1 = [s for s in allfiles if search_for in s][0]
+            outname = pos1[1:-6] # exclude .tiff 
+        except:
+            log_file(log_filename, infile)
+            continue
     else:
         print('WARNING: No re match for {}'.format(infile))
-    
+        log_file(log_filename, infile)
+
             
     if pos1 is None:
         print('No pos1 file found for:')
         print('    {}'.format(infile))
-        
+        log_file(log_filename, infile)
     else:
         print('Will combine:')
         print('    {}'.format(pos1))
         print('    {}'.format(infile))
         
         process.run_multiple_all(basename=outname, infiles=[pos1,infile], protocols=protocols, output_dir=output_dir, force=False)
-    
-    print('\n')
 
+        
+    print('\n')
 
 
 

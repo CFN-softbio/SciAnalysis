@@ -95,7 +95,9 @@ protocols = [
     Protocols.thumbnails(crop=None, resize=0.5, cmap=cmap_vge, ztrim=[0.02, 0.001]) , # Pilatus800k
     ]
     
-
+# To stitch files: 
+# 1) run stitch.py to stich into .TIFF 
+# 2) run runStitched.py to generate thumbnails etc
 
 
 # Run
