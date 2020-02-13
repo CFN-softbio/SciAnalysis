@@ -123,7 +123,6 @@ for infile in infiles:
     # Find corresponding "non-pos2" file
     pos1 = None
     m = rename_re.match(infile)
-    file_skipped = False
     if m:
         els = m.groups()
         search_for = '{}{}{}'.format(els[0], '_pos1_', els[2])
