@@ -186,6 +186,16 @@ class circular_average(Protocol):
         #line.smooth(2.0, bins=10)        
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+        
+        if 'label_filename' in run_args and run_args['label_filename']:
+            line.plot_args = { 'rcParams': {'axes.labelsize': 25,
+                                        'xtick.labelsize': 25,
+                                        'ytick.labelsize': 25,
+                                        'xtick.major.pad': 10,
+                                        'ytick.major.pad': 10,
+                                        },
+                                'title': data.name,
+                                }
 
         if 'txt' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.dat')
@@ -375,6 +385,7 @@ class fit_peaks(Protocol):
                     line = self.lines[0]
                 
                 yf = np.max(line.y)*1.5
+
                 self.ax.axis([xi, xf, yi, yf])
 
                 
@@ -414,7 +425,6 @@ class fit_peaks(Protocol):
                     s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)        
                     
-        
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
         if 'num_curves' in run_args and run_args['num_curves']>1 and 'show_curves' in run_args and run_args['show_curves']:
@@ -687,9 +697,21 @@ class sector_average(Protocol):
         if 'dezing' in run_args and run_args['dezing']:
             data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
         
+        if 'extra' in run_args:
+            extra = run_args['extra']
+        else: extra = ''
         
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
+        if 'label_filename' in run_args and run_args['label_filename']:
+            line.plot_args = { 'rcParams': {'axes.labelsize': 25,
+                                'xtick.labelsize': 25,
+                                'ytick.labelsize': 25,
+                                'xtick.major.pad': 10,
+                                'ytick.major.pad': 10,
+                                },
+                            'title': data.name,
+                            }
         
         if 'show_region' in run_args and run_args['show_region']:
             data.plot(show=True)
@@ -2179,13 +2201,17 @@ class qr_image(Protocol):
             run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
         
         q_data.set_z_display([None, None, 'gamma', 0.3])
-        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
-                                    'xtick.labelsize': 40,
-                                    'ytick.labelsize': 40,
+        
+        if 'label_filename' in run_args and run_args['label_filename']:
+            q_data.plot_args = { 'rcParams': {'axes.labelsize': 30,
+                                    'xtick.labelsize': 30,
+                                    'ytick.labelsize': 30,
                                     'xtick.major.pad': 10,
                                     'ytick.major.pad': 10,
                                     },
-                            } 
+                                'title': data.name,
+                                } 
+            
         q_data.x_label = 'qr'
         q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
 

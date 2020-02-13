@@ -332,7 +332,7 @@ class merge_images_position(ProtocolMultiple):
 
             results['files_saved'].append( 
                 { 'filename': '{}'.format(outfile) ,
-                'description' : 'mask file for the data (PNG file)' ,
+                'description' : 'mask file for the data' ,
                 'type' : 'metadata' , # 'data', 'plot', 'metadata'
                 } , )
             

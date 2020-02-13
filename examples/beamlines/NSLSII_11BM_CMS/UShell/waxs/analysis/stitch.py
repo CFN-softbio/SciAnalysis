@@ -143,10 +143,11 @@ for infile in infiles:
         print('    {}'.format(infile))
         log_file(log_filename, infile)
     else:
+
         print('Will combine:')
         print('    {}'.format(pos1))
         print('    {}'.format(infile))
-        
+
         process.run_multiple_all(basename=outname, infiles=[pos1,infile], protocols=protocols, output_dir=output_dir, force=False)
 
         

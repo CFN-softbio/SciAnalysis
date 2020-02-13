@@ -5,7 +5,7 @@
 ########################################
 
 import sys, os
-SciAnalysis_PATH='/home/etsai/BNL/Users/software/SciAnalysis/'
+SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob
@@ -65,4 +65,4 @@ process.run(infiles, protocols, output_dir=output_dir, force=1)
 # Loop
 ########################################
 #process.monitor_loop(source_dir=source_dir, pattern='*.tif', protocols=protocols, output_dir=output_dir, force=False)
- 
+
