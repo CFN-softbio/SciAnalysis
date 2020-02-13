@@ -30,7 +30,7 @@ class CalibrationQ(Calibration):
         
         self.clear_maps()
         
-        if infile is not None and '_axes' in infile:
+        if infile is not None and 'axes' in infile:
             self.load_axes(infile)
             self._load_mode = 'axes'
         else:
