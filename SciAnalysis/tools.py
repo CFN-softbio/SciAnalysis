@@ -28,7 +28,8 @@ import os
 import time
 import numpy as np
 
-from .settings import *
+from SciAnalysis.settings import * #from .settings import *
+
 try:
     # 'Fancy' xml library
     from lxml import etree
@@ -727,6 +728,8 @@ class Protocol(object):
         
         head, tail = os.path.split(output_dir)
         output_dir = '/'.join([head, save_dir])
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)        
         outfile = self.get_outfile(name, output_dir, extra=extra, ext=ext, ir=False)
         
         return outfile    
@@ -764,12 +767,14 @@ class Protocol(object):
         #print( 'In tools, the out put dir is: %s'%outfile )
         
         from .IO_HDF import dicttoh5
-        try:
+        # TODO: Handle case where there is only an x_err or y_err (but not both)
+        if line.x_err is not None and line.y_err is not None:
             label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
             data = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T    
-        except:
-            label =  [ line.x_label, line.y_label    ]
-            data = np.vstack( [line.x, line.y   ] ).T                
+        else:
+            label =  [ line.x_label, line.y_label ]
+            data = np.vstack( [line.x, line.y] ).T    
+            
         to_save = { 'data': data, 'label': label, 'results':results }
         # TODO: Handle case where results contain arrays.
         #print( outfile, self.name )
