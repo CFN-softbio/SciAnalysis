@@ -494,6 +494,13 @@ class fit_peaks(Protocol):
         xs = np.asarray(line.x)
         ys = np.asarray(line.y)
         
+        if isinstance(q0, (list, tuple, np.ndarray)):
+            # q0 may be a list of q0 positions for a set of peaks
+            q0s = q0
+            q0 = q0s[0]
+        else:
+            q0s = None
+        
         if q0 is not None:
             # Sort
             indices = np.argsort(xs)
@@ -534,8 +541,13 @@ class fit_peaks(Protocol):
                 params.add('x_center{:d}'.format(i+1), value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=False)
             else:
                 # Additional peaks can be spread out
-                xpos = np.min(line.x) + (xspan/num_curves)*i
+                # (or use q0s value if available)
+                if q0s is not None and len(q0s)>i:
+                    xpos = q0s[i]
+                else:
+                    xpos = np.min(line.x) + (xspan/num_curves)*i
                 params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
+                
             params.add('sigma{:d}'.format(i+1), value=sigma, min=0.00001, max=xspan*0.5, vary=False)
         
         
@@ -1837,8 +1849,17 @@ class calibration_check(Protocol):
             for i in range(11):
                 data.overlay_ring(q0*(i+1), q0*(i+1)*dq)
                 
+        if 'CeO2' in run_args and run_args['CeO2']:
+            # FCC structure, a = 5.411 Angstroms
+            # Ref: https://community.dur.ac.uk/john.evans/topas_workshop/data/ceo2.cif
+            q0 = (2*np.pi/5.411)*np.sqrt(3) # A^-1, (111)
+
+            qlist = ( q0/np.sqrt(3) )*np.array((np.sqrt(3), 2, np.sqrt(8),np.sqrt(11),np.sqrt(12),np.sqrt(16),np.sqrt(19),  np.sqrt(20)))
+            data.overlay_ring(q0, q0*dq)
+            for q in qlist:
+                data.overlay_ring(q, q*dq)                
+                
         if 'q0'  in run_args:
-            
             q0 = run_args['q0']
             if 'num_rings' in run_args:
                 num_rings = run_args['num_rings']

@@ -18,9 +18,7 @@ from SciAnalysis.XSAnalysis import Protocols
 
 
 # Experimental parameters
-# For pilatus2M
 ########################################
-
 
 mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
 
@@ -104,6 +102,14 @@ print('Processing {} infiles...'.format(len(infiles)))
 #process.run(infiles, protocols, output_dir=output_dir, force=1)
 #process.run_multiple(pattern_re=pattern_re, infiles=infiles, protocols=protocols, output_dir=output_dir, force=True)
 
+
+# Log un-paired files
+log_filename = output_dir+'stitch_skipped.txt'
+def log_file(filename, textstring):
+    with open(filename, 'a') as fout:
+        fout.write('{}\n'.format(textstring))
+
+
 import re
 rename_re = re.compile('^(.+)(_pos2_)(.+_)(\d+_waxs\.tiff)$')
 allfiles = glob.glob(os.path.join(source_dir, '*.tiff'))
@@ -117,16 +123,22 @@ for infile in infiles:
     if m:
         els = m.groups()
         search_for = '{}{}{}'.format(els[0], '_pos1_', els[2])
-        pos1 = [s for s in allfiles if search_for in s][0]
-        outname = pos1
+        try:
+            pos1 = [s for s in allfiles if search_for in s][0]
+            outname = pos1
+        except:
+            log_file(log_filename, infile)
+            continue
         
     else:
         print('WARNING: No re match for {}'.format(infile))
+        log_file(log_filename, infile)
     
             
     if pos1 is None:
         print('No pos1 file found for:')
         print('    {}'.format(infile))
+        log_file(log_filename, infile)
         
     else:
         print('Will combine:')
