@@ -195,6 +195,12 @@ class circular_average(Protocol):
 							'title': data.name,
                             }
 
+        if 'twotheta' in run_args and run_args['twotheta']:
+            k = data.calibration.get_k()
+            two_theta_s_rad = 2.0*np.arcsin(line.x/(2.0*k))
+            line.x = two_theta_s_rad/np.pi*180		
+            line.x_rlabel = '2theta (deg)'	
+
         if 'txt' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.dat')
             line.save_data(outfile)
