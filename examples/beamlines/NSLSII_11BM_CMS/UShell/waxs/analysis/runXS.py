@@ -76,6 +76,7 @@ load_args = { 'calibration' : calibration,
              'flip' : True, # PSCCD
              }
 run_args = { 'verbosity' : 3,
+            #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
             }
 
 process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
@@ -89,6 +90,7 @@ process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 #protocols = [ Protocols.q_phi_image(bins_relative=0.25, plot_range=[0, 3.0, 0, +90]) ]
 
 protocols = [
+    #Protocols.HDF5(save_results=['hdf5'])
     #Protocols.calibration_check(show=False, AgBH=True, q0=1.369*0.25, dq=0.002, num_rings=10, ztrim=[0.2, 0.01], dpi=300) ,
     Protocols.circular_average(ylog=False, plot_range=[0, 4.5, 1000, None], dezing=True) ,
     #Protocols.thumbnails(crop=None, resize=0.5, cmap=cmap_vge, ztrim=[0.06, 0.001], zmin=1000.0) , # PSCCD
