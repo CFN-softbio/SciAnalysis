@@ -1652,6 +1652,7 @@ class Data2D(object):
         
         
         if 'colorbar' in plot_args and plot_args['colorbar']:
+            # Note that this assumes the plot is using vmin=0, vmax=1
             if 'colorbar_labels' in plot_args:
                 colorbar_labels = plot_args['colorbar_labels']
             else:

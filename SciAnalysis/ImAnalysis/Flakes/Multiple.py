@@ -446,11 +446,10 @@ class Data2D_flake_histogram(Data2D):
         
         self.fig = plt.figure( figsize=(size,size), facecolor='white' )
         left_buf, right_buf, bottom_buf, top_buf = plot_buffers
+        if 'colorbar' in plot_args and plot_args['colorbar']:
+            right_buf += 0.03
         fig_width = 1.0-right_buf-left_buf
         fig_height = 1.0-top_buf-bottom_buf
-        
-        
-        
         
         
         if side_histograms is not None:
@@ -462,6 +461,7 @@ class Data2D_flake_histogram(Data2D):
             self.ax_right = self.fig.add_axes( [left_buf+fig_width-sh, bottom_buf, sh, fig_height-sh] )
             
         else:
+            sh = 0
             self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
         
         plt.sca(self.ax)
@@ -515,10 +515,11 @@ class Data2D_flake_histogram(Data2D):
          
         x_axis, y_axis = self.xy_axes()
         extent = [x_axis[0], x_axis[-1], y_axis[0], y_axis[-1]]
+
+        # NOTE: This will not correctly handle if z_display is not set to 'linear'
         
-        # TODO: Handle 'origin' correctly. (E.g. allow it to be set externally.)
         #self.im = plt.imshow(self.Z, vmin=0, vmax=1, cmap=cmap, interpolation='nearest', extent=extent, origin='lower')
-        self.ax.pcolormesh( self.x_axis, self.y_axis, self.Z, cmap=cmap, vmin=zmin, vmax=zmax, shading=shading )
+        mesh = self.ax.pcolormesh( self.x_axis, self.y_axis, self.Z, cmap=cmap, vmin=zmin, vmax=zmax, shading=shading )
         
         if xlog:
             self.ax.semilogx()
@@ -541,6 +542,23 @@ class Data2D_flake_histogram(Data2D):
         if 'yticks' in kwargs and kwargs['yticks'] is not None:
             self.ax.set_yticks(kwargs['yticks'])
         
+        if 'colorbar' in plot_args and plot_args['colorbar']:
+            cbaxes = self.fig.add_axes([left_buf+fig_width+0.01, bottom_buf, 0.02, fig_height-sh]) 
+            cbaxes.tick_params(labelsize=10, width=0.5)
+            
+            if self.z_display[2]=='linear':
+                cbar = plt.colorbar(mesh, ax=self.ax, cax=cbaxes, fraction=0.04, pad=0.03, aspect=30)
+            else:
+                # Handling this correctly would require vmin=0, vmax=1
+                pass
+                #n = 4
+                #colorbar_labels = [ zmin + i*(zmax-zmin)/n for i in range(n+1) ]
+                #tick_positions = self._plot_z_transform(data=colorbar_labels, set_Z=False)
+                #cbar = plt.colorbar(mesh, ax=self.ax, cax=cbaxes, ticks=tick_positions, fraction=0.04, pad=0.03, aspect=30)
+                #colorbar_labels = ["{:.2g}".format(c) for c in colorbar_labels]
+                #cbar.ax.set_yticklabels(colorbar_labels, size=18)
+        
+                
         
         if 'plot_range' in plot_args:
             plot_range = plot_args['plot_range']
@@ -580,6 +598,11 @@ class Data2D_flake_histogram(Data2D):
         xi, xf, yi, yf = self.ax.axis()
         
         target_color = plot_args['target_color']
+
+
+        size = plot_args['rcParams']['xtick.labelsize']
+        s = r'$\rho_{{\mathrm{{overall}} }} = {:.1f} \, \mathrm{{flakes/mm^{{2}} }} \,\, ({:,d} \, \mathrm{{total\,flakes)}}$'.format(self.overall_density, int(self.num_flakes))
+        plt.figtext(0, 0, s, size=size, color='0.5', verticalalignment='bottom', horizontalalignment='left')
             
         
         if side_histograms is not None:
@@ -626,6 +649,15 @@ class Data2D_flake_histogram(Data2D):
                     self.ax_top.plot(x[idx], y[idx], '-', linewidth=2, color=target_color)
                     
                     num_target_top = np.sum(y[idx])
+                    
+                    lm_result, fit_line, fit_line_extended = self.fit_power(line=DataLine(x=x, y=y), verbosity=3, fit_range=[plot_args['target'][0], plot_args['target'][1]])
+
+                    self.ax_top.plot(fit_line_extended.x, fit_line_extended.y, '-', linewidth=1, color=target_color)
+                    
+                    prefactor = lm_result.params['prefactor'].value
+                    alpha = lm_result.params['alpha'].value
+                    s = r'$\rho = {:.0f} r^{{ {:.1f} }}$'.format(prefactor, alpha)
+                    self.ax_top.text(xf, yplotf*0.75, s, size=20, color=target_color, horizontalalignment='right', verticalalignment='top')
                     
             
             
@@ -963,12 +995,13 @@ class ImageGrid(object):
                 plt.savefig(save, dpi=plot_args['dpi'], transparent=transparent)
             else:
                 plt.savefig(save, transparent=transparent)
-        
+        print('oi')
         if show:
             self._plot_interact()
             plt.show()
             
         plt.close(self.fig.number)
+        print('donoi')
 
 
 
@@ -1050,6 +1083,9 @@ class histogram(tile_img):
                         'value_key' : 'flake_contrast',
                         'target' : [2, 45, -0.015, 0], # 'boxed-in' region for the 'target' (desired) flakes
                         'interact' : False,
+                        'zmin' : 0,
+                        'ztrim' : [0, 0.005],
+                        'colorbar' : True,
                         }
         self.run_args.update(kwargs)
     
@@ -1117,9 +1153,12 @@ class histogram(tile_img):
         run_args['scale2'] = run_args['scale']*run_args['scale'] # um^2/pixel^2
 
         results['num_images'] = len(datas)
+        results['num_flakes'] = len(flakes)
         results['total_area_pix'] = results['num_images']*h*w
         results['total_area_um2'] = results['total_area_pix']*run_args['scale2']
         results['total_area_mm2'] = results['total_area_um2']/1e6
+        
+        results['overall_density'] = results['num_flakes']/results['total_area_mm2']
     
         if run_args['min_radius_um'] is None:
             run_args['min_radius_um'] = np.sqrt(run_args['min_area_pixels']/np.pi)*run_args['scale']
@@ -1206,6 +1245,9 @@ class histogram(tile_img):
         d.y_rlabel = r'$\mathrm{image \,\, contrast}$'
         d.plot_args = plot_args
         
+        d.num_flakes = results['num_flakes']
+        d.overall_density = results['overall_density']
+        
         # Optionally massage the data?
         #d.blur(1.0)
         
@@ -1225,8 +1267,8 @@ class histogram(tile_img):
             ]
             
         plot_range = run_args['min_radius_um'], run_args['max_radius_um'], run_args['value_range'][0], run_args['value_range'][1]
-        d.plot(outfile, show=run_args['interact'], xlog=True, ylog=False, plot_buffers=[0.18, 0.05, 0.18, 0.05], plot_range=plot_range, yticks=[-0.08, -0.04, 0, 0.04, 0.08], _cmap=cmap_vge_hdr, zmin=0, ztrim=[0,0.02], side_histograms=0.15, dpi=300, plot_args=plot_args)
-    
+        d.plot(outfile, show=run_args['interact'], xlog=True, ylog=False, plot_buffers=[0.18, 0.05, 0.18, 0.05], plot_range=plot_range, yticks=[-0.08, -0.04, 0, 0.04, 0.08], side_histograms=0.15, dpi=300, plot_args=plot_args, **run_args)
+        
     
         return results
     
