@@ -50,7 +50,7 @@ else:
     calibration.set_distance(0.355)
 
     mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
-    mask = Mask(mask_dir+'Dectris/Pilatus800k_gaps-mask.png')
+    mask = Mask(mask_dir+'Dectris/Pilatus800_gaps-mask.png')
     #mask.load('./Pilatus800k_current-mask.png')
 
 
@@ -72,8 +72,8 @@ infiles.sort()
 
 load_args = { 'calibration' : calibration, 
              'mask' : mask,
-             'rot180' : False,
-             'flip' : True, # PSCCD
+             #'rot180' : False,
+             #'flip' : True, # PSCCD
              }
 run_args = { 'verbosity' : 3,
             #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
