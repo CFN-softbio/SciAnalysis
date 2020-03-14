@@ -903,9 +903,10 @@ def load_retry(infile, max_retries=10, wait_time=0.1):
     while attempts < max_retries:
         try:
             results = np.load(infile, allow_pickle=True).item()
+            break
         except Exception as ex:
             attempts += 1
-            print("Exception {} occurred while loading {}".format(ex.__class__.__name__, infile))
+            print("    Attempt {}: Exception {} occurred while loading {}".format(attempts+1, ex.__class__.__name__, infile))
             print(ex)
             
             time.sleep(wait_time)

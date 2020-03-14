@@ -295,6 +295,10 @@ class circular_average_q2I(Protocol):
         
         line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
         
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+        
+        
         if run_args['qn_power']==2.0:
             line.y *= np.square(line.x)
             line.y_label = 'q^2*I(q)'
@@ -710,10 +714,80 @@ class sector_average(Protocol):
         if 'hdf5' in run_args['save_results']:          
             self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
 
-        
-        
         return results
-                                
+    
+
+class sector_average_fit(sector_average, fit_peaks):
+
+    def __init__(self, name=None, **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+            'bins_relative' : 1.0,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            'error' : True, 
+            'show_region' : False,
+            'qn_power' : None,
+            'num_curves' : 1,
+            }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if 'dezing' in run_args and run_args['dezing']:
+            data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
+        
+        
+        line = data.sector_average_q_bin(**run_args)
+        #line.smooth(2.0, bins=10)
+        
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+        
+        if run_args['qn_power'] is not None:
+            if run_args['qn_power']==2.0:
+                line.y *= np.square(line.x)
+                line.y_label = 'q^2*I(q)'
+                line.y_rlabel = '$q^2 I(q) \, (\AA^{-2} \mathrm{counts/pixel})$'
+            else:
+                line.y *= np.power(line.x, run_args['qn_power'])
+                line.y_label = 'q^n*I(q)'
+                line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
+        
+        
+        if 'show_region' in run_args and run_args['show_region']:
+            data.plot(show=True)
+        
+        
+        #if 'plots' in run_args['save_results']:
+            #outfile = self.get_outfile(data.name, output_dir)
+            #line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:          
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
+
+
+        # Do fit
+        lines = self._fit(line, results, **run_args)
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            lines.plot(save=outfile, **run_args)        
+        
+
+        return results
+    
+
                 
 class roi(Protocol):
 
@@ -1238,7 +1312,7 @@ class _old_linecut_qr_fit(linecut_qr):
 
 
 
-class linecut_qz_fit(linecut_qz):
+class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
 
     def __init__(self, name='linecut_qz_fit', **kwargs):
         
@@ -1500,6 +1574,7 @@ class linecut_qz_fit(linecut_qz):
 
                 
     def _fit_peaks(self, line, num_curves=1, **run_args):
+        # TODO: Use class fit_peaks
         
         # Usage: lm_result, fit_line, fit_line_extended = self.fit_peaks(line, **run_args)
         
