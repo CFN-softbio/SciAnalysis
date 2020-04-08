@@ -24,6 +24,8 @@ import os
 from .Data import *
 from ..tools import *
 
+import copy
+
 
 class ProcessorIm(Processor):
 
@@ -53,6 +55,8 @@ class ProcessorIm(Processor):
 
         
         return data
+        
+        
         
         
 class ProcessorImRGB(ProcessorIm):
@@ -99,6 +103,7 @@ class shell(Protocol):
         make_dir(output_dir)
         
         results = {}
+        data = copy.deepcopy(data)
         
         if run_args['crop'] is not None:
             data.crop(run_args['crop'])
@@ -175,6 +180,35 @@ class preprocess(object):
         data.maximize_intensity_spread()
         
         return data
+
+
+class mask(object):
+    '''Base shared class to allow Protocols to invoke a mask, which selects
+    which regions of the image to analyze.'''
+
+    def get_mask(self, data, mask_threshold=127, mask_invert=False, **run_args):
+
+        if 'mask' not in run_args or run_args['mask'] is None or run_args['mask'] in ['None', 'none',]:
+            return None
+            
+        if run_args['mask']=='dots':
+            infile = './dots_vs_lines/{}/dots_vs_lines.png'.format(data.name)
+            mask_invert = not mask_invert
+        
+        elif run_args['mask']=='lines':
+            infile = './dots_vs_lines/{}/dots_vs_lines.png'.format(data.name)
+        
+        else:
+            infile = run_args['mask']
+        
+        
+        mask_image = PIL.Image.open(infile).convert('I') # 'I' : 32-bit integer pixels
+            
+        mask = np.where( np.asarray(mask_image)>mask_threshold, 1, 0 ) # Binary array
+        if mask_invert:
+            mask = 1-mask
+            
+        return mask
     
     
 
@@ -190,6 +224,7 @@ class thumbnails(Protocol):
                         'blur' : 1.0,
                         'resize' : 0.5,
                         'cmap' : mpl.cm.bone,
+                        'preserve_data' : True,
                         }
         self.run_args.update(kwargs)
         
@@ -198,6 +233,10 @@ class thumbnails(Protocol):
     def run(self, data, output_dir, **run_args):
         
         results = {}
+        
+        if run_args['preserve_data']:
+            # Avoid changing the data (which would disrupt downstream analysis of this data object)
+            data = copy.deepcopy(data)
         
         if run_args['crop'] is not None:
             data.crop(run_args['crop'])
@@ -214,7 +253,7 @@ class thumbnails(Protocol):
         
         
         
-class fft(Protocol):
+class fft(Protocol, mask):
     
     def __init__(self, name='fft', **kwargs):
         
@@ -239,10 +278,22 @@ class fft(Protocol):
         results = {}
         
         
+        
         if run_args['verbosity']>=5:
             im = PIL.Image.fromarray( np.uint8(data.data) )
             outfile = self.get_outfile('original', output_dir, ext='.png', ir=True)
             im.save(outfile)
+        
+        
+        run_args['mask'] = self.get_mask(data, **run_args)
+        if run_args['mask'] is not None:
+            data = copy.deepcopy(data)
+            avg = np.average(data.data)
+            data.data = np.where(run_args['mask']==1, data.data, avg)
+                
+        
+        
+        if run_args['verbosity']>=5:
             data.set_z_display( [None, None, 'gamma', 1.0] )
             outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
             data.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
@@ -742,6 +793,7 @@ class local_avg_realspace(Protocol, preprocess):
         make_dir(output_dir)
 
         results = {}
+        data = copy.deepcopy(data)
         
         
         if run_args['verbosity']>=5:
@@ -853,6 +905,18 @@ class particles(Protocol, preprocess):
         
         return data
 
+    def preprocess_highloweq(self, data, **run_args):
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        
+        data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
+
 
     def _find_objects(self, data, output_dir, results, **run_args):
         # results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
@@ -937,8 +1001,8 @@ class particles(Protocol, preprocess):
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
         
-        
         results = {}
+        data = copy.deepcopy(data)
         
         results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
 
@@ -1089,31 +1153,38 @@ class particles(Protocol, preprocess):
                     contour = measure.find_contours(particle, 0.5)[0]
                     ellipse = measure.EllipseModel()
                     ellipse.estimate(contour)
-                    xc, yc, a, b, theta = ellipse.params
-                    if a>=b:
-                        eccentricity = np.sqrt(1 - b**2/a**2)
-                    else:
-                        eccentricity = np.sqrt(1 - a**2/b**2)
-                    eccentricities.append(eccentricity)
-
-                    if run_args['verbosity']>=4:
-                        print('    Particle {} ({} pixels)'.format(i, area_pix))
-                        print('      A = {:.1f} nm^2; r = {:.1f} nm'.format(area_nm2, radius_nm))
-                        print('      P = {:.1f} nm; P/A = {:.2g} 1/nm; Pr/A = {:.2f}'.format(perimeter_nm, perimeter_nm/area_nm2, PrA))
-                        print('      e = {:.2f}'.format(eccentricity))
-
-                    if run_args['verbosity']>=5:
-                        analyzed_image += np.stack( (particle*255, particle*255, particle*255), axis=-1 )
-                        xy = ellipse.predict_xy( np.linspace(0, 2*np.pi, 90) )
-                        for y, x in xy:
-                            if x>=0 and y>=0 and x<w and y<h:
-                                analyzed_image[int(y),int(x)] = [255, 0, 0]
                     
-                    if run_args['verbosity']>=10:
-                        # Output image of each particle separately (mostly for debugging)
-                        outfile = self.get_outfile('particle{}'.format(i), output_dir, ext='.png', ir=False)
-                        import scipy.misc
-                        scipy.misc.toimage(particle*255).save(outfile)
+                    if ellipse.params is None:
+                        if run_args['verbosity']>=1:
+                            print("WARNING: params is None for particle {:d}".format(i))
+                    else:
+                        xc, yc, a, b, theta = ellipse.params
+                        if a>=b:
+                            eccentricity = np.sqrt(1 - b**2/a**2)
+                        else:
+                            eccentricity = np.sqrt(1 - a**2/b**2)
+                        eccentricities.append(eccentricity)
+
+                        if run_args['verbosity']>=4:
+                            print('    Particle {} ({} pixels)'.format(i, area_pix))
+                            print('      A = {:.1f} nm^2; r = {:.1f} nm'.format(area_nm2, radius_nm))
+                            print('      P = {:.1f} nm; P/A = {:.2g} 1/nm; Pr/A = {:.2f}'.format(perimeter_nm, perimeter_nm/area_nm2, PrA))
+                            print('      e = {:.2f}'.format(eccentricity))
+
+                        if run_args['verbosity']>=5:
+                            analyzed_image += np.stack( (particle*255, particle*255, particle*255), axis=-1 )
+                            xy = ellipse.predict_xy( np.linspace(0, 2*np.pi, 90) )
+                            for y, x in xy:
+                                if x>=0 and y>=0 and x<w and y<h:
+                                    analyzed_image[int(y),int(x)] = [255, 0, 0]
+                        
+                        if run_args['verbosity']>=10:
+                            # Output image of each particle separately (mostly for debugging)
+                            outfile = self.get_outfile('particle{}'.format(i), output_dir, ext='.png', ir=False)
+                            #import scipy.misc
+                            #scipy.misc.toimage(particle*255).save(outfile) # Deprecated
+                            particle_image = particle*255
+                            Image.fromarray(particle_image.astype(np.uint8)).save(outfile)
 
 
         results['PrA_average'] = np.average(PrAs)
@@ -1128,8 +1199,9 @@ class particles(Protocol, preprocess):
                     
         if run_args['verbosity']>=5:
             outfile = self.get_outfile('analyzed', output_dir, ext='.png', ir=True)
-            import scipy.misc
-            scipy.misc.toimage(analyzed_image).save(outfile)
+            #import scipy.misc
+            #scipy.misc.toimage(analyzed_image).save(outfile) # Deprecated
+            Image.fromarray(analyzed_image.astype(np.uint8)).save(outfile)
                 
             
         
@@ -1334,7 +1406,7 @@ class particles_annotated(particles):
         return results, labeled_array
     
             
-class grain_size_hex(Protocol, preprocess):
+class grain_size_hex(Protocol, preprocess, mask):
     
     def __init__(self, name='grain_size_hex', **kwargs):
         
@@ -1347,7 +1419,7 @@ class grain_size_hex(Protocol, preprocess):
                         'invert' : False,
                         'diagonal_detection' : False,
                         'cmap' : mpl.cm.bone,
-                        'correlation_edge_exclusion' : 10,
+                        '' : 10,
                         'correlation_step_size_points' : 5,
                         'trim_r_curve' : 0.8, # 1.0 doesn't trim anything; 0.8 trims the last 20% of the g(r)-curve
                         'preprocess' : 'default',
@@ -1400,9 +1472,12 @@ class grain_size_hex(Protocol, preprocess):
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
         
+        run_args['mask'] = self.get_mask(data, **run_args)
+        
         orig_data = data.data.copy()
         
         results = {}
+        data = copy.deepcopy(data)
         
         if run_args['verbosity']>=5:
             im = PIL.Image.fromarray( np.uint8(data.data) )
@@ -2111,16 +2186,31 @@ class grain_size_hex(Protocol, preprocess):
         count_accumulator = np.zeros( (h*2,w*2) ) # Keep track of counts (for normalization)
         one_field = np.ones( (h,w) )
         
-        for ix in range(ex, w-ex, step):
-            if run_args['verbosity']>=3:
-                print( '        Correlation analysis {:.1f}%'.format (100.*ix/w))
-            for iy in range(ex, h-ex, step):
-                
-                deltatheta = angles[iy,ix] - angles
-                orderparameter = np.cos(symmetry*deltatheta)
-                
-                accumulator[h-iy:-iy, w-ix:-ix] += orderparameter
-                count_accumulator[h-iy:-iy, w-ix:-ix] += one_field
+        if 'mask' not in run_args or run_args['mask'] is None:
+            # Normal analysis
+            for ix in range(ex, w-ex, step):
+                if run_args['verbosity']>=3:
+                    print( '        Correlation analysis {:.1f}%'.format (100.*ix/w))
+                for iy in range(ex, h-ex, step):
+                    deltatheta = angles[iy,ix] - angles
+                    orderparameter = np.cos(symmetry*deltatheta)
+                    
+                    accumulator[h-iy:-iy, w-ix:-ix] += orderparameter
+                    count_accumulator[h-iy:-iy, w-ix:-ix] += one_field
+                    
+        else:
+            # Analysis that ignores pixels excluded by the mask
+            mask = run_args['mask']
+            for ix in range(ex, w-ex, step):
+                if run_args['verbosity']>=3:
+                    print( '        Correlation analysis {:.1f}%'.format (100.*ix/w))
+                for iy in range(ex, h-ex, step):
+                    if mask[iy,ix]==1:
+                        deltatheta = angles[iy,ix] - angles
+                        orderparameter = np.cos(symmetry*deltatheta)
+                        
+                        accumulator[h-iy:-iy, w-ix:-ix] += orderparameter*mask
+                        count_accumulator[h-iy:-iy, w-ix:-ix] += one_field*mask
 
         # Compute array of distances associated with the accumulator
         r_dist = np.zeros( (h*2,w*2) )
@@ -2450,7 +2540,10 @@ class grain_size(grain_size_hex):
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
         
+        run_args['mask'] = self.get_mask(data, **run_args)
+        
         results = {}
+        data = copy.deepcopy(data)
         
         #orig_data = data.data.copy()
 
@@ -2567,6 +2660,7 @@ class defects_lines(grain_size_hex):
         orig_data = data.data.copy()
         
         results = {}
+        data = copy.deepcopy(data)
         
         if run_args['verbosity']>=5:
             im = PIL.Image.fromarray( np.uint8(data.data) )
@@ -2799,3 +2893,270 @@ class defects_lines(grain_size_hex):
             
             
         return results
+
+
+
+
+class dots_vs_lines(particles):
+    
+    def __init__(self, name='dots_vs_lines', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+                        'threshold' : 127,
+                        'invert' : False,
+                        'diagonal_detection' : False,
+                        'cmap' : mpl.cm.bone,
+                        'preprocess' : 'default',
+                        'method' : 'nearest',
+                        }
+        self.run_args.update(kwargs)
+        
+    def preprocess_default(self, data, **run_args):
+        #data.equalize()
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        #data.lowkill(run_args['q0']*0.1)
+        
+        data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        #data.blur(1.0) # lowpass
+        #data.blur(0.6) # lowpass
+        #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data        
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+        
+        results = {}
+        data = copy.deepcopy(data)
+        
+        results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
+
+        if run_args['verbosity']>=2:
+            print("    Identifying regions using '{}' method.".format(run_args['method']))
+        method = getattr(self, 'identify_regions_{}'.format(run_args['method']))
+        new_results = method(data, output_dir, labeled_array, **run_args)
+        results.update(new_results)
+
+
+
+        return results
+
+
+    def identify_regions_nearest(self, data, output_dir, labeled_array, grow_size=3, **run_args):
+        
+        results = {}
+        
+        scale_nm = (data.x_scale+data.y_scale)/2 # nm/pixel
+        cutoff_pix = run_args['dot_size_cutoff_nm']/scale_nm
+        cutoff_area = np.pi*np.square(cutoff_pix) # pixels
+        
+        if run_args['verbosity']>=5:
+            print('        Cutoff {:.2f} nm ({:.1f} pixels); surface area {:.1f} pixels'.format(run_args['dot_size_cutoff_nm'], cutoff_pix, cutoff_area))
+        
+        particle_areas = np.bincount( labeled_array.flatten() )
+
+        if run_args['verbosity']>=6:
+            # Color-coded image of object types
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
+            
+            
+        # Sort labelled objects into the two size categories
+        start_time = time.time()
+        
+        particles_sized = particle_areas[labeled_array] # Image where each pixel has the corresponding size of that object (we obtain this by returning the particle_areas as a lookup table and labeled_array for the object indices)
+        
+        labeled_array_categories = np.where( (particles_sized<cutoff_area) & (labeled_array>0), 1, 0 ) # Small particles
+        labeled_array_categories += np.where( (particles_sized>=cutoff_area) & (labeled_array>0), 2, 0 ) # Big particles
+        
+        if run_args['verbosity']>=5:
+            # Create a color-coded image of the objects
+            color_background = [0, 0, 0] # Black
+            color_small = [255, 0, 0 ] # Red
+            color_big = [0, 255, 0] # Green
+            
+            red = np.where( (particles_sized<cutoff_area) & (labeled_array>0), color_small[0], color_background[0] )
+            red = np.where( (particles_sized>=cutoff_area) & (labeled_array>0), color_big[0], red )
+            
+            green = np.where( (particles_sized<cutoff_area) & (labeled_array>0), color_small[1], color_background[0] )
+            green = np.where( (particles_sized>=cutoff_area) & (labeled_array>0), color_big[1], green )
+            
+            blue = np.where( (particles_sized<cutoff_area) & (labeled_array>0), color_small[2], color_background[0] )
+            blue = np.where( (particles_sized>=cutoff_area) & (labeled_array>0), color_big[2], blue )
+            image_data = np.dstack( (red, green, blue) )
+            
+            image = PIL.Image.fromarray( np.uint8(image_data) )
+            outfile = self.get_outfile('coded', output_dir, ext='.png', ir=True)
+            image.save(outfile)
+            
+        
+        if run_args['verbosity']>=4:
+            print("    categorizing took {:.1f} s".format(time.time()-start_time))
+
+        # Binarize image based on categories
+        start_time = time.time()
+        
+        idx = np.where(labeled_array>0) # Only non-background objects
+        values = labeled_array_categories[idx] - 1
+        h, w = labeled_array.shape
+        XI, YI = np.meshgrid(range(w), range(h))
+        points = np.column_stack( (XI[idx], YI[idx]) )
+        from scipy.interpolate import griddata
+        labeled_array = griddata(points, values, (XI, YI), method='nearest')
+        # labeled_array has 0 for regions of small objects; 1 for regions of big objects
+        
+        if run_args['verbosity']>=1:
+            # Create black-and-white image
+            im_data = np.uint8(labeled_array*255.0)
+            im_data = np.dstack( (im_data, im_data, im_data) )
+            im = PIL.Image.fromarray(im_data)
+            outfile = self.get_outfile('dots_vs_lines', output_dir, ext='.png', ir=False)
+            im.save(outfile)        
+        
+        if run_args['verbosity']>=3:
+            print("    {} method took {:.1f} s".format(run_args['method'], time.time()-start_time))
+        
+        
+        region_2_pixels = np.sum(labeled_array)
+        region_1_pixels = labeled_array.size - region_2_pixels
+        print( '    Black region: {:,d} pixels ({:.1f} %)'.format(region_1_pixels, region_1_pixels*100.0/labeled_array.size) )
+        print( '    White region: {:,d} pixels ({:.1f} %)'.format(region_2_pixels, region_2_pixels*100.0/labeled_array.size) )
+        
+        results['dot_fractional_area'] = region_1_pixels*1.0/(labeled_array.size*1.0)
+        results['line_fractional_area'] = region_2_pixels*1.0/(labeled_array.size*1.0)
+        
+        return results
+
+
+    def identify_regions_grow(self, data, output_dir, labeled_array, grow_size=3, **run_args):
+        
+        
+        results = {}
+        
+        scale_nm = (data.x_scale+data.y_scale)/2 # nm/pixel
+        cutoff_pix = run_args['dot_size_cutoff_nm']/scale_nm
+        cutoff_area = np.pi*np.square(cutoff_pix) # pixels
+        
+        if run_args['verbosity']>=5:
+            print('        Cutoff {:.2f} nm ({:.1f} pixels); surface area {:.1f} pixels'.format(run_args['dot_size_cutoff_nm'], cutoff_pix, cutoff_area))
+        
+        particle_areas = np.bincount( labeled_array.flatten() )
+
+        if run_args['verbosity']>=6:
+            # Color-coded image of object types
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
+            
+        # Sort labelled objects into the two size categories
+        start_time = time.time()
+        for ix in range( len(labeled_array[0]) ):
+            for iy in range( len(labeled_array) ):
+                object_index = labeled_array[iy,ix]
+
+                if object_index==0:
+                    labeled_array[iy,ix] = 0
+                elif particle_areas[object_index]<cutoff_area:
+                    labeled_array[iy,ix] = 1
+                else:
+                    labeled_array[iy,ix] = 2
+
+                if run_args['verbosity']>=6:
+                    if object_index==0:
+                        c = (0, 0, 0) # Black (no particles)
+                    elif particle_areas[object_index]<cutoff_area:
+                        c = (255, 0, 0) # Red (small particles)
+                    else:
+                        c = (0, 255, 0 ) # Green (big particles)
+                    pix[ix,iy] = c
+                    
+        if run_args['verbosity']>=6:
+            outfile = self.get_outfile('coded', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+
+        if run_args['verbosity']>=4:
+            print("    categorizing took {:.1f} s".format(time.time()-start_time))
+
+
+
+        # Grow particle regions
+        start_time = time.time()
+        found_zeros = True
+        igrow = 1
+        h, w = data.data.shape
+        while found_zeros:
+            
+            num_zero = labeled_array.size - np.count_nonzero(labeled_array)
+            print( '        Growing regions: pass {:d} ({:,d} zeros left); {:.2f}% done...'.format(igrow, num_zero, 100.0*(1-num_zero/labeled_array.size) ) )
+            igrow += 1
+            found_zeros = False
+            if num_zero>0:
+                labeled_array_cur = np.copy(labeled_array)
+                
+                for ix in range(w-(grow_size-1)):
+                    for iy in range(h-(grow_size-1)):
+                        patch = labeled_array[iy:iy+grow_size,ix:ix+grow_size]
+                        if 0 in patch:
+                            found_zeros = True
+                            if 1 in patch:
+                                if 2 in patch:
+                                    # 1's and 2's
+                                    labeled_array_cur[iy:iy+grow_size,ix:ix+grow_size] = 1 # 1's are arbitrarily given priority...
+                                else:
+                                    # Just 1's and 0's
+                                    labeled_array_cur[iy:iy+grow_size,ix:ix+grow_size] = 1
+                            elif 2 in patch:
+                                # Just 2's and 0's
+                                labeled_array_cur[iy:iy+grow_size,ix:ix+grow_size] = 2
+                            else:
+                                pass # All 0's, do nothing
+                                
+                labeled_array = labeled_array_cur
+                        
+        if run_args['verbosity']>=3:
+            print("    {} method took {:.1f} s".format(run_args['method'], time.time()-start_time))
+                        
+                        
+        region_2_pixels = np.sum(labeled_array) - labeled_array.size
+        region_1_pixels = labeled_array.size - region_2_pixels
+        print( '    Black region: {:,d} pixels ({:.1f} %)'.format(region_1_pixels, region_1_pixels*100.0/labeled_array.size) )
+        print( '    White region: {:,d} pixels ({:.1f} %)'.format(region_2_pixels, region_2_pixels*100.0/labeled_array.size) )
+        
+        results['dot_fractional_area'] = region_1_pixels*1.0/(labeled_array.size*1.0)
+        results['line_fractional_area'] = region_2_pixels*1.0/(labeled_array.size*1.0)
+        
+        if run_args['verbosity']>=1:
+            # Create black-and-white image
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
+            
+            for ix in range(w):
+                for iy in range(h):
+                    object_index = labeled_array[iy,ix]
+                    
+                    if labeled_array[iy,ix]==0:
+                        c = (255, 0, 0) # Red (error)
+                    elif labeled_array[iy,ix]==1:
+                        c = (0, 0, 0) # Black (small particles)
+                    else:
+                        c = (255, 255, 255 ) # White (big particles)
+                    pix[ix,iy] = c
+                    
+            outfile = self.get_outfile('dots_vs_lines', output_dir, ext='.png', ir=False)
+            im.save(outfile)
+                        
+        return results
+    

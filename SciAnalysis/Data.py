@@ -37,6 +37,7 @@ from scipy import stats # For skew
 #import scipy.special
 
 import PIL # Python Image Library (for opening PNG, etc.)
+from PIL import Image
 
 from . import tools
  
@@ -723,7 +724,7 @@ class DataLineAngle (DataLine):
         spacing = xh[1]-xh[0]
         yh = (yh/np.max(yh))*np.max(self.y)
         
-        bins = len(yh)/assumed_symmetry
+        bins = int( len(yh)/assumed_symmetry )
         color_list = cmap_cyclic_spectrum( np.linspace(0, 1.0, bins, endpoint=True) )
         color_list = np.concatenate( (color_list[int(bins/2):], color_list[0:int(bins/2)]) ) # Shift
         color_list = np.concatenate( [color_list for i in range(assumed_symmetry)] )
@@ -1374,7 +1375,10 @@ class Data2D(object):
         results[prepend+'N'] = len(self.data.ravel())
         results[prepend+'total'] = np.sum(self.data.ravel())
         
-        results[prepend+'skew'] = stats.skew(self.data.ravel())
+        if np.iscomplexobj(self.data):
+            results[prepend+'skew'] = stats.skew(np.absolute(self.data.ravel()))
+        else:
+            results[prepend+'skew'] = stats.skew(self.data.ravel())
         
         results[prepend+'spread'] = results[prepend+'max'] - results[prepend+'min']
         results[prepend+'std_rel'] = results[prepend+'std'] / results[prepend+'average']
@@ -1528,47 +1532,16 @@ class Data2D(object):
         self.z_display = z_display
         
         
-    def plot_image(self, save, ztrim=[0.01, 0.01], **kwargs):
+    def plot_image(self, save, ztrim=[0.01, 0.01], **plot_args):
         '''Generates a false-color image of the 2D data.'''
-        
-        if 'cmap' in kwargs:
-            cmap = kwargs['cmap']
-            
-        else:
-            # http://matplotlib.org/examples/color/colormaps_reference.html
-            #cmap = mpl.cm.RdBu
-            #cmap = mpl.cm.RdBu_r
-            #cmap = mpl.cm.hot
-            #cmap = mpl.cm.gist_heat
-            #cmap = mpl.cm.gist_earth
-            #cmap = mpl.cm.Greys
-            cmap = mpl.cm.jet        
+
+        # http://matplotlib.org/examples/color/colormaps_reference.html
+        cmap = plot_args['cmap'] if 'cmap' in plot_args else mpl.cm.jet
         
         #img = Image.open(filename).convert("I")
         #img = Image.open(infile).convert("L") # black-and-white
-        
-        
-        values = np.sort( self.data.flatten() )
-        if 'zmin' in kwargs and kwargs['zmin'] is not None:
-            zmin = kwargs['zmin']
-        elif self.z_display[0] is not None:
-            zmin = self.z_display[0]
-        else:
-            zmin = values[ +int( len(values)*ztrim[0] ) ]
-            
-        if 'zmax' in kwargs and kwargs['zmax'] is not None:
-            zmax = kwargs['zmax']
-        elif self.z_display[1] is not None:
-            zmax = self.z_display[1]
-        else:
-            idx = -int( len(values)*ztrim[1] )
-            if idx>=0:
-                idx = -1
-            zmax = values[idx]
-            
-        if zmax==zmin:
-            zmax = max(values)
-            
+
+        zmin, zmax = self._plot_z_range(ztrim=ztrim, **plot_args)
         self.z_display[0] = zmin
         self.z_display[1] = zmax
         self._plot_z_transform()
