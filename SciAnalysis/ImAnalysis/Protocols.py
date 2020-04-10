@@ -186,17 +186,22 @@ class mask(object):
     '''Base shared class to allow Protocols to invoke a mask, which selects
     which regions of the image to analyze.'''
 
-    def get_mask(self, data, mask_threshold=127, mask_invert=False, **run_args):
-
+    def get_mask(self, data, output_dir='./', mask_threshold=127, mask_invert=False, **run_args):
+        
         if 'mask' not in run_args or run_args['mask'] is None or run_args['mask'] in ['None', 'none',]:
             return None
             
+        # Within a protocol, output_dir will be output_dir+self.name
+        # We need to strip off the last part in order to get to the
+        # output_dir being used for analysis results.
+        output_dir = output_dir[:-len(self.name)]
+            
         if run_args['mask']=='dots':
-            infile = './dots_vs_lines/{}/dots_vs_lines.png'.format(data.name)
+            infile = '{}/dots_vs_lines/{}/dots_vs_lines.png'.format(output_dir, data.name)
             mask_invert = not mask_invert
         
         elif run_args['mask']=='lines':
-            infile = './dots_vs_lines/{}/dots_vs_lines.png'.format(data.name)
+            infile = '{}/dots_vs_lines/{}/dots_vs_lines.png'.format(output_dir, data.name)
         
         else:
             infile = run_args['mask']
@@ -272,6 +277,7 @@ class fft(Protocol, mask):
     @run_default
     def run(self, data, output_dir, **run_args):
         
+        run_args['mask'] = self.get_mask(data, output_dir=output_dir, **run_args)
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
         
@@ -285,7 +291,7 @@ class fft(Protocol, mask):
             im.save(outfile)
         
         
-        run_args['mask'] = self.get_mask(data, **run_args)
+        
         if run_args['mask'] is not None:
             data = copy.deepcopy(data)
             avg = np.average(data.data)
@@ -1469,10 +1475,11 @@ class grain_size_hex(Protocol, preprocess, mask):
     @run_default
     def run(self, data, output_dir, **run_args):
         
+        run_args['mask'] = self.get_mask(data, output_dir=output_dir, **run_args)
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
         
-        run_args['mask'] = self.get_mask(data, **run_args)
+        
         
         orig_data = data.data.copy()
         
@@ -2537,10 +2544,11 @@ class grain_size(grain_size_hex):
     @run_default
     def run(self, data, output_dir, **run_args):
         
+        run_args['mask'] = self.get_mask(data, output_dir=output_dir, **run_args)
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
         
-        run_args['mask'] = self.get_mask(data, **run_args)
+        
         
         results = {}
         data = copy.deepcopy(data)
