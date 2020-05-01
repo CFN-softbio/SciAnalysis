@@ -85,6 +85,8 @@ class DataLine(object):
                                         },
                             }        
         if plot_args: self.plot_args.update(plot_args)
+        
+        self._kwargs = kwargs # Save incase later methods depend on these settings
     
         
     # Data loading
@@ -586,7 +588,9 @@ class DataLineAngle (DataLine):
                                         'ytick.labelsize': 30,
                                         },
                             }          
-        if plot_args: self.plot_args.update(plot_args)    
+        if plot_args: self.plot_args.update(plot_args)
+        
+        self._kwargs = kwargs # Save incase later methods depend on these settings
         
         
 
@@ -825,6 +829,8 @@ class DataLines(DataLine):
                             }        
         if plot_args: self.plot_args.update(plot_args)
         
+        self._kwargs = kwargs # Save incase later methods depend on these settings
+        
     
     
     def add_line(self, line):
@@ -1037,6 +1043,9 @@ class Data2D(object):
         self.origin = [0, 0]
         
         self.regions = None # Optional overlay highlighting some region of interest
+        
+        self._kwargs = kwargs # Save incase later methods depend on these settings
+        
         
     # Data loading
     ########################################

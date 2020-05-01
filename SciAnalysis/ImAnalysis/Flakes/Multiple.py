@@ -160,7 +160,7 @@ class tile_img(ProtocolMultiple):
                 if data_rgb.dtype==np.float32:
                     data_rgb *= 255
                     
-                if 'image_contrast' is not None:
+                if run_args['image_contrast'] is not None:
                     in_range = ( run_args['image_contrast'][0]*255, run_args['image_contrast'][1]*255 )
                     import skimage.exposure
                     data_rgb = skimage.exposure.rescale_intensity(data_rgb, in_range=in_range, out_range='dtype')
@@ -839,8 +839,8 @@ class Data2D_flake_histogram(Data2D):
         
         flakes_sorted = np.asarray(self.flakes)[idx][idx_sort]
         
-            
-        g = ImageGrid()
+        name_convention = self._kwargs['name_convention'] if 'name_convention' in self._kwargs else None
+        g = ImageGrid(name_convention=name_convention)
         icount = 0
         for i, flake in enumerate(flakes_sorted):
             
@@ -876,8 +876,20 @@ class ImageGrid(object):
         self.axes = []
         self.ax_ims = []
         self.flakes_raw = []
-        
-        self.re_files = re.compile('^.+_x(\d+)_y(\d+).+$')
+
+
+        # Naming convention for raw data files
+        name_convention = '^.+_x(\d+)_y(\d+).+$' # Default (Indexed)
+        if 'name_convention' in kwargs and kwargs['name_convention'] is not None:
+            if kwargs['name_convention']=='indexed':
+                name_convention = '^.+_x(\d+)_y(\d+).+$'
+            elif kwargs['name_convention']=='ixiy':
+                name_convention = '^.+_ix(-?\d+\.\d+)_iy(-?\d+\.\d+).+$'
+            elif kwargs['name_convention']=='xy':
+                name_convention = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+).+$'
+            else:
+                name_convention = kwargs['name_convention']
+        self.re_files = re.compile(name_convention)
         
         self.plot_args = { 'color' : 'k',
                         'marker' : 'o',
@@ -899,7 +911,7 @@ class ImageGrid(object):
             xf = int(m.groups()[0])
             yf = int(m.groups()[1])
         else:
-            print('RE fail')
+            print('RE fail for filename: {}'.format(filename))
         
         return xf, yf
 
@@ -995,13 +1007,12 @@ class ImageGrid(object):
                 plt.savefig(save, dpi=plot_args['dpi'], transparent=transparent)
             else:
                 plt.savefig(save, transparent=transparent)
-        print('oi')
+
         if show:
             self._plot_interact()
             plt.show()
             
         plt.close(self.fig.number)
-        print('donoi')
 
 
 
@@ -1205,7 +1216,7 @@ class histogram(tile_img):
         
         # Generate plot
         ########################################
-        d = Data2D_flake_histogram()
+        d = Data2D_flake_histogram(**run_args)
         d.data = H.transpose()
         d.x_axis = (bin_edges_x[1:] + bin_edges_x[:-1])/2
         d.y_axis = (bin_edges_y[1:] + bin_edges_y[:-1])/2
