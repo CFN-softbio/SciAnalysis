@@ -51,6 +51,14 @@ def timestamp(filepath):
     return filetimestamp
 
 
+def print_array(data, name='array', verbosity=3):
+    '''Helper code for inspecting arrays (e.g. for debugging).'''
+    if verbosity>=3:
+        print('print_array for: {} (shape: {})'.format(name, data.shape))
+    if verbosity>=1:
+        print('    values: {} ± {} ({} to {})'.format(np.average(data), np.std(data), np.min(data), np.max(data)))
+    if verbosity>=4:
+        print(data)
 
 
 # Filename

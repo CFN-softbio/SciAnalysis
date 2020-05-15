@@ -268,7 +268,7 @@ class cluster(ProtocolMultiple):
             print('  Generating cluster images')
             
             
-        self.plot_clusters(output_dir, clustering['cluster_centers'], clustering['cluster_centers_orig'], clustering['sort_indices'], distributions, dist_bin_edges, flakes, features, assignment, **run_args)
+        self.plot_clusters(output_dir, clustering['cluster_centers'], clustering['cluster_centers_orig'], clustering['sort_indices'], distributions, dist_bin_edges, flakes, features, assignment, rescale=rescale, **run_args)
 
         
         return results
@@ -396,7 +396,7 @@ class cluster(ProtocolMultiple):
     
         
 
-    def plot_clusters(self, output_dir, cluster_centers, cluster_centers_orig, sort_indices, distributions, dist_bin_edges, flakes, flake_features, assignment, plot_buffers=[0.01,0.0,0.0,0.045], **run_args):
+    def plot_clusters(self, output_dir, cluster_centers, cluster_centers_orig, sort_indices, distributions, dist_bin_edges, flakes, flake_features, assignment, rescale=None, plot_buffers=[0.01,0.0,0.0,0.045], **run_args):
 
         plt.rcParams['xtick.labelsize'] = 15
         plt.rcParams['ytick.labelsize'] = 15
@@ -417,27 +417,177 @@ class cluster(ProtocolMultiple):
             features_cluster = flake_features[cluster_i] # feature vectors matching this cluster
             
             
-            self.plot_cluster(output_dir, '{:03d}'.format(i), feature_vector, feature_vector_orig, flakes_cluster, features_cluster, distributions, dist_bin_edges, plot_buffers=plot_buffers, **run_args)
+            self.plot_cluster(output_dir, '{:03d}'.format(i), feature_vector, feature_vector_orig, flakes_cluster, features_cluster, distributions, dist_bin_edges, rescale=rescale, plot_buffers=plot_buffers, **run_args)
             
-            
-    def plot_cluster(self, output_dir, cluster_name, feature_vector, feature_vector_orig, flakes_cluster, features_cluster, distributions, dist_bin_edges, plot_buffers=[0.01,0.0,0.0,0.045], **run_args):
-                     
+
+    def plot_cluster(self, output_dir, cluster_name, feature_vector, feature_vector_orig, flakes_cluster, features_cluster, distributions, dist_bin_edges, rescale=None, plot_buffers=[0.01,0.0,0.0,0.045], **run_args):
+        ''' Outputs an image showing representative flakes for this cluster.
+        
+        flakes_cluster, features_cluster : The subset of flakes (and their features) for this cluster.
+        feature_vector, feature_vector_orig : The centroid of this cluster (average of features).
+        distributions, dist_bin_edges : The feature distributions (for all flakes).
+        '''
+        
+        num_flakes = len(flakes_cluster)
+
+        # Sort flakes by their distance from the cluster centroid (which is located at position "feature_vector")
+        distances = cdist(features_cluster, [feature_vector], metric='euclidean')[:,0]
+        sort_indices = np.argsort(distances)
+        flakes_cluster = flakes_cluster[sort_indices]
+        features_cluster = features_cluster[sort_indices]
+        distances = distances[sort_indices]
+
         if run_args['verbosity']>=5:
-            print('    image for cluster {} ({:,d} flakes)'.format(cluster_name, len(flakes_cluster)))
-        
-
+            print('    image for cluster {} ({:,d} flakes)'.format(cluster_name, num_flakes))
+            
+            
+        # Output a summary (central, generic, peripheral)
+        ########################################
         self.fig = plt.figure( figsize=(8,8), facecolor='white' )
-        vmin, vmax = run_args['feature_normed_range']
+        fea_w, fea_h = 0.04, 0.95 # Size of features graphs in sidebar
         
-        plt.figtext(0,1, 'cluster {} ({:,d} flakes)'.format(cluster_name, len(flakes_cluster)), size=20, verticalalignment='top', horizontalalignment='left')
-
+        plt.figtext(0,1, 'cluster {} ({:,d} flakes)'.format(cluster_name, num_flakes), size=20, verticalalignment='top', horizontalalignment='left')
 
         # Sidebar that shows the feature vector for the centroid of this cluster
-        ########################################
-        fea_w = 0.04
-        fea_h = 0.95
-        self.ax = self.fig.add_axes( [0.0, 0, fea_w, fea_h] )
+        self._plot_cluster_sidebar(feature_vector, feature_vector_orig, features_cluster, distributions, dist_bin_edges, fea_w=fea_w, fea_h=fea_h, **run_args)
         
+        # Images of example flakes for this cluster
+        self._plot_cluster_main(flakes_cluster, distances, fea_w=fea_w, fea_h=fea_h, plot_buffers=plot_buffers, **run_args)
+
+        outfile = os.path.join(output_dir, 'cluster-{}-{}.png'.format(run_args['cluster_method'], cluster_name))
+        plt.savefig(outfile, dpi=300)
+        plt.close(self.fig.number)
+        
+        if 'output_all' in run_args and run_args['output_all']:
+            # Output a summary (central, generic, peripheral)
+            ########################################
+            nrows, ncols = 8, 7
+            num_per_page = nrows*ncols
+            num_pages = int(np.ceil(num_flakes/num_per_page))
+            for page in range(num_pages):
+                
+                num_this_page = num_per_page
+                if page==(num_pages-1): # Last page
+                    num_this_page = num_flakes - (num_pages-1)*num_per_page
+                
+                idx_start = page*num_per_page
+                idx_end = idx_start+num_this_page
+                
+                if run_args['verbosity']>=5:
+                    print('    page {:d} for cluster {} ({:,d}/{:,d} flakes)'.format(page+1, cluster_name, num_this_page, num_flakes))
+
+                self.fig = plt.figure( figsize=(8,8), facecolor='white' )
+                plt.figtext(0,1, 'cluster {} ({:,d}/{:,d} flakes)'.format(cluster_name, num_this_page, num_flakes), size=20, verticalalignment='top', horizontalalignment='left')
+
+                # Sidebar that shows the feature vector for the centroid of this cluster
+                if rescale is not None:
+                    # Since we have access to the scaling between original coordinates for feature vector
+                    # and the rescale coordinates (avg=0, std=1), we can compute the sidebar for just the
+                    # flakes being displayed.
+                    
+                    # There are two equivalent ways to get the information for this subset of flakes (this page of results)
+                    
+                    # Method 1: Load features_orig for these flakes, and transform them
+                    #flakes_page = flakes_cluster[idx_start:idx_end]
+                    #features_orig = self.load_features(flakes_page, **run_args)
+                    #features_rescaled = rescale.transform(features_orig)
+
+                    # Method 2: Select subset of rescaled features, and inverse_transform them
+                    features_rescaled = features_cluster[idx_start:idx_end]
+                    features_orig = rescale.inverse_transform(features_rescaled)
+                    
+                    # Compute centroid for this subset of flakes (this page of results)
+                    feature_vector_orig = np.average(features_orig, axis=0)
+                    feature_vector = rescale.transform( [feature_vector_orig] )[0]
+                    
+                    self._plot_cluster_sidebar(feature_vector, feature_vector_orig, features_rescaled, distributions, dist_bin_edges, fea_w=fea_w, fea_h=fea_h, **run_args)
+                    
+                else:
+                    self._plot_cluster_sidebar(feature_vector, feature_vector_orig, features_cluster, distributions, dist_bin_edges, fea_w=fea_w, fea_h=fea_h, **run_args)
+                
+                
+                self._plot_cluster_page(idx_start, flakes_cluster, distances, fea_w, fea_h, plot_buffers, nrows, ncols, **run_args)
+
+                outfile = os.path.join(output_dir, 'cluster-{}-page{:03d}.png'.format(run_args['cluster_method'], page+1))
+                plt.savefig(outfile, dpi=300)
+                plt.close(self.fig.number)
+
+
+    def _plot_cluster_page(self, idx, flakes_cluster, distances, fea_w, fea_h, plot_buffers, nrows, ncols, **run_args):
+        
+        # The total area we have available for plotting flakes
+        left_buf, right_buf, bottom_buf, top_buf = plot_buffers
+        left_buf += fea_w*( 2.2 + 2.3 )
+        fig_width = 1.0-right_buf-left_buf
+        fig_height = 1.0-top_buf-bottom_buf
+        
+        w = fig_width/ncols
+        ystart = bottom_buf+fig_height
+        for irow in range(nrows):
+            for icol in range(ncols):
+                ax_pos = [left_buf+icol*w, ystart-(irow+1)*w, w, w]
+                if idx<len(flakes_cluster):
+                    self._plot_flake_image(ax_pos, flakes_cluster[idx], distances[idx], **run_args)
+                idx += 1        
+        
+    def _plot_cluster_main(self, flakes_cluster, distances, fea_w, fea_h, plot_buffers, **run_args):
+        
+        # The total area we have available for plotting flakes
+        left_buf, right_buf, bottom_buf, top_buf = plot_buffers
+        left_buf += fea_w*( 2.2 + 2.3 )
+        fig_width = 1.0-right_buf-left_buf
+        fig_height = 1.0-top_buf-bottom_buf
+        #self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
+        
+        
+        # Central flakes
+        nrows, ncols = 3, 7
+        w = fig_width/ncols
+        idx = 0
+        ystart = bottom_buf+fig_height
+        plt.figtext(left_buf, ystart, 'central', size=8, verticalalignment='bottom', horizontalalignment='left')
+        for irow in range(nrows):
+            for icol in range(ncols):
+                ax_pos = [left_buf+icol*w, ystart-(irow+1)*w, w, w]
+                if idx<len(flakes_cluster):
+                    self._plot_flake_image(ax_pos, flakes_cluster[idx], distances[idx], **run_args)
+                idx += 1
+
+        # Generic flakes
+        if idx<len(flakes_cluster):
+            ystart = ystart-nrows*w - 0.015
+            #nrows, ncols = 2, 6
+            w = fig_width/ncols
+            idx = max( int( np.clip( len(flakes_cluster)/2, idx, len(flakes_cluster)-nrows*ncols ) ), idx )
+            plt.figtext(left_buf, ystart, 'generic', size=8, verticalalignment='bottom', horizontalalignment='left')
+            for irow in range(nrows):
+                for icol in range(ncols):
+                    ax_pos = [left_buf+icol*w, ystart-(irow+1)*w, w, w]
+                    if idx<len(flakes_cluster):
+                        self._plot_flake_image(ax_pos, flakes_cluster[idx], distances[idx], **run_args)
+                    idx += 1
+        
+        # Peripheral flakes
+        if idx<len(flakes_cluster):
+            ystart = ystart-nrows*w - 0.015
+            nrows, ncols = 2, 7
+            w = fig_width/ncols
+            idx = max( len(flakes_cluster)-nrows*ncols, idx )
+            plt.figtext(left_buf, ystart, 'peripheral', size=8, verticalalignment='bottom', horizontalalignment='left')
+            for irow in range(nrows):
+                for icol in range(ncols):
+                    ax_pos = [left_buf+icol*w, ystart-(irow+1)*w, w, w]
+                    if idx<len(flakes_cluster):
+                        self._plot_flake_image(ax_pos, flakes_cluster[idx], distances[idx], **run_args)
+                    idx += 1
+        
+
+    def _plot_cluster_sidebar(self, feature_vector, feature_vector_orig, features_cluster, distributions, dist_bin_edges, fea_w, fea_h, **run_args):
+        # Sidebar that shows the feature vector for the centroid of this cluster
+        
+        vmin, vmax = run_args['feature_normed_range']
+        
+        self.ax = self.fig.add_axes( [0.0, 0, fea_w, fea_h] )
         
         vector = np.asarray([feature_vector]).transpose()
         self.ax.imshow(vector, cmap='inferno', aspect='auto', vmin=vmin, vmax=vmax)
@@ -481,73 +631,9 @@ class cluster(ProtocolMultiple):
                 if len(self.feature_names)==len(feature_vector):
                     axc.text(vmin, np.max(distributions[ifea]), self.feature_names[ifea], size=4, verticalalignment='top', horizontalalignment='left', alpha=0.25)
                 axc.text(vmax, np.max(distributions[ifea]), '{:d}'.format(ifea), size=4, verticalalignment='top', horizontalalignment='right', alpha=0.25)
-                
-                
-        
-        # Images of example flakes for this cluster
-        ########################################
-        
-        # Sort flakes by their distance from the cluster centroid (which is located at position "feature_vector")
-        distances = cdist(features_cluster, [feature_vector], metric='euclidean')[:,0]
-        sort_indices = np.argsort(distances)
-        #time.sleep(100)
-        flakes_cluster = flakes_cluster[sort_indices]
-        #features_cluster = flakes_cluster[sort_indices]
-        distances = distances[sort_indices]
-        
-        
-        
-        
-        # The total area we have available for plotting flakes
-        left_buf, right_buf, bottom_buf, top_buf = plot_buffers
-        left_buf += fea_w*( 2.2 + 2.3 )
-        fig_width = 1.0-right_buf-left_buf
-        fig_height = 1.0-top_buf-bottom_buf
-        #self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
-        
-        
-        
-        
-        nrows, ncols = 3, 7
-        w = fig_width/ncols
-        idx = 0
-        ystart = bottom_buf+fig_height
-        plt.figtext(left_buf, ystart, 'central', size=8, verticalalignment='bottom', horizontalalignment='left')
-        for irow in range(nrows):
-            for icol in range(ncols):
-                ax_pos = [left_buf+icol*w, ystart-(irow+1)*w, w, w]
-                self.plot_flake_image(ax_pos, flakes_cluster[idx], distances[idx], **run_args)
-                idx += 1
-
-        ystart = ystart-nrows*w - 0.015
-        #nrows, ncols = 2, 6
-        w = fig_width/ncols
-        idx = int( np.clip( len(flakes_cluster)/2, idx, len(flakes_cluster)-nrows*ncols ) )
-        plt.figtext(left_buf, ystart, 'generic', size=8, verticalalignment='bottom', horizontalalignment='left')
-        for irow in range(nrows):
-            for icol in range(ncols):
-                ax_pos = [left_buf+icol*w, ystart-(irow+1)*w, w, w]
-                self.plot_flake_image(ax_pos, flakes_cluster[idx], distances[idx], **run_args)
-                idx += 1
-
-        ystart = ystart-nrows*w - 0.015
-        nrows, ncols = 2, 7
-        w = fig_width/ncols
-        idx = len(flakes_cluster)-nrows*ncols
-        plt.figtext(left_buf, ystart, 'peripheral', size=8, verticalalignment='bottom', horizontalalignment='left')
-        for irow in range(nrows):
-            for icol in range(ncols):
-                ax_pos = [left_buf+icol*w, ystart-(irow+1)*w, w, w]
-                self.plot_flake_image(ax_pos, flakes_cluster[idx], distances[idx], **run_args)
-                idx += 1
-        
-        
-        outfile = os.path.join(output_dir, 'cluster-{}-{}.png'.format(run_args['cluster_method'], cluster_name))
-        plt.savefig(outfile, dpi=300)
-        plt.close(self.fig.number)
-
             
-    def plot_flake_image(self, ax_pos, flake_i, distance, **run_args):
+            
+    def _plot_flake_image(self, ax_pos, flake_i, distance, **run_args):
         
         # Load parent image
         img = plt.imread(flake_i['infile'])
@@ -726,46 +812,74 @@ class select_flakes(cluster):
             print("  Selected {:,d} flakes using '{}'".format(len(flakes_selected), run_args['cluster_method']))
         
         
-        self.plot_cluster(output_dir, cluster_name='target', feature_vector=feature_vector, feature_vector_orig=feature_vector_orig, flakes_cluster=flakes_selected, features_cluster=features, distributions=clustering['distributions'], dist_bin_edges=clustering['dist_bin_edges'], **run_args)
+        self.plot_cluster(output_dir, cluster_name='selection', feature_vector=feature_vector, feature_vector_orig=feature_vector_orig, flakes_cluster=flakes_selected, features_cluster=features, distributions=clustering['distributions'], dist_bin_edges=clustering['dist_bin_edges'], rescale=rescale, **run_args)
 
 
         return results
 
 
-    def extract_feature(self, feature_name, flake_features, **run_args):
-
+    def extract_features(self, feature_name, flakes, flake_features, **run_args):
+        # Extract the specified feature, returning a list of that feature
+        # for the entire list of flakes
+        
+        
+        # Handle special case of relative standard deviation
+        if feature_name.endswith(' std_inner __relative'):
+            if run_args['verbosity']>=5:
+                print("    Computing {}".format(feature_name))
+            
+            name = feature_name[:-len(' std_inner __relative')]
+            features = self.extract_features(name, flakes, flake_features, **run_args)
+            features_std = self.extract_features('{} std_inner'.format(name), flakes, flake_features, **run_args)
+            
+            return features_std/features
+            
+        elif feature_name.endswith(' std __relative'):
+            if run_args['verbosity']>=5:
+                print("    Computing {}".format(feature_name))
+            
+            features = self.extract_features(feature_name[:-len(' std __relative')], flakes, flake_features, **run_args)
+            features_std = self.extract_features(feature_name[:-len(' __relative')], flakes, flake_features, **run_args)
+            
+            return features_std/features
+            
+        
+        # Check if it appears as value associated with each flake object
+        if feature_name in flakes[0]:
+            if run_args['verbosity']>=5:
+                print("      Extracting {} from flakes".format(feature_name))
+            return np.asarray( [ f[feature_name] for f in flakes ] )
+            
+        # Default: lookup in self.feature_names
         i = self.feature_names.index(feature_name)
         if run_args['verbosity']>=5:
-            print("    Extracting {}, index {}".format(feature_name, i))
+            print("      Extracting {} from flake_features, index {}".format(feature_name, i))
                   
         return flake_features[:,i]
                     
 
     def select(self, flakes, flake_features_orig, flake_features_rescaled, **run_args):
         
-        radius_um = np.asarray( [ f['radius_um'] for f in flakes ] )
-        flake_contrast = np.asarray( [ f['flake_contrast'] for f in flakes ] )
-        
-        g_std = self.extract_feature('gray std', flake_features_rescaled, **run_args)
-        g = self.extract_feature('gray', flake_features_rescaled, **run_args)
-        g_std_rel = g_std/g
-        
-        
-        
-        conditions = [
-                    (radius_um>2.0) ,
-                    (radius_um<40.0) ,
-                    (flake_contrast>-0.02) ,
-                    (flake_contrast<-0.01) ,
-                    (g_std_rel<0.1) ,
-                    
-                    ]
+        # Generate a list of boolean arrays, which are selecting flakes with
+        # features within the specified range
+        conditions = []
+        for key, value in run_args['selection'].items():
+            if run_args['verbosity']>=5:
+                print("    Adding condition: {} between {} and {}".format(key, value[0], value[1]))
             
-        
-        #idx = np.where( (radius_um>5.0) & (radius_um<100.0) & (flake_contrast>-0.2) & (flake_contrast<-0.01) )[0]
+            if key.endswith(' __rescaled'):
+                features = self.extract_features(key[:-len(' __rescaled')], flakes, flake_features_rescaled, **run_args)
+            else:
+                features = self.extract_features(key, flakes, flake_features_orig, **run_args)
+            conditions.append( (features>=value[0]) )
+            conditions.append( (features<=value[1]) )
+                
         idx = np.where(np.all(conditions, axis=0))[0]
         
         flakes = np.asarray(flakes)[idx]
+
+        if run_args['verbosity']>=3 and len(flakes)<1:
+            print("WARNING: Selection criteria too restrictive. (No flakes meet criteria.)")
         
         return flakes
 
