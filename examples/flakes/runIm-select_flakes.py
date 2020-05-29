@@ -77,6 +77,7 @@ if True:
     
     from SciAnalysis.ImAnalysis.Flakes import cluster
     protocols = [ 
+        cluster.cluster(image_contrast=image_contrast, overlays=3) ,
         cluster.select_flakes(image_contrast=image_contrast, selection=selection, overlays=3, output_all=True) ,
         ]
     process.run_multiple_all(basename='cluster', infiles=infiles, protocols=protocols, output_dir=output_dir, load_args=load_args, run_args=run_args, force=True)    

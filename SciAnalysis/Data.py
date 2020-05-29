@@ -374,7 +374,7 @@ class DataLine(object):
     ########################################
     
     def plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.2,0.05,0.2,0.05], **kwargs):
-        '''Plots the scattering data.
+        '''Plots the data.
         
         Parameters
         ----------

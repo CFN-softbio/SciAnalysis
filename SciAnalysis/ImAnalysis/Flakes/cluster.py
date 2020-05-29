@@ -789,6 +789,7 @@ class select_flakes(cluster):
 
 
         # Load data aggregated from the "cluster" protocol
+        # TODO: Remove dependence on cluster protocol (we could re-compute the distributions here).
         savefile = self.get_outfile(basename, output_dir+'/../cluster/', ext=run_args['file_extension'])
         with open(savefile, 'rb') as fin:
             clustering = pickle.load(fin)
