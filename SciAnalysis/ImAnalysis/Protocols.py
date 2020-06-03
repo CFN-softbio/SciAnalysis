@@ -1425,7 +1425,7 @@ class grain_size_hex(Protocol, preprocess, mask):
                         'invert' : False,
                         'diagonal_detection' : False,
                         'cmap' : mpl.cm.bone,
-                        '' : 10,
+                        'correlation_edge_exclusion' : 10,
                         'correlation_step_size_points' : 5,
                         'trim_r_curve' : 0.8, # 1.0 doesn't trim anything; 0.8 trims the last 20% of the g(r)-curve
                         'preprocess' : 'default',
