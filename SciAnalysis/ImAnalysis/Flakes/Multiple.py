@@ -884,7 +884,7 @@ class ImageGrid(object):
             if kwargs['name_convention']=='indexed':
                 name_convention = '^.+_x(\d+)_y(\d+).+$'
             elif kwargs['name_convention']=='ixiy':
-                name_convention = '^.+_ix(-?\d+\.\d+)_iy(-?\d+\.\d+).+$'
+                name_convention = '^.+_ix(-?\d+)_iy(-?\d+).+$'
             elif kwargs['name_convention']=='xy':
                 name_convention = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+).+$'
             else:
