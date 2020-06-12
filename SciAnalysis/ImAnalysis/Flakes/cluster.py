@@ -140,6 +140,33 @@ class cluster(ProtocolMultiple):
         return np.asarray(features)
 
 
+    def load_clustering(self, basename, output_dir='./', features_rescaled=None, **run_args):
+        # Load data aggregated from the "cluster" protocol into a cluster.pkl file
+        savefile = self.get_outfile(basename, output_dir, ext=run_args['file_extension'])
+        if os.path.exists(savefile):
+            with open(savefile, 'rb') as fin:
+                clustering = pickle.load(fin)
+        else:
+            savefile = self.get_outfile(basename, output_dir+'/../cluster/', ext=run_args['file_extension'])
+            if os.path.exists(savefile):
+                with open(savefile, 'rb') as fin:
+                    clustering = pickle.load(fin)
+            elif features_rescaled is not None:
+                # Manually recompute some minimal aspects of clustering\
+                # Note: This mostly exists so that select_flakes.run has access to this information
+                # even if cluster.run has never been run (and thus cluster.pkl doesn't exist).
+                clustering = {}
+                vmin, vmax = run_args['feature_normed_range']
+                distributions, dist_bin_edges = np.apply_along_axis(lambda x: np.histogram(x, bins=50, range=[vmin,vmax], density=True), 0, features_rescaled)
+                clustering['distributions'] = distributions
+                clustering['dist_bin_edges'] = dist_bin_edges
+                
+            else:
+                print("Error in cluster.load_clustering: we don't have access to clustering information.")
+            
+        return clustering
+    
+
     @run_default
     def run(self, datas, output_dir, basename, **run_args):
         
@@ -788,13 +815,6 @@ class select_flakes(cluster):
             print('  {:,d} flakes identified in {:d} images'.format(len(flakes), len(datas)))
 
 
-        # Load data aggregated from the "cluster" protocol
-        # TODO: Remove dependence on cluster protocol (we could re-compute the distributions here).
-        savefile = self.get_outfile(basename, output_dir+'/../cluster/', ext=run_args['file_extension'])
-        with open(savefile, 'rb') as fin:
-            clustering = pickle.load(fin)
-
-
         # Compute the rescaling of feature vectors
         features_all_orig = self.load_features(flakes, **run_args)
         rescale = StandardScaler()
@@ -813,10 +833,13 @@ class select_flakes(cluster):
             print("  Selected {:,d} flakes using '{}'".format(len(flakes_selected), run_args['cluster_method']))
         
         
+        clustering = self.load_clustering(basename=basename, output_dir=output_dir, features_rescaled=features, **run_args)
+        
         self.plot_cluster(output_dir, cluster_name='selection', feature_vector=feature_vector, feature_vector_orig=feature_vector_orig, flakes_cluster=flakes_selected, features_cluster=features, distributions=clustering['distributions'], dist_bin_edges=clustering['dist_bin_edges'], rescale=rescale, **run_args)
 
 
         return results
+
 
 
     def extract_features(self, feature_name, flakes, flake_features, **run_args):
