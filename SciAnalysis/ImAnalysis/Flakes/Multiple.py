@@ -921,7 +921,7 @@ class ImageGrid(object):
             for param, value in plot_args['rcParams'].items():
                 plt.rcParams[param] = value    
     
-    def plot(self, save=None, show=False, size=10, textsize=2.0, linewidth=2.0, transparent=True, **kwargs):
+    def plot(self, save=None, show=False, size=10, textsize=2.0, linewidth=2.0, transparent=True, verbosity=3, **kwargs):
         
         plot_args = self.plot_args.copy()
         plot_args.update(kwargs)
@@ -938,11 +938,23 @@ class ImageGrid(object):
         
         for i, flake in enumerate(self.flakes):
             
-            filename = flake['infile']
+            filename = flake['infile'].replace('\\', '/') # String replace in case files were saved on another platform.
             box = flake ['bbox']
             center = flake['center_of_mass']
             radius = flake['radius_um']
             value = flake['flake_contrast']
+            
+            if verbosity>=6:
+                print('ImageGrid.plot for flake {}, infile: {}'.format(i, filename))
+                d = os.path.dirname(os.path.realpath(filename))
+                n = len([name for name in os.listdir(d) if '.tif' in name])
+                if os.path.exists(filename):
+                    print('    exists in {} ({} files)'.format(d, n))
+                else:
+                    print('    not found in {} ({} files)'.format(d, n))
+                print('        cwd: {}'.format(os.getcwd()))
+                #print('        cwd: {}'.format(os.path.realpath(os.getcwd())))
+                #print('        radius_um = {:.1f}; center = [{:.1f}, {:.1f}]'.format(radius, center[0], center[1]))
             
             
             # Load image
@@ -995,6 +1007,10 @@ class ImageGrid(object):
             ax.set_xticks([])
             ax.set_yticks([])
             ax.axis('off')
+            
+            if True:
+                print('        radius_um = {:.1f}; center = [{:.1f}, {:.1f}]'.format(radius, center[0], center[1]))
+                      
             
             
         target_zone = self.target_zone
