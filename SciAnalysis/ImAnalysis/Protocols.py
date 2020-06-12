@@ -776,6 +776,9 @@ class local_avg_realspace(Protocol, preprocess):
                         'local_partition_image_size' : 75, # pixels
                         'local_partition_step' : 1.0, # relative to image_size
                         'preprocess' : 'default',
+                        'sub_region_size' : 75, # pixels
+                        'sub_region_step_rel' : 0.5,
+                        'blur' : 0.5,
                         }
         self.run_args.update(kwargs)
 
@@ -820,9 +823,156 @@ class local_avg_realspace(Protocol, preprocess):
             data.set_z_display( [None, None, 'gamma', 1.0] )
             outfile = self.get_outfile('enhanced', output_dir, ext='.jpg', ir=True)
             data.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
+
+
+        q0 = run_args['q0']
+        dq = run_args['dq'] if 'dq' in run_args else q0*0.6
+        s = 3
+        plot_range = [-q0*s, +q0*s, -q0*s, +q0*s] if q0 is not None else [None,None,None,None]
+                
+        Z_accumluation = None
+        Re_accumluation = None
+        Im_accumluation = None
+        
+        realspace_accumulation = None
+        num_images = 0
+        
+        sub_region_size = run_args['sub_region_size']
+        sub_region_step = int(sub_region_size*run_args['sub_region_step_rel'])
+        h, w = data.data.shape
+        
+        for ix in range(sub_region_size, w-sub_region_size, sub_region_step):
+            for iy in range(sub_region_size, h-sub_region_size, sub_region_step):
+                        
+                sub_image = Data2D()
+                sub_image.data = data.data[iy-sub_region_size:iy+sub_region_size , ix-sub_region_size:ix+sub_region_size]
+                sub_image.x_scale, sub_image.y_scale = data.x_scale, data.y_scale
+                y_num, x_num = sub_image.data.shape
+                
+                #if x_num>0 and y_num>0: # Images of size greater than 0
+                if x_num>=sub_region_size*2 and y_num>=sub_region_size*2: # Full sub_images only
+                    if run_args['verbosity']>=4:
+                        print('    sub_region ({:d}, {:d}) of size {:d}×{:d}'.format(ix, iy, x_num, y_num))
+                    
+                    data_fft = sub_image.fft(update_origin=True)
+                    
+                    Re, Im = np.real(data_fft.data), np.imag(data_fft.data)
+                    data_fft.data = np.abs(data_fft.data)
+                    
+                    if run_args['blur'] is not None:
+                        data_fft.data = ndimage.filters.gaussian_filter(data_fft.data, run_args['blur'])
+                        Re = ndimage.filters.gaussian_filter(Re, run_args['blur'])
+                        Im = ndimage.filters.gaussian_filter(Im, run_args['blur'])
+                        
+                        
+                    if run_args['verbosity']>=5:
+                        outfile = self.get_outfile('sub_image_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        sub_image.plot_image(save=outfile, cmap=mpl.cm.bone, ztrim=[0,0])
+                        
+                        outfile = self.get_outfile('sub_FFT_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.25, 0.0005], dpi=50)
+                    
+                    line = data_fft.linecut_angle(d_center=q0, d_spread=dq, absolute_value=True)
+                    
+                    if run_args['verbosity']>=5:
+                        outfile = self.get_outfile('sub_angle_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        line.plot(save=outfile, plot_range=[-180,+180,None,None])
+
+                    if run_args['verbosity']>=10:
+                        # Show where the linecut is being applied
+                        data_fft.x_scale, data_fft.y_scale = 1, 1 # Hack because currently show_region assumes no coordinates have been applied
+                        data_fft.origin = [0,0]
+                        #plot_range = [None,None,None,None]
+                        y_num, x_num = data_fft.data.shape
+                        ws = 30
+                        plot_range_c = [(x_num-ws)/2,(x_num+ws)/2,(y_num-ws)/2,(y_num+ws)/2]
+                        data_fft.plot(save=False, plot_range=plot_range_c, dpi=50, show_region=True, show=True)
+                        
+                        
+                    # Rotate the FFT to align the maximum
+                    xm, ym = line.target_y_max()
+                    Zabs = ndimage.interpolation.rotate(data_fft.data, -xm, reshape=False)
+                    Re = ndimage.interpolation.rotate(Re, -xm, reshape=False)
+                    Im = ndimage.interpolation.rotate(Im, -xm, reshape=False)
+                    realspace = ndimage.interpolation.rotate(sub_image.data, -xm, reshape=False)
+                    
+
+                    if run_args['verbosity']>=5:
+                        outfile = self.get_outfile('rot_FFT_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        Z = data_fft.data
+                        data_fft.data = Zabs
+                        data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.25, 0.0005], dpi=50)
+                        line2 = data_fft.linecut_angle(d_center=q0, d_spread=dq, absolute_value=True)
+                        outfile = self.get_outfile('rot_angle_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        line2.plot(save=outfile, plot_range=[-180,+180,None,None])
+                        data_fft.data = Z
+
+
+                    # Accumulate the rotated data
+                    if Z_accumluation is None:
+                        Z_accumluation = Zabs
+                        Re_accumluation = Re
+                        Im_accumluation = Im
+                        realspace_accumulation = realspace
+                    else:
+                        Z_accumluation += Zabs
+                        Re_accumluation += Re
+                        Im_accumluation += Im
+                        realspace_accumulation += realspace
+                    num_images += 1
+            
+            
+            
+        Z_accumluation /= num_images
+        Re_accumluation /= num_images
+        Im_accumluation /= num_images
+        realspace_accumulation /= num_images
+            
+        if run_args['verbosity']>=5:
+            sub_image.data = realspace_accumulation
+            outfile = self.get_outfile('avg_realspace', output_dir, ext='.jpg', ir=True)
+            sub_image.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
+            
+        if run_args['verbosity']>=3:
+            data_fft.data = Z_accumluation
+            outfile = self.get_outfile('avg_FFT_abs', output_dir, ext='.jpg', ir=True)
+            data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.25,0.001])
+            data_fft.data = Re_accumluation
+            outfile = self.get_outfile('avg_FFT_Re', output_dir, ext='.jpg', ir=True)
+            data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.1,0.01])
+            data_fft.data = Im_accumluation
+            outfile = self.get_outfile('avg_FFT_Im', output_dir, ext='.jpg', ir=True)
+            data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.1,0.01])
+            
+        
+        outfile = self.get_outfile('avg_realspace', output_dir, ext='.npy', ir=False)
+        np.save(outfile, realspace_accumulation)
+        outfile = self.get_outfile('avg_FFT_abs', output_dir, ext='.npy', ir=False)
+        np.save(outfile, Z_accumluation)
+        outfile = self.get_outfile('avg_FFT_Re', output_dir, ext='.npy', ir=False)
+        np.save(outfile, Re_accumluation)
+        outfile = self.get_outfile('avg_FFT_Im', output_dir, ext='.npy', ir=False)
+        np.save(outfile, Im_accumluation)
+        
+        if run_args['verbosity']>=2:
+            data_fft.data = Z_accumluation
+            data_fft.recenter() # Put FFT origin back into corners
+            realspace = Data2D()
+            realspace.data = np.abs( np.fft.ifftn( data_fft.data ) )
+            realspace.recenter(update_origin=True)
+            y_num, x_num = data_fft.data.shape
+            realspace.x_scale, realspace.y_scale = 2*np.pi/(data_fft.x_scale*x_num), 2*np.pi/(data_fft.x_scale*y_num)
+            outfile = self.get_outfile('local_avg_realspace', output_dir, ext='.png', ir=False)
+            realspace.x_rlabel, realspace.y_rlabel = r'$x \, (\mathrm{nm})$', r'$y \, (\mathrm{nm})$'
+            realspace.plot(save=outfile, cmap='gist_heat', ztrim=[0.05, 0.03])
+        
+                    
+                    
+        return results
+
         
         
-        exit()
+    def __deprecated_working_code(self):
         import imreg_dft as ird
         seed = Data2DImage(os.path.join(output_dir, '../seed.png'))
         local_image = Data2DImage()

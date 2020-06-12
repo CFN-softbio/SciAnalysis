@@ -227,7 +227,7 @@ class DataLine(object):
         xcur = self.x[idx]
         ycur = self.y[idx]
         
-        return xcur, ycur           
+        return xcur, ycur
 
 
     def target_y(self, target):
@@ -246,7 +246,13 @@ class DataLine(object):
         xcur = x_sorted[idx]
         ycur = y_sorted[idx]
         
-        return xcur, ycur           
+        return xcur, ycur
+
+    
+    def target_y_max(self):
+        '''Find the (x,y) of the maximum y value.'''
+        return self.target_y(np.max(self.y))
+
     
     
     # Data modification
@@ -1236,15 +1242,16 @@ class Data2D(object):
     # Data transformation
     ########################################
     
-    def fft(self):
+    def fft(self, update_origin=True):
         '''Return the Fourier Transform of this 2D array (as a Data2D object).'''
         
         data_fft = Data2DFourier()
         data_fft.data = np.fft.fftn( self.data )
-        
-        data_fft.recenter()
         height, width = data_fft.data.shape
-        data_fft.origin = [int(width/2), int(height/2)]
+        
+        if update_origin:
+            data_fft.recenter(update_origin=update_origin)
+            data_fft.origin = [int(width/2), int(height/2)]
         
         height, width = self.data.shape
         data_fft.x_scale = 2*np.pi/(self.x_scale*width)
@@ -1356,14 +1363,18 @@ class Data2D(object):
         self.data = realspace
 
     
-    def recenter(self):
+    def recenter(self, update_origin=False):
         '''Shifts the data so that the corners are now combined into the new 
         center. The old center is then at the corners.'''
         
         dim_y, dim_x = self.data.shape
         
-        self.data = np.concatenate( (self.data[int(dim_y/2):,:], self.data[0:int(dim_y/2),:]), axis=0 )
-        self.data = np.concatenate( (self.data[:,int(dim_x/2):], self.data[:,0:int(dim_x/2)]), axis=1 )    
+        self.data = np.concatenate( (self.data[dim_y//2:,:], self.data[0:dim_y//2,:]), axis=0 )
+        self.data = np.concatenate( (self.data[:,dim_x//2:], self.data[:,0:dim_x//2]), axis=1 )    
+        
+        if update_origin:
+            height, width = self.data.shape
+            self.origin = [width//2, height//2]
         
         
     def transpose(self):
@@ -1485,10 +1496,10 @@ class Data2D(object):
             
             
         if 'show_region' in kwargs and kwargs['show_region']:
-            #region = np.ma.masked_where(np.abs(self.d_map()-d_center)>d_spread, self.angle_map())
-            #self.regions = [region]
-            data[pixel_list] *= 10
-            self.data = np.reshape( data, (dim_y, dim_x) )
+            region = np.ma.masked_where(np.abs(self.d_map()-d_center)>d_spread, self.angle_map())
+            self.regions = [region]
+            #data[pixel_list] *= 10
+            #self.data = np.reshape( data, (dim_y, dim_x) )
             
             
         # Generate map
@@ -1616,9 +1627,9 @@ class Data2D(object):
             # TODO: Handle 'origin' correctly. (E.g. allow it to be set externally.)
             self.im = plt.imshow(self.Z, vmin=0, vmax=1, cmap=cmap, interpolation='nearest', extent=extent, origin='lower')
         
-        
         if self.regions is not None:
             for region in self.regions:
+                # TODO: Handle the case where the image has coordinates assigned to it.
                 plt.imshow(region, cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75)
                 #plt.imshow(np.flipud(region), cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75, origin='lower')
 

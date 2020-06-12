@@ -40,7 +40,11 @@ import PIL # Python Image Library (for opening PNG, etc.)
 
 from .. import tools
 from ..Data import *
-from .Eiger import *
+try:
+    from .Eiger import *
+except ImportError:
+    # Eiger support is optional
+    pass
 
 
 
