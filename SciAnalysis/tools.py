@@ -50,19 +50,21 @@ def timestamp(filepath):
     filetimestamp = statinfo.st_mtime
     return filetimestamp
 
-
 def print_array(data, name='array', verbosity=3):
     '''Helper code for inspecting arrays (e.g. for debugging).'''
+    span = np.max(data)-np.min(data)
     if verbosity>=3:
         print('print_array for: {} (shape: {})'.format(name, data.shape))
     if verbosity>=1:
-        print('    values: {} ± {} ({} to {})'.format(np.average(data), np.std(data), np.min(data), np.max(data)))
+        print('    values: {:.4g} ± {:.4g} (span {:.3g}, from {:.3g} to {:.3g})'.format(np.average(data), np.std(data), span, np.min(data), np.max(data)))
     if verbosity>=4:
         print(data)
 
 
+
 # Filename
 ################################################################################
+# TODO: Modernize by using Python3's from pathlib import Path
 class Filename(object):
     '''Parses a filename into pieces following the desired pattern.'''
     

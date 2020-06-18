@@ -1138,6 +1138,12 @@ class Data2D(object):
         self.y_scale = scale
     
     
+    def get_scale(self):
+        '''Return the scale (average of x and y) for the image. This is in units/pixel,
+        e.g. nm/pixel.'''
+        return (self.x_scale + self.y_scale)*0.5
+    
+    
     def xy_axes(self):
         # BUG: There is a conflict/inconsistency between the use of origin/scale vs. (x_axis, y_axis).
         
@@ -1235,7 +1241,14 @@ class Data2D(object):
         # This is so that 0 degrees is vertical.
         M = np.degrees(np.arctan2(X, Y))
         
-        return M        
+        return M
+    
+    
+    def image_area(self):
+        '''Returns the area of the image (in the units given by x_scale and y_scale).'''
+        h, w = self.data.shape
+        area = ( h*self.y_scale )*( w*self.x_scale )
+        return area
         
     
     
