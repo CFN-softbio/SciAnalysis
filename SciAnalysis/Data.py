@@ -799,6 +799,33 @@ class DataHistogram(DataLine):
         
         if dashes is not None:
             l.set_dashes(dashes)     
+            
+            
+    def _plot_stats(self, **plot_args):
+        
+        xi, xf, yi, yf = self.ax.axis()
+        
+        if hasattr(self, 'mean'):
+            self.ax.axvline(self.mean, color='b', linewidth=3.0, zorder=4)
+            self.ax.text(self.mean, yf, 'mean', color='b', rotation=90, verticalalignment='top', horizontalalignment='right', zorder=4)
+        
+            if hasattr(self, 'std'):
+                self.ax.axvspan( self.mean-self.std, self.mean+self.std, color='b', alpha=0.05, zorder=-10)
+                self.ax.axvspan( self.mean-2*self.std, self.mean+2*self.std, color='b', alpha=0.05, zorder=-10)
+
+                # Determine the units for the values
+                els = self.x_rlabel.split('\,')
+                units = els[1].replace('(','').replace(')','') if len(els)>1 else '$'
+                #s = r'{} = {:.1f} \pm {:.1f} \, {}'.format( els[0], self.mean, self.std, units)
+                s = r'$\langle {} \rangle = {:.1f} \pm {:.1f} \, {}'.format( els[0][1:], self.mean, self.std, units)
+                self.ax.text(xf, yf, s, size=30, verticalalignment='top', horizontalalignment='right')
+        
+        if hasattr(self, 'median'):
+            self.ax.axvline(self.median, color='purple', linewidth=2.0)
+            self.ax.text(self.median, yf, 'median', color='purple', rotation=90, verticalalignment='top', horizontalalignment='right')
+
+        
+            
 
     # End class DataHistogram(DataLine)
     ########################################
@@ -1908,27 +1935,29 @@ class Data2D(object):
         #self.fig.canvas.mpl_connect('motion_notify_event', self._move_event )
         self.fig.canvas.mpl_connect('key_press_event', self._key_press_event)
         
+        #self.ax.format_coord = self._format_coord_simple
         self.ax.format_coord = self._format_coord
         
         
     def _format_coord_simple(self, x, y):
-        
         col = int(x+0.5)
         row = int(y+0.5)
         
         numrows, numcols = self.data.shape
-        row = numrows-row-1
+        row = numrows-row-1 # Assume the origin inverts the relationship between y and col.
         if col>=0 and col<numcols and row>=0 and row<numrows:
             z = self.data[row,col]
             #z = self.Z[row,col]
             #return 'x=%1.1f, y=%1.1f, z=%1.1f'%(x, y, z)
-            #return 'r%dc%d x=%1.1f, y=%1.1f, z=%g'%(row, col, x, y, z)
-            return 'x=%1.1f, y=%1.1f, z=%g'%(x, y, z)
+            return 'r%dc%d x=%1.1f, y=%1.1f, z=%g'%(row, col, x, y, z)
+            #return 'x=%1.1f, y=%1.1f, z=%g'%(x, y, z)
         else:
             return 'x=%1.1f, y=%1.1f'%(x, y)        
         
         
     def _format_coord(self, x, y):
+        # TODO/BUG: This function assumes the image has physical axes applied to it, which may or may not be the case.
+        # TODO/BUG: This function assumes the origin inverts the relationship between y and col.
         
         xp = self.origin[0] + x/self.x_scale
         yp = self.origin[1] + y/self.y_scale
@@ -1937,11 +1966,12 @@ class Data2D(object):
         row = int(yp+0.5)
         
         numrows, numcols = self.data.shape
-        row = numrows-row-1
+        row = numrows-row-1 # Assume the origin inverts the relationship between y and col.
         if col>=0 and col<numcols and row>=0 and row<numrows:
             z = self.data[row,col]
             #z = self.Z[row,col]
             #return 'x=%1.1f, y=%1.1f, z=%1.1f'%(x, y, z)
+            #return 'r%dc%d x=%1.1f, y=%1.1f, z=%g'%(row, col, x, y, z)
             return 'x=%g, y=%g, z=%g'%(x, y, z)
         else:
             return 'x=%g, y=%g'%(x, y)           

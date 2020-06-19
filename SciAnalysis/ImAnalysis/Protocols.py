@@ -1365,33 +1365,16 @@ class particles(Protocol, preprocess):
             
             class DataHistogram_current(DataHistogram):
                 def _plot_extra(self, **plot_args):
+                    
                     xi, xf, yi, yf = self.ax.axis()
-                    yf = yf*1.2
+                    yf *= 1.2
+                    self.ax.axis([xi, xf, yi, yf])
                     
-                    
-                    self.ax.axvline(self.mean, color='b', linewidth=3.0, zorder=4)
-                    self.ax.text(self.mean, yf, 'mean', color='b', rotation=90, verticalalignment='top', horizontalalignment='right', zorder=4)
-                    
-                    self.ax.axvspan( self.mean-self.std, self.mean+self.std, color='b', alpha=0.05, zorder=-10)
-                    self.ax.axvspan( self.mean-2*self.std, self.mean+2*self.std, color='b', alpha=0.05, zorder=-10)
-
-                    self.ax.axvline(self.median, color='purple', linewidth=2.0)
-                    self.ax.text(self.median, yf, 'median', color='purple', rotation=90, verticalalignment='top', horizontalalignment='right')
+                    self._plot_stats(**plot_args)
                     
                     lm_result, fit_line, fit_line_e = self.fit_peak(self)
                     self.ax.axvline(lm_result.params['x_center'], color='r', linewidth=2.0)
                     self.ax.plot(fit_line_e.x, fit_line_e.y, 'r', linewidth=2.0)
-                    
-                    # Determine the units for the values
-                    els = self.x_rlabel.split('\,')
-                    if len(els)>1:
-                        s = '{}= {:.1f} \pm {:.1f} \, {}'.format( els[0], self.mean, self.std, els[1].replace('(','').replace(')','') )
-                    else:
-                        s = '{}= {:.1f} \pm {:.1f}$'.format( els[0][:-1], self.mean, self.std )
-                    
-                    self.ax.text(xf, yf, s, size=30, verticalalignment='top', horizontalalignment='right')
-                    
-                    self.ax.axis( [xi, xf, yi, yf] )
                     
                     
                 def fit_peak(self, line, **run_args):
@@ -1685,8 +1668,8 @@ class skeletonize(particles):
         results['num_lines'] = num_features
 
         if run_args['verbosity']>=4:
-            print('    skeleton coverage: {:.1f}%'.format(results['skeleton_coverage']*100.))
             print('    {} skeleton lines'.format(num_features))
+            print('    Skeleton coverage: {:.1f}%'.format(results['skeleton_coverage']*100.))
 
         if run_args['verbosity']>=5:
             # Colored image
@@ -1850,7 +1833,8 @@ class skeleton_angles(skeleton_lines):
                         'diagonal_detection' : False,
                         'cmap' : mpl.cm.bone,
                         'preprocess' : 'default',
-                        'hist_bins' : 100,
+                        'hist_bins' : 30,
+                        'lookout_distance_pix' : 6,
                         }
         self.run_args.update(kwargs)
 
@@ -1877,59 +1861,161 @@ class skeleton_angles(skeleton_lines):
 
 
     def _skeletonize_angles(self, data, output_dir, results, labeled_array, skeleton, **run_args):
+        '''Use the computed skeleton, and calculate at each point along this skeleton the local
+        "bending angle". To do this, for each pixel we look out to a local window. The bright
+        pixels at the edge of this window are assumed to be extensions of our current line.
+        (This is valid if the lines are thin compared to how close they are to each other.)
+        Then we calculate the angles between these edge-pixels. Since we are centered on a
+        particular line-pixel, these angle different between edge-pixels is the amount of
+        bending.'''
+        
+        
+        # Compute the local "bending" angle of skeleton lines
+        # out to a "lookout" distance of l.
+        l = run_args['lookout_distance_pix']
+        s = 2*l+1 # Size of window
+        
+        # We define a "footprint" for the window that will search at any given point.
+        # For instance, a footprint that searches 2 pixels away from the target point is a 5x5 matrix:
+        #footprint = [ [1, 1, 1, 1, 1] ,
+        #              [1, 0, 0, 0, 1] ,
+        #              [1, 0, 0, 0, 1] ,
+        #              [1, 0, 0, 0, 1] ,
+        #              [1, 1, 1, 1, 1] ]
+        footprint = np.ones((s,s)) # Set all values (including edges) to 1.0
+        footprint[1:-1,1:-1] = 0 # Set inner (non-edge) values to 0.0
+
+        # We pre-compute angles for the footprint, which has indices like:
+        #  0  1  2  3  4
+        #  5  -  -  -  6
+        #  7  -  -  -  8
+        #  9  -  -  - 10
+        # 11 12 13 14 15
+        #delta_x = [-2, -1, +0, +1, +2,    -2, +2, -2, +2, -2, +2,    -2, -1, +0, +1, +2]
+        #delta_y = [+2, +2, +2, +2, +2,    +1, +1, +0, +0, -1, -1,    -2, -2, -2, -2, -2]
+        grid = np.indices((s,s))
+        delta_x = grid[1]-l
+        delta_x = delta_x[footprint==1]
+        delta_y = (grid[0]-l)*-1
+        delta_y = delta_y[footprint==1]
+        angle_lookup = np.degrees(np.arctan2(delta_y, delta_x))
+        
+        def filter_function(values):
+            '''Calculates the local bending angle at this pixel.'''
+            idx = np.where(values>0)[0]
+            n = len(idx)
+            if n<=1:
+                return 0
+            elif n==2:
+                angle0 = angle_lookup[idx[0]]
+                angle1 = angle_lookup[idx[1]]
+                angle_diff = abs(angle1-angle0)
+                angle_diff = min(angle_diff, 360-angle_diff)
+                bend = 180-angle_diff
+                return bend
+            elif n==3:
+                angle0 = angle_lookup[idx[0]]
+                angle1 = angle_lookup[idx[1]]
+                angle2 = angle_lookup[idx[2]]
+                angle_diff01 = abs(angle1-angle0)
+                angle_diff01 = min(angle_diff01, 360-angle_diff01)
+                angle_diff12 = abs(angle2-angle1)
+                angle_diff12 = min(angle_diff12, 360-angle_diff12)
+                angle_diff20 = abs(angle0-angle2)
+                angle_diff20 = min(angle_diff20, 360-angle_diff20)
+                angles = sorted([angle_diff01, angle_diff12, angle_diff20])[:n-1]
+                bends = 180-np.asarray(angles)
+                return np.average(bends)
+            
+            else:
+                # This block works for all n, but the above code might be slightly more efficient
+                # (and is retained to document how this method works)
+                angles = []
+                for i in range(n):
+                    angle_i = angle_lookup[idx[i]]
+                    for j in range(i+1, n):
+                        angle_j = angle_lookup[idx[j]]
+                        diff = abs(angle_i-angle_j)
+                        diff = min(diff, 360-diff)
+                        angles.append(diff)
+                angles = sorted(angles)[:n-1] # Exclude the largest outer angle
+                bends = 180-np.asarray(angles)
+                return np.average(bends)
+                
+        
+        # Apply the local "angle calculator" to every pixel in the image.
+        angles = ndimage.generic_filter(skeleton, filter_function, footprint=footprint, mode='constant', output=np.float)
+        angles *= skeleton # Set to zero any non-skeleton pixels
+        if run_args['verbosity']>=6:
+            print_array(angles, 'angles')
+            
         
         if run_args['verbosity']>=3:
-            # Local angle of skeleton line
-
-            footprint = [[1, 1, 1, 1, 1] ,
-                         [1, 0, 0, 0, 1] ,
-                         [1, 0, 0, 0, 1] ,
-                         [1, 0, 0, 0, 1] ,
-                         [1, 1, 1, 1, 1]]            
-            # Pre-compute angles for the footprint, which has indices:
-            #  0  1  2  3  4
-            #  5  -  -  -  6
-            #  7  -  -  -  8
-            #  9  -  -  - 10
-            # 11 12 13 14 15
-            delta_x = [-2, -1, +0, +1, +2,    -2, +2, -2, +2, -2, +2,    -2, -1, +0, +1, +2]
-            delta_y = [+2, +2, +2, +2, +2,    +1, +1, +0, +0, -1, -1,    -2, -2, -2, -2, -2]
-            angle_lookup = np.arctan2(delta_y, delta_x)
-            
-            def filter_function(values):
-                n = values.sum()
-                if n<=1:
-                    return 0
-                elif n==2:
-                    idx = np.where(values>0)[0]
-                    angle0 = angle_lookup[idx[0]]
-                    angle1 = angle_lookup[idx[1]]
-                    return 2
-                else:
-                    return 3
-                    
-            
-            angles = ndimage.generic_filter(skeleton, filter_function, footprint=footprint, mode='constant')
-            angles *= skeleton
-            
-            
-            #print_array(angles, 'angles')
+            angles[skeleton==0] = -10 # We can set the non-skeleton values to some other number to help with visualizing.
             data.data = angles
             data.set_z_display( [None, None, 'gamma', 1.0] )
             outfile = self.get_outfile('angles', output_dir, ext='.png', ir=True)
-            data.plot_image(save=outfile, zmin=0, ztrim=[0,0], cmap=mpl.cm.jet)
-            data.data = skeleton        
+            data.plot_image(save=outfile, zmin=-10, zmax=90, _ztrim=[0,0], cmap=mpl.cm.jet)
+            #data.plot(show=True, zmin=-90, zmax=90, _ztrim=[0,0], cmap=mpl.cm.jet)
+            data.data = skeleton
+            
+            
+        # Select only the valid pixels (along skeleton)
+        angles = angles[skeleton==1]
+            
+            
+        if run_args['verbosity']>=6:
+            from scipy.interpolate import griddata
+            grid = np.indices(skeleton.shape)
+            positions = np.column_stack((grid[0][skeleton==1],grid[1][skeleton==1]))
+            angle_map = griddata(positions, angles, tuple(grid), method='linear')
+            
+            angle_map = ndimage.filters.gaussian_filter(angle_map, l/4)
+            outfile = self.get_outfile('angles_interpolated', output_dir, ext='.npy', ir=False)
+            np.save(outfile, angle_map)
+            
+            angle_map = np.clip(angle_map/90, 0, 1)
+            cmap = mpl.cm.jet
+            img = PIL.Image.fromarray(np.uint8(cmap(angle_map)*255))
+            outfile = self.get_outfile('angles_interpolated', output_dir, ext='.png', ir=True)
+            img.save(outfile)
         
-        #for i in range(1, num_features+1):
-            #if run_args['verbosity']>=4 and i%20==0:
-                #print('    line object {}/{} = {:.1f}%'.format(i, num_features, 100*i/num_features))
-            #idx = np.where(labeled_array==i)
-                
-            # Find endpoint
-            # Walk along pixels
-            # Keep track of orientation vectors
+        
+        
+        # Calculate stats and histogram
+        results['bending_angle_average'] = np.average(angles)
+        results['bending_angle_std'] = np.std(angles)
+        results['bending_angle_median'] = np.median(angles)
+        
+        y, x = np.histogram(angles, bins=run_args['hist_bins'], range=[0, 180])
+        x = [ (x[i]+x[i+1])/2.0 for i in range(len(x)-1) ] # bin_edges to bin centers
+        outfile = self.get_outfile('bending_angles', output_dir, ext='.dat')
+        np.savetxt(outfile, np.stack([x, y], axis=1))
+        
+
+        if run_args['verbosity']>=2:
+            class DataHistogram_current(DataHistogram):
+                def _plot_extra(self, **plot_args):
+                    xi, xf, yi, yf = self.ax.axis()
+                    yf = np.max(self.y[1:])*0.25
+                    self.ax.axis([xi, xf, yi, yf])
+                    
+                    self._plot_stats(**plot_args)
+                    
+                    self.ax.set_xticks(range(0, 120+30, 30))
+
+            
+            hist = DataHistogram_current(x=x, y=y, x_label='angle', x_rlabel=r'$\theta_{\mathrm{bend}} \, (^{\circ})$', y_label='count')
+            hist.mean = results['bending_angle_average']
+            hist.std = results['bending_angle_std']
+            hist.median = results['bending_angle_median']
+            
+            outfile = self.get_outfile('bending_angles', output_dir, ext='.png')
+            hist.plot(save=outfile, plot_range=[0, 120, 0, None], plot_buffers=[0.18,0.05,0.18,0.05],)
+
         
         return results
+
 
             
 class grain_size_hex(Protocol, preprocess, mask):
