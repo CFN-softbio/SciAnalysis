@@ -426,7 +426,7 @@ class fit_peaks(Protocol):
                 lines.add_line(curve)
         lines.results = results
         lines._run_args = run_args
-        lines.copy_labels(line)            
+        lines.copy_labels(line)
         
         # Note that the results dictionary is modified within this function.
         # Thus although it is not returned, it is part of the set of returned
@@ -490,7 +490,7 @@ class fit_peaks(Protocol):
             
         
         xspan = np.max(line.x) - np.min(line.x)
-        xpeak, ypeak = line.target_y(np.max(line.y))
+        xpeak, ypeak = line.target_y_max()
 
 
 
@@ -658,7 +658,7 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
         
         if 'plots' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-            lines.plot(save=outfile, **run_args)        
+            lines.plot(save=outfile, **run_args)
         
         
         if 'hdf5' in run_args['save_results']:

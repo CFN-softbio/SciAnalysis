@@ -785,6 +785,221 @@ class fft(Protocol, mask):
 
 
 
+class local_d0(Protocol, preprocess):
+    
+    
+    def __init__(self, name='local_d0', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.jpg'
+        self.run_args = {
+                        'preprocess' : 'default',
+                        'sub_region_size' : 75, # pixels
+                        'sub_region_step_rel' : 0.5,
+                        'blur' : 0.5,
+                        }
+        self.run_args.update(kwargs)
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+
+        results = {}
+        data = copy.deepcopy(data)
+        
+        if run_args['verbosity']>=5:
+            im = PIL.Image.fromarray( np.uint8(data.data) )
+            outfile = self.get_outfile('original', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
+        
+
+
+        # Pre-process image
+        data = self.preprocess(data, **run_args)
+        
+        
+        if run_args['verbosity']>=5:
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('enhanced', output_dir, ext='.jpg', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
+
+        if 'd0' in run_args:
+            q0 = 2*np.pi/run_args['d0']
+        else:
+            q0 = run_args['q0']
+        dq = run_args['dq'] if 'dq' in run_args else q0*0.6
+        s = 3
+        plot_range = [-q0*s, +q0*s, -q0*s, +q0*s] if q0 is not None else [None,None,None,None]
+
+
+
+        d0_x, d0_y, d0s = [], [], []
+
+        sub_region_size = run_args['sub_region_size']
+        sub_region_step = int(sub_region_size*run_args['sub_region_step_rel'])
+        h, w = data.data.shape
+        
+        sub_image = Data2D()
+        sub_image.x_scale, sub_image.y_scale = data.x_scale, data.y_scale
+        
+        
+        
+        for ix in range(sub_region_size, w-sub_region_size, sub_region_step):
+            if run_args['verbosity']>=3:
+                print('  ix {:d}/{:d} = {:.1f}%'.format(ix, w, 100.*ix/w))
+            for iy in range(sub_region_size, h-sub_region_size, sub_region_step):
+                
+                sub_image.data = data.data[iy-sub_region_size:iy+sub_region_size , ix-sub_region_size:ix+sub_region_size]
+                y_num, x_num = sub_image.data.shape
+                
+                if x_num>=sub_region_size*2 and y_num>=sub_region_size*2: # Full sub_images only
+                    
+                    if run_args['verbosity']>=5:
+                        print('    sub_region ({:d}, {:d}) of size {:d}×{:d}'.format(ix, iy, x_num, y_num))
+
+
+                    data_fft = sub_image.fft(update_origin=True)
+                    
+                    Re, Im = np.real(data_fft.data), np.imag(data_fft.data)
+                    data_fft.data = np.abs(data_fft.data)
+                    
+                    if run_args['blur'] is not None:
+                        data_fft.data = ndimage.filters.gaussian_filter(data_fft.data, run_args['blur'])
+                        Re = ndimage.filters.gaussian_filter(Re, run_args['blur'])
+                        Im = ndimage.filters.gaussian_filter(Im, run_args['blur'])
+                        
+                        
+                    if run_args['verbosity']>=6:
+                        outfile = self.get_outfile('sub_image_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        sub_image.plot_image(save=outfile, cmap=mpl.cm.bone, ztrim=[0,0])
+                        
+                        outfile = self.get_outfile('sub_FFT_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.25, 0.001], dpi=50)
+                        
+                    
+                    outfile_extra = '_ix{:03d}iy{:03d}'.format(ix,iy)
+                    q0local = self.analyze_q0(data_fft, q0i=q0, dqi=dq, outfile_extra=outfile_extra, output_dir=output_dir, **run_args)
+                    d0local = 2*np.pi/q0local
+                    
+                    d0_x.append(ix)
+                    d0_y.append(iy)
+                    d0s.append(d0local)
+                    
+                    
+        d0s = np.asarray(d0s)
+        
+        d0_values = np.column_stack([d0_x, d0_y, d0s])
+        outfile = self.get_outfile('d0_local_values', output_dir, ext='.npy', ir=False)
+        np.save(outfile, d0_values)
+                    
+        if run_args['verbosity']>=3:
+            print_array(d0s, 'd0s')
+            
+            from scipy.interpolate import griddata
+            grid = np.indices(data.data.shape)
+            positions = np.column_stack((d0_y, d0_x))
+            d0s_map = griddata(positions, d0s, tuple(grid), method='linear')
+            
+            d0min, d0max = np.min(d0s), np.max(d0s)
+            d0s_map = (d0s_map-d0min)/(d0max-d0min)
+            d0s_map = ndimage.filters.gaussian_filter(d0s_map, 1.0)
+            print_array(d0s_map, 'd0s_map')
+            outfile = self.get_outfile('d0s_interpolated', output_dir, ext='.npy', ir=False)
+            np.save(outfile, d0s_map)
+            
+            d0s_interpolated = np.clip(d0s_map, 0, 1)
+            cmap = mpl.cm.viridis
+            img = PIL.Image.fromarray(np.uint8(cmap(d0s_interpolated)*255))
+            outfile = self.get_outfile('d0s_interpolated', output_dir, ext='.png', ir=False)
+            img.save(outfile)
+                    
+        
+        
+        return results
+
+
+
+    def analyze_q0(self, data_fft, q0i, dqi, outfile_extra='', output_dir='./', **run_args):
+        
+        line = data_fft.circular_average()
+        line.x_rlabel = '$q \, (\mathrm{nm}^{-1})$'
+        
+        sub_line = line.sub_range(q0i-dqi,q0i+dqi)
+        lm_result, fit_line, fit_line_extended = self.fit_peak(sub_line, **run_args)
+        q0 = lm_result.params['x_center'].value
+        
+        if run_args['verbosity']>=6:
+            xpeak, ypeak = sub_line.target_y_max()
+            lines = DataLines([line, fit_line, fit_line_extended])
+            lines.copy_labels(line)
+            outfile = self.get_outfile('fit{}'.format(outfile_extra), output_dir, ext='.png', ir=False)
+            lines.plot(save=outfile, plot_range=[0, q0i*3, 0, ypeak*1.5], **run_args)
+            
+        
+        return q0
+
+
+    def fit_peak(self, line, **run_args):
+        # Usage: lm_result, fit_line, fit_line_extended = self.fit_peak(line, **run_args)
+        
+        import lmfit
+        
+        def model(v, x):
+            '''Gaussian with linear background.'''
+            m = v['prefactor']*np.exp( -np.square(x-v['x_center'])/(2*(v['sigma']**2)) ) + v['m']*x + v['b']
+            return m
+        
+        def func2minimize(params, x, data):
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        
+        m = (line.y[-1]-line.y[0])/(line.x[-1]-line.x[0])
+        b = line.y[0] - m*line.x[0]
+
+        xspan = np.max(line.x) - np.min(line.x)
+        xpeak, ypeak = line.target_y_max()
+        
+        params = lmfit.Parameters()
+        params.add('prefactor', value=ypeak-(m*xpeak+b), min=0)
+        params.add('x_center', value=xpeak, min=np.min(line.x), max=np.max(line.x))
+        params.add('sigma', value=xspan/2, min=0)
+        params.add('m', value=m)
+        params.add('b', value=b)
+        
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if run_args['verbosity']>=7:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        fit_x = np.linspace(np.min(line.x), np.max(line.x), num=200)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':4.0})
+        
+        x_span = abs(np.max(line.x) - np.min(line.x))*0.5
+        fit_x = np.linspace(np.min(line.x)-x_span, np.max(line.x)+x_span, num=200)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':2.0})
+            
+        return lm_result, fit_line, fit_line_extended
+                
+
+
+    # End class fft(Protocol)
+    ########################################
+
+
+
 class local_avg_realspace(Protocol, preprocess):
     
     
@@ -794,8 +1009,8 @@ class local_avg_realspace(Protocol, preprocess):
         
         self.default_ext = '.jpg'
         self.run_args = {
-                        'local_partition_image_size' : 75, # pixels
-                        'local_partition_step' : 1.0, # relative to image_size
+                        #'local_partition_image_size' : 75, # pixels
+                        #'local_partition_step' : 1.0, # relative to image_size
                         'preprocess' : 'default',
                         'sub_region_size' : 75, # pixels
                         'sub_region_step_rel' : 0.5,
@@ -1049,6 +1264,8 @@ class local_avg_realspace(Protocol, preprocess):
     
     
     
+    # End local_avg_realspace(Protocol, preprocess):
+    ########################################
 
 
         

@@ -290,8 +290,8 @@ class Data2DScattering(Data2D):
         data is average over 'chi', so that the resulting curve is as a function
         of q.'''
         
-        return self.circular_average_q(**kwargs)
-        #return self.circular_average_q_bin(**kwargs)
+        #return self.circular_average_q(**kwargs)
+        return self.circular_average_q_bin(**kwargs)
     
     
     def circular_average_pixel(self, **kwargs):
@@ -394,7 +394,7 @@ class Data2DScattering(Data2D):
         
         # This version uses numpy.histogram instead of converting the binning
         # into an equivalent integer list (and then using numpy.bincount).
-        # This code is slightly slower (30-40% longer to run. However, this
+        # This code is slightly slower (30-40% longer to run). However, this
         # version is slightly more general inasmuch as one can be more
         # arbitrary about the number of bins to be used (doesn't have to match
         # the q-spacing).

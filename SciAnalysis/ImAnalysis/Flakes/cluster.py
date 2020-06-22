@@ -152,7 +152,7 @@ class cluster(ProtocolMultiple):
                 with open(savefile, 'rb') as fin:
                     clustering = pickle.load(fin)
             elif features_rescaled is not None:
-                # Manually recompute some minimal aspects of clustering\
+                # Manually recompute some minimal aspects of clustering
                 # Note: This mostly exists so that select_flakes.run has access to this information
                 # even if cluster.run has never been run (and thus cluster.pkl doesn't exist).
                 clustering = {}
@@ -663,7 +663,8 @@ class cluster(ProtocolMultiple):
     def _plot_flake_image(self, ax_pos, flake_i, distance, **run_args):
         
         # Load parent image
-        img = plt.imread(flake_i['infile'])
+        filename = flake_i['infile'].replace('\\', '/') # String replace in case files were saved on another platform.
+        img = plt.imread(filename)
         h, w, c = img.shape
 
         # Define image sub-region that has the flake in it
