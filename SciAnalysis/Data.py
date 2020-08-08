@@ -428,6 +428,18 @@ class DataLine(object):
             plt.figtext(0, 1, plot_args['title'], size=size-10, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         
+        if 'reflines' in plot_args:
+            range_y = [np.min(self.y), np.max(self.y)]
+            for ii, qs in enumerate(plot_args['reflines']):
+                if ii<1:
+                    for q in qs:
+                        plt.plot([q, q],range_y,'r:')
+                        plt.text(q, range_y[0], str(q), color='r', rotation=90)            
+                else:
+                    for q in qs:
+                        plt.plot([q, q],range_y,'g:')
+                        plt.text(q, range_y[0], str(q), color='g', rotation=90)            
+        
         # Axis scaling
         xi, xf, yi, yf = self.ax.axis()
         if plot_range[0] != None: xi = plot_range[0]
@@ -1677,7 +1689,7 @@ class Data2D(object):
         if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
-            plt.figtext(0, 1, plot_args['title'], size=15, weight='bold', verticalalignment='top', horizontalalignment='left')
+            plt.figtext(0, 1, plot_args['title'], size=size-10, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         self._plot_extra(**plot_args)
         
@@ -1866,7 +1878,7 @@ class Data2D(object):
         if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
-            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+            plt.figtext(0, 1, plot_args['title'], size=size-10, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         self._plot_extra3D(**plot_args)
         

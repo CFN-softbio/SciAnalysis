@@ -146,6 +146,16 @@ class thumbnails(Protocol):
         
         #print(data.stats())
         
+        if 'label_filename' in run_args and run_args['label_filename']:
+            data.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                    'xtick.labelsize': 30,
+                                    'ytick.labelsize': 30,
+                                    'xtick.major.pad': 10,
+                                    'ytick.major.pad': 10,
+                                    },
+                                'title': data.name,
+                                } 
+            
         if 'plots' in run_args['save_results']:
             results['files_saved'] = [
                 { 'filename': '{}'.format(outfile) ,
@@ -188,7 +198,7 @@ class circular_average(Protocol):
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
         
         if 'label_filename' in run_args and run_args['label_filename']:
-            line.plot_args = { 'rcParams': {'axes.labelsize': 25,
+            line.plot_args = { 'rcParams': {'axes.labelsize': 20,
                                         'xtick.labelsize': 25,
                                         'ytick.labelsize': 25,
                                         'xtick.major.pad': 10,
@@ -715,7 +725,7 @@ class sector_average(Protocol):
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
         if 'label_filename' in run_args and run_args['label_filename']:
-            line.plot_args = { 'rcParams': {'axes.labelsize': 25,
+            line.plot_args = { 'rcParams': {'axes.labelsize': 20,
                                 'xtick.labelsize': 25,
                                 'ytick.labelsize': 25,
                                 'xtick.major.pad': 10,
@@ -2168,7 +2178,16 @@ class q_image(Protocol):
                                     },
                             } 
 
-
+        if 'label_filename' in run_args and run_args['label_filename']:
+            q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                    'xtick.labelsize': 25,
+                                    'ytick.labelsize': 25,
+                                    'xtick.major.pad': 10,
+                                    'ytick.major.pad': 10,
+                                    },
+                                'title': data.name,
+                                } 
+            
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
         q_data.plot(outfile, **run_args)
@@ -2223,9 +2242,9 @@ class qr_image(Protocol):
         q_data.set_z_display([None, None, 'gamma', 0.3])
         
         if 'label_filename' in run_args and run_args['label_filename']:
-            q_data.plot_args = { 'rcParams': {'axes.labelsize': 30,
-                                    'xtick.labelsize': 30,
-                                    'ytick.labelsize': 30,
+            q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                    'xtick.labelsize': 25,
+                                    'ytick.labelsize': 25,
                                     'xtick.major.pad': 10,
                                     'ytick.major.pad': 10,
                                     },
