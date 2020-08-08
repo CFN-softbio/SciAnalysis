@@ -40,7 +40,7 @@ calibration.set_distance(0.273900)
 calibration.set_angles(det_phi_g=0., det_theta_g=0.)
 print('ratio Dw = {:.3f}'.format(calibration.get_ratioDw()))
 
-mask = Mask(mask_dir+'Pilatus300kWh_main_gaps-mask.png')
+mask = Mask(mask_dir+'Pilatus300kWv_main_gaps-mask.png')
 #mask.load('./Pilatus300kWh_current-mask.png')
 
 
@@ -63,7 +63,7 @@ infiles.sort()
 
 load_args = { 'calibration' : calibration, 
              'mask' : mask,
-             'rot' : True,
+             'rotCCW' : True,
              #'flip' : True,
              }
 run_args = { 'verbosity' : 3,

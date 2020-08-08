@@ -193,7 +193,7 @@ class find_flakes(thumbnails):
         self.fig = plt.figure( figsize=(10,10/aspect), facecolor='white' )
         self.ax = self.fig.add_axes( [0, 0, 1, 1] )
         
-        if 'image_contrast' is not None:
+        if run_args['image_contrast'] is not None:
             in_range = ( run_args['image_contrast'][0]*255, run_args['image_contrast'][1]*255 )
             data_rgb = skimage.exposure.rescale_intensity(im_rgb, in_range=in_range, out_range='dtype')
         self.ax.imshow(data_rgb)

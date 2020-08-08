@@ -160,7 +160,7 @@ class tile_img(ProtocolMultiple):
                 if data_rgb.dtype==np.float32:
                     data_rgb *= 255
                     
-                if 'image_contrast' is not None:
+                if run_args['image_contrast'] is not None:
                     in_range = ( run_args['image_contrast'][0]*255, run_args['image_contrast'][1]*255 )
                     import skimage.exposure
                     data_rgb = skimage.exposure.rescale_intensity(data_rgb, in_range=in_range, out_range='dtype')
@@ -839,8 +839,8 @@ class Data2D_flake_histogram(Data2D):
         
         flakes_sorted = np.asarray(self.flakes)[idx][idx_sort]
         
-            
-        g = ImageGrid()
+        name_convention = self._kwargs['name_convention'] if 'name_convention' in self._kwargs else None
+        g = ImageGrid(name_convention=name_convention)
         icount = 0
         for i, flake in enumerate(flakes_sorted):
             
@@ -876,8 +876,20 @@ class ImageGrid(object):
         self.axes = []
         self.ax_ims = []
         self.flakes_raw = []
-        
-        self.re_files = re.compile('^.+_x(\d+)_y(\d+).+$')
+
+
+        # Naming convention for raw data files
+        name_convention = '^.+_x(\d+)_y(\d+).+$' # Default (Indexed)
+        if 'name_convention' in kwargs and kwargs['name_convention'] is not None:
+            if kwargs['name_convention']=='indexed':
+                name_convention = '^.+_x(\d+)_y(\d+).+$'
+            elif kwargs['name_convention']=='ixiy':
+                name_convention = '^.+_ix(-?\d+)_iy(-?\d+).+$'
+            elif kwargs['name_convention']=='xy':
+                name_convention = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+).+$'
+            else:
+                name_convention = kwargs['name_convention']
+        self.re_files = re.compile(name_convention)
         
         self.plot_args = { 'color' : 'k',
                         'marker' : 'o',
@@ -899,7 +911,7 @@ class ImageGrid(object):
             xf = int(m.groups()[0])
             yf = int(m.groups()[1])
         else:
-            print('RE fail')
+            print('RE fail for filename: {}'.format(filename))
         
         return xf, yf
 
@@ -909,7 +921,7 @@ class ImageGrid(object):
             for param, value in plot_args['rcParams'].items():
                 plt.rcParams[param] = value    
     
-    def plot(self, save=None, show=False, size=10, textsize=2.0, linewidth=2.0, transparent=True, **kwargs):
+    def plot(self, save=None, show=False, size=10, textsize=2.0, linewidth=2.0, transparent=True, verbosity=3, **kwargs):
         
         plot_args = self.plot_args.copy()
         plot_args.update(kwargs)
@@ -926,11 +938,23 @@ class ImageGrid(object):
         
         for i, flake in enumerate(self.flakes):
             
-            filename = flake['infile']
+            filename = flake['infile'].replace('\\', '/') # String replace in case files were saved on another platform.
             box = flake ['bbox']
             center = flake['center_of_mass']
             radius = flake['radius_um']
             value = flake['flake_contrast']
+            
+            if verbosity>=6:
+                print('ImageGrid.plot for flake {}, infile: {}'.format(i, filename))
+                d = os.path.dirname(os.path.realpath(filename))
+                n = len([name for name in os.listdir(d) if '.tif' in name])
+                if os.path.exists(filename):
+                    print('    exists in {} ({} files)'.format(d, n))
+                else:
+                    print('    not found in {} ({} files)'.format(d, n))
+                print('        cwd: {}'.format(os.getcwd()))
+                #print('        cwd: {}'.format(os.path.realpath(os.getcwd())))
+                #print('        radius_um = {:.1f}; center = [{:.1f}, {:.1f}]'.format(radius, center[0], center[1]))
             
             
             # Load image
@@ -984,6 +1008,10 @@ class ImageGrid(object):
             ax.set_yticks([])
             ax.axis('off')
             
+            if True:
+                print('        radius_um = {:.1f}; center = [{:.1f}, {:.1f}]'.format(radius, center[0], center[1]))
+                      
+            
             
         target_zone = self.target_zone
         s = 'Flakes of size [{:.1f}, {:.1f}] μm and contrast [{:.3f}, {:.3f}]'.format(target_zone[0], target_zone[1], target_zone[2], target_zone[3])
@@ -995,13 +1023,12 @@ class ImageGrid(object):
                 plt.savefig(save, dpi=plot_args['dpi'], transparent=transparent)
             else:
                 plt.savefig(save, transparent=transparent)
-        print('oi')
+
         if show:
             self._plot_interact()
             plt.show()
             
         plt.close(self.fig.number)
-        print('donoi')
 
 
 
@@ -1205,7 +1232,7 @@ class histogram(tile_img):
         
         # Generate plot
         ########################################
-        d = Data2D_flake_histogram()
+        d = Data2D_flake_histogram(**run_args)
         d.data = H.transpose()
         d.x_axis = (bin_edges_x[1:] + bin_edges_x[:-1])/2
         d.y_axis = (bin_edges_y[1:] + bin_edges_y[:-1])/2
