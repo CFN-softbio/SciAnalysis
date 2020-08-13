@@ -56,7 +56,8 @@ infiles.sort()
 
 load_args = { 'calibration' : calibration, 
              'mask' : mask,
-             'background': source_dir+'empty*saxs.tiff', 'factor': 0.3,
+             'background': source_dir+'empty*saxs.tiff', 
+             'transmission_int': '../../data/Transmission_output.csv', # or specify eg (1226221.0/3270121.0)
              }
 run_args = { 'verbosity' : 3,
             #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],

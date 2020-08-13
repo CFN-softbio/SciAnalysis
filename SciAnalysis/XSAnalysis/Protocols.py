@@ -25,6 +25,7 @@ from SciAnalysis.tools import * #from ..tools import *
 #from SciAnalysis.IO_HDF import *
 
 import copy, glob
+import pandas as pd
 
 class ProcessorXS(Processor):
 
@@ -35,9 +36,15 @@ class ProcessorXS(Processor):
         #mask = kwargs['mask'] if 'mask' in kwargs else None
         #data = Data2DScattering(infile, calibration=calibration, mask=mask)
         
-        data = Data2DScattering(infile, **kwargs)
+        print(infile)
+        if kwargs['flag_swaxs']==True and ('waxs' in infile): # kwargs['calibration2'] and kwargs['mask2'] and 
+            print('Using calirabtion2!')
+            data = Data2DScattering(infile, calibration=kwargs['calibration2'], mask=kwargs['mask2'])
+        else:
+            print('Using calirabtion')
+            data = Data2DScattering(infile, **kwargs)
+	
         data.infile = infile
-        
         data.threshold_pixels(4294967295-1) # Eiger inter-module gaps
 
         
@@ -57,9 +64,23 @@ class ProcessorXS(Processor):
                     average_background_data += data_background.data
                 average_background_data /= len(infiles_background)
                 
-                if 'factor' in kwargs:
-                    average_background_data[average_background_data>=0] *= float(kwargs['factor'])
-                    
+                if isinstance(kwargs['transmission_int'], (str)):
+                    # Read from file
+                    df = pd.read_csv(kwargs['transmission_int'])
+                    samplename = infile[infile.find('raw/')+4: infile.find('_')]
+                    emptyname = infile_background[infile_background.find('raw/')+4: infile.find('_')]
+                    df0 = df[df['a_filename'].str.contains(emptyname)]
+                    df1 = df[df['a_filename'].str.contains(samplename)]
+                    factor = df1.c_I0.to_numpy()[0] / df0.c_I0.to_numpy()[0]
+                elif isinstance(kwargs['transmission_int'], (int, float)):
+                    # Specify 
+                    factor = kwargs['transmission_int']		  
+                else:
+                    print('transmission_int invalid, use factor=1')
+                    factor = 1.0             
+                
+                print("factor = {}".format(factor))
+                average_background_data[average_background_data>=0] *= factor
                 data.data -= average_background_data
 
             elif isinstance(kwargs['background'], (list, np.ndarray)):
