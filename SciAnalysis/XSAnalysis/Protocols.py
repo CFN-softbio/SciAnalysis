@@ -37,7 +37,7 @@ class ProcessorXS(Processor):
         #data = Data2DScattering(infile, calibration=calibration, mask=mask)
         
         print(infile)
-        if kwargs['flag_swaxs']==True and ('waxs' in infile): # kwargs['calibration2'] and kwargs['mask2'] and 
+        if 'flag_swaxs' in kwargs and kwargs['flag_swaxs'] and ('waxs' in infile): # kwargs['calibration2'] and kwargs['mask2'] and 
             print('Using calirabtion2!')
             data = Data2DScattering(infile, calibration=kwargs['calibration2'], mask=kwargs['mask2'])
         else:
