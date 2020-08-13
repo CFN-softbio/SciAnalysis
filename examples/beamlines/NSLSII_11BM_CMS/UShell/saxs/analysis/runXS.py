@@ -56,6 +56,7 @@ infiles.sort()
 
 load_args = { 'calibration' : calibration, 
              'mask' : mask,
+             'background': source_dir+'empty*saxs.tiff', 'factor': 0.3,
              }
 run_args = { 'verbosity' : 3,
             #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],

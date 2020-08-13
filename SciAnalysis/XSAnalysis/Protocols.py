@@ -24,7 +24,7 @@ from SciAnalysis.XSAnalysis.Data import * #from .Data import *
 from SciAnalysis.tools import * #from ..tools import *
 #from SciAnalysis.IO_HDF import *
 
-import copy
+import copy, glob
 
 class ProcessorXS(Processor):
 
@@ -39,17 +39,35 @@ class ProcessorXS(Processor):
         data.infile = infile
         
         data.threshold_pixels(4294967295-1) # Eiger inter-module gaps
+
         
         if 'background' in kwargs:
+            data.name = data.name+'_rmbkg'	  
             if isinstance(kwargs['background'], (int, float)):
                 # Constant background to be subtracted from whole image
                 data.data -= kwargs['background']
+            
+            elif isinstance(kwargs['background'], (str)):
+                # Subtract whole image as background
+                infiles_background = glob.glob(kwargs['background'])
+                print('{} Background Files: {}'.format(len(infiles_background), infiles_background))
+                average_background_data = np.zeros(data.data.shape)
+                for ii, infile_background in enumerate(infiles_background):
+                    data_background = Data2DScattering(infile_background, **kwargs)
+                    average_background_data += data_background.data
+                average_background_data /= len(infiles_background)
+                
+                if 'factor' in kwargs:
+                    average_background_data[average_background_data>=0] *= float(kwargs['factor'])
+                    
+                data.data -= average_background_data
+
             elif isinstance(kwargs['background'], (list, np.ndarray)):
                 # TODO: Subtract whole image as background
                 pass
             else:
                 print("ProcessorXS.load: Specified background type not recognized.")
-                
+          
         
         if 'dezing' in kwargs and kwargs['dezing']:
             data.dezinger()
@@ -192,7 +210,18 @@ class circular_average(Protocol):
             data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
         
         
-        line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
+        line = data.circular_average_q_bin(error=0, bins_relative=run_args['bins_relative'])
+        
+        #if 'correction' in run_args:
+            #data_bkg = Data2DScattering(infile = run_args['correction'])
+            #ling_bkg = data_bkg.circular_average_q_bin(error=0, bins_relative=run_args['bins_relative'])
+        #else:
+        #    ling_bkg = DataLine(x=line.x, y = line.y*0.0)
+
+        
+        #print('### line_bkg loaded!')
+       
+        
         #line.smooth(2.0, bins=10)        
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
