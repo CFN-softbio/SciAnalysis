@@ -25,7 +25,7 @@
 
 
 import os
-import time
+import time, difflib
 import numpy as np
 
 from SciAnalysis.settings import * #from .settings import *
@@ -133,6 +133,15 @@ class Filename(object):
         self.full_filepath = os.path.join(self.path, path, self.filename)
         self._update()
         return self.get_filepath()
+
+    def get_best_match(self, filelist): 
+        # Find a string from the filelist that matches the filebase the most
+        length = -1; 
+        while True:
+            samplename= difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] # get the best match
+            length = length-5
+            if samplename in self.filebase: break # break if the best mathch is actually in the filename
+        return samplename	  
 
     # End class Filename(object)
     ########################################
