@@ -24,8 +24,9 @@ from SciAnalysis.XSAnalysis.Data import * #from .Data import *
 from SciAnalysis.tools import * #from ..tools import *
 #from SciAnalysis.IO_HDF import *
 
-import copy, glob
+import copy, glob, difflib
 import pandas as pd
+
 
 class ProcessorXS(Processor):
 
@@ -35,13 +36,13 @@ class ProcessorXS(Processor):
         #calibration = kwargs['calibration'] if 'calibration' in kwargs else None
         #mask = kwargs['mask'] if 'mask' in kwargs else None
         #data = Data2DScattering(infile, calibration=calibration, mask=mask)
-        
-        print(infile)
+
+
         if 'flag_swaxs' in kwargs and kwargs['flag_swaxs'] and ('waxs' in infile): # kwargs['calibration2'] and kwargs['mask2'] and 
             print('# Using calirabtion2!')
             data = Data2DScattering(infile, calibration=kwargs['calibration2'], mask=kwargs['mask2'])
         else:
-            print('# Using calirabtion')
+            #print('# Using calirabtion')
             data = Data2DScattering(infile, **kwargs)
 	
         data.infile = infile
@@ -67,19 +68,32 @@ class ProcessorXS(Processor):
                 if isinstance(kwargs['transmission_int'], (str)):
                     # Read from file
                     df = pd.read_csv(kwargs['transmission_int'])
-                    samplename = infile[infile.find('raw/')+4: infile.find('_')]
-                    emptyname = infile_background[infile_background.find('raw/')+4: infile.find('_')]
+                    print(df)
+                    # Find the most matched filename from CSV
+                    length = -1; 
+                    while True:
+                        samplename= difflib.get_close_matches(Filename(infile).filebase[0:length], df['a_filename'], cutoff=0.01)[0]
+                        length = length-5
+                        if samplename in infile: break
+                    length = -1;
+                    while True:
+                        emptyname = difflib.get_close_matches(Filename(infile_background).filebase[0:length], df['a_filename'], cutoff=0.01)[0]
+                        length = length-5
+                        if samplename in infile: break
                     df0 = df[df['a_filename'].str.contains(emptyname)]
                     df1 = df[df['a_filename'].str.contains(samplename)]
-                    factor = df1.c_I0.to_numpy()[0] / df0.c_I0.to_numpy()[0]
+                    print("# Found {} and {}".format(df0['a_filename'].values, df1['a_filename'].values))
+                    # User the latest if more than one
+                    factor = df1.c_I0.to_numpy()[-1] / df0.c_I0.to_numpy()[-1]
+                
                 elif isinstance(kwargs['transmission_int'], (int, float)):
                     # Specify value
                     factor = kwargs['transmission_int']		  
                 else:
-                    print('WARNING: transmission_int invalid, use factor=1')
+                    print('# WARNING: transmission_int invalid, use factor=1')
                     factor = 1.0             
                 
-                print("factor = {}".format(factor))
+                print("# factor = {:.3f}".format(factor))
                 average_background_data[average_background_data>=0] *= factor
                 data.data -= average_background_data
 
