@@ -38,10 +38,10 @@ class ProcessorXS(Processor):
         
         print(infile)
         if 'flag_swaxs' in kwargs and kwargs['flag_swaxs'] and ('waxs' in infile): # kwargs['calibration2'] and kwargs['mask2'] and 
-            print('Using calirabtion2!')
+            print('# Using calirabtion2!')
             data = Data2DScattering(infile, calibration=kwargs['calibration2'], mask=kwargs['mask2'])
         else:
-            print('Using calirabtion')
+            print('# Using calirabtion')
             data = Data2DScattering(infile, **kwargs)
 	
         data.infile = infile
@@ -73,10 +73,10 @@ class ProcessorXS(Processor):
                     df1 = df[df['a_filename'].str.contains(samplename)]
                     factor = df1.c_I0.to_numpy()[0] / df0.c_I0.to_numpy()[0]
                 elif isinstance(kwargs['transmission_int'], (int, float)):
-                    # Specify 
+                    # Specify value
                     factor = kwargs['transmission_int']		  
                 else:
-                    print('transmission_int invalid, use factor=1')
+                    print('WARNING: transmission_int invalid, use factor=1')
                     factor = 1.0             
                 
                 print("factor = {}".format(factor))

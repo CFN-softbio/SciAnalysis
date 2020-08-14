@@ -878,7 +878,7 @@ class Data2DScattering(Data2D):
     # Data remeshing
     ########################################
     
-    def remesh_q_interpolate(self, bins_relative=1.0, **kwargs):
+    def remesh_q_interpolate(self, bins_relative=1.0, dq=None, **kwargs):
         '''Converts the data from detector-space into reciprocal-space. The returned
         object has a regular grid in reciprocal-space.
         The data is converted into a (qx,qz) plane (qy contribution ignored).'''
@@ -907,7 +907,38 @@ class Data2DScattering(Data2D):
         
         return q_data
 
+    def remesh_q_interpolate_explicit(self, qx_min=0, qx_max=1, qz_min=0, qz_max=1, **kwargs):
+        '''Converts the data from detector-space into reciprocal-space. The returned
+        object has a regular grid in reciprocal-space.
+        The data is converted into a (qx,qz) plane (qy contribution ignored).'''
+        
+        # Determine limits
+        #dq = self.calibration.get_q_per_pixel()/bins_relative
+        #qx_min = np.min(self.calibration.qx_map())
+        #qx_max = np.max(self.calibration.qx_map())
+        #qz_min = np.min(self.calibration.qz_map())
+        #qz_max = np.max(self.calibration.qz_map())
+        
+        dq = kwargs['dq']
+        qx = np.arange(qx_min, qx_max+dq, dq)
+        qz = np.arange(qz_min, qz_max+dq, dq)
+        QX, QZ = np.meshgrid(qx, qz)
+        
+        
+        from scipy.interpolate import griddata
 
+        points = np.column_stack((self.calibration.qx_map().ravel(), self.calibration.qz_map().ravel()))
+        values = self.data.ravel()
+        
+        remesh_data = griddata(points, values, (QX, QZ), method=kwargs['method'])
+        num_per_pixel = griddata(points, self.mask.data.ravel(), (QX, QZ), method=kwargs['method'])
+        
+        #q_data = Data2DReciprocal()
+        #q_data.data = remesh_data
+        
+        return remesh_data, num_per_pixel
+      
+      
     def remesh_q_bin(self, bins_relative=1.0, **kwargs):
         '''Converts the data from detector-space into reciprocal-space. The returned
         object has a regular grid in reciprocal-space.
