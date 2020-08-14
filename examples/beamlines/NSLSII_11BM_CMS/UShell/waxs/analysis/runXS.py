@@ -50,7 +50,7 @@ else:
     calibration.set_distance(0.355)
 
     mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
-    mask = Mask(mask_dir+'Dectris/Pilatus800k_gaps-mask.png')
+    mask = Mask(mask_dir+'Dectris/Pilatus800_gaps-mask.png')
     #mask.load('./Pilatus800k_current-mask.png')
 
 
@@ -72,8 +72,8 @@ infiles.sort()
 
 load_args = { 'calibration' : calibration, 
              'mask' : mask,
-             'rot180' : False,
-             'flip' : True, # PSCCD
+             #'rot180' : False,
+             #'flip' : True, # PSCCD
              }
 run_args = { 'verbosity' : 3,
             #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
@@ -88,6 +88,11 @@ process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 #protocols = [ Protocols.qr_image(blur=1.0, bins_relative=0.5, plot_range=[-0.1, 3.0, 0, 3.0], _xticks=[0, 1.0, 2.0, 3.0], zmin=1010., ztrim=[None, 0.01]) ]
 #protocols = [ Protocols.qr_image(blur=None, bins_relative=0.8, plot_range=[-0.1, 3.0, 0, 3.0], _xticks=[0, 1.0, 2.0, 3.0], ztrim=[0.38, 0.002], dezing_fill=True) ]
 #protocols = [ Protocols.q_phi_image(bins_relative=0.25, plot_range=[0, 3.0, 0, +90]) ]
+# Protocols.sector_average(angle=-70, dangle=25, show_region=False) 
+# Protocols.qr_image(blur=None, colorbar=True, save_data=False, transparent=False, label_filename=True) 
+# Protocols.linecut_q(chi0= 90+70, dq= .5, gridlines=True, label_filename=True, save_results = [ 'hdf5' ] )
+# Protocols.HDF5(  save_results = [ 'hdf5' ] )
+# Protocols.metadata_extract()
 
 protocols = [
     #Protocols.HDF5(save_results=['hdf5'])
@@ -97,7 +102,9 @@ protocols = [
     Protocols.thumbnails(crop=None, resize=0.5, cmap=cmap_vge, ztrim=[0.02, 0.001]) , # Pilatus800k
     ]
     
-
+# To stitch files: 
+# 1) run stitch.py to stitch into .TIFF 
+# 2) run runStitched.py to generate thumbnails etc
 
 
 # Run

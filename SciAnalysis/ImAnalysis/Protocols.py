@@ -24,6 +24,8 @@ import os
 from .Data import *
 from ..tools import *
 
+import copy
+
 
 class ProcessorIm(Processor):
 
@@ -53,6 +55,8 @@ class ProcessorIm(Processor):
 
         
         return data
+        
+        
         
         
 class ProcessorImRGB(ProcessorIm):
@@ -99,6 +103,7 @@ class shell(Protocol):
         make_dir(output_dir)
         
         results = {}
+        data = copy.deepcopy(data)
         
         if run_args['crop'] is not None:
             data.crop(run_args['crop'])
@@ -175,6 +180,61 @@ class preprocess(object):
         data.maximize_intensity_spread()
         
         return data
+
+    def preprocess_blur_small(self, data, **run_args):
+
+        for i in range(3):
+            data.blur(0.5)
+        data.maximize_intensity_spread()
+        
+        return data
+
+    def preprocess_highloweq(self, data, **run_args):
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        
+        data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data
+
+
+
+class mask(object):
+    '''Base shared class to allow Protocols to invoke a mask, which selects
+    which regions of the image to analyze.'''
+
+    def get_mask(self, data, output_dir='./', mask_threshold=127, mask_invert=False, **run_args):
+        
+        if 'mask' not in run_args or run_args['mask'] is None or run_args['mask'] in ['None', 'none',]:
+            return None
+            
+        # Within a protocol, output_dir will be output_dir+self.name
+        # We need to strip off the last part in order to get to the
+        # output_dir being used for analysis results.
+        output_dir = output_dir[:-len(self.name)]
+            
+        if run_args['mask']=='dots':
+            infile = '{}/dots_vs_lines/{}/dots_vs_lines.png'.format(output_dir, data.name)
+            mask_invert = not mask_invert
+        
+        elif run_args['mask']=='lines':
+            infile = '{}/dots_vs_lines/{}/dots_vs_lines.png'.format(output_dir, data.name)
+        
+        else:
+            infile = run_args['mask']
+        
+        
+        mask_image = PIL.Image.open(infile).convert('I') # 'I' : 32-bit integer pixels
+            
+        mask = np.where( np.asarray(mask_image)>mask_threshold, 1, 0 ) # Binary array
+        if mask_invert:
+            mask = 1-mask
+            
+        return mask
     
     
 
@@ -190,6 +250,7 @@ class thumbnails(Protocol):
                         'blur' : 1.0,
                         'resize' : 0.5,
                         'cmap' : mpl.cm.bone,
+                        'preserve_data' : True,
                         }
         self.run_args.update(kwargs)
         
@@ -198,6 +259,10 @@ class thumbnails(Protocol):
     def run(self, data, output_dir, **run_args):
         
         results = {}
+        
+        if run_args['preserve_data']:
+            # Avoid changing the data (which would disrupt downstream analysis of this data object)
+            data = copy.deepcopy(data)
         
         if run_args['crop'] is not None:
             data.crop(run_args['crop'])
@@ -214,7 +279,7 @@ class thumbnails(Protocol):
         
         
         
-class fft(Protocol):
+class fft(Protocol, mask):
     
     def __init__(self, name='fft', **kwargs):
         
@@ -233,16 +298,29 @@ class fft(Protocol):
     @run_default
     def run(self, data, output_dir, **run_args):
         
+        run_args['mask'] = self.get_mask(data, output_dir=output_dir, **run_args)
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
         
         results = {}
         
         
+        
         if run_args['verbosity']>=5:
             im = PIL.Image.fromarray( np.uint8(data.data) )
             outfile = self.get_outfile('original', output_dir, ext='.png', ir=True)
             im.save(outfile)
+        
+        
+        
+        if run_args['mask'] is not None:
+            data = copy.deepcopy(data)
+            avg = np.average(data.data)
+            data.data = np.where(run_args['mask']==1, data.data, avg)
+                
+        
+        
+        if run_args['verbosity']>=5:
             data.set_z_display( [None, None, 'gamma', 1.0] )
             outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
             data.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
@@ -331,7 +409,7 @@ class fft(Protocol):
             
             
         
-        return results        
+        return results
     
     
     def find_q0(self, line, output_dir, **run_args):
@@ -707,6 +785,221 @@ class fft(Protocol):
 
 
 
+class local_d0(Protocol, preprocess):
+    
+    
+    def __init__(self, name='local_d0', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.jpg'
+        self.run_args = {
+                        'preprocess' : 'default',
+                        'sub_region_size' : 75, # pixels
+                        'sub_region_step_rel' : 0.5,
+                        'blur' : 0.5,
+                        }
+        self.run_args.update(kwargs)
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+
+        results = {}
+        data = copy.deepcopy(data)
+        
+        if run_args['verbosity']>=5:
+            im = PIL.Image.fromarray( np.uint8(data.data) )
+            outfile = self.get_outfile('original', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('initial', output_dir, ext='.jpg', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
+        
+
+
+        # Pre-process image
+        data = self.preprocess(data, **run_args)
+        
+        
+        if run_args['verbosity']>=5:
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('enhanced', output_dir, ext='.jpg', ir=True)
+            data.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
+
+        if 'd0' in run_args:
+            q0 = 2*np.pi/run_args['d0']
+        else:
+            q0 = run_args['q0']
+        dq = run_args['dq'] if 'dq' in run_args else q0*0.6
+        s = 3
+        plot_range = [-q0*s, +q0*s, -q0*s, +q0*s] if q0 is not None else [None,None,None,None]
+
+
+
+        d0_x, d0_y, d0s = [], [], []
+
+        sub_region_size = run_args['sub_region_size']
+        sub_region_step = int(sub_region_size*run_args['sub_region_step_rel'])
+        h, w = data.data.shape
+        
+        sub_image = Data2D()
+        sub_image.x_scale, sub_image.y_scale = data.x_scale, data.y_scale
+        
+        
+        
+        for ix in range(sub_region_size, w-sub_region_size, sub_region_step):
+            if run_args['verbosity']>=3:
+                print('  ix {:d}/{:d} = {:.1f}%'.format(ix, w, 100.*ix/w))
+            for iy in range(sub_region_size, h-sub_region_size, sub_region_step):
+                
+                sub_image.data = data.data[iy-sub_region_size:iy+sub_region_size , ix-sub_region_size:ix+sub_region_size]
+                y_num, x_num = sub_image.data.shape
+                
+                if x_num>=sub_region_size*2 and y_num>=sub_region_size*2: # Full sub_images only
+                    
+                    if run_args['verbosity']>=5:
+                        print('    sub_region ({:d}, {:d}) of size {:d}×{:d}'.format(ix, iy, x_num, y_num))
+
+
+                    data_fft = sub_image.fft(update_origin=True)
+                    
+                    Re, Im = np.real(data_fft.data), np.imag(data_fft.data)
+                    data_fft.data = np.abs(data_fft.data)
+                    
+                    if run_args['blur'] is not None:
+                        data_fft.data = ndimage.filters.gaussian_filter(data_fft.data, run_args['blur'])
+                        Re = ndimage.filters.gaussian_filter(Re, run_args['blur'])
+                        Im = ndimage.filters.gaussian_filter(Im, run_args['blur'])
+                        
+                        
+                    if run_args['verbosity']>=6:
+                        outfile = self.get_outfile('sub_image_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        sub_image.plot_image(save=outfile, cmap=mpl.cm.bone, ztrim=[0,0])
+                        
+                        outfile = self.get_outfile('sub_FFT_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.25, 0.001], dpi=50)
+                        
+                    
+                    outfile_extra = '_ix{:03d}iy{:03d}'.format(ix,iy)
+                    q0local = self.analyze_q0(data_fft, q0i=q0, dqi=dq, outfile_extra=outfile_extra, output_dir=output_dir, **run_args)
+                    d0local = 2*np.pi/q0local
+                    
+                    d0_x.append(ix)
+                    d0_y.append(iy)
+                    d0s.append(d0local)
+                    
+                    
+        d0s = np.asarray(d0s)
+        
+        d0_values = np.column_stack([d0_x, d0_y, d0s])
+        outfile = self.get_outfile('d0_local_values', output_dir, ext='.npy', ir=False)
+        np.save(outfile, d0_values)
+                    
+        if run_args['verbosity']>=3:
+            print_array(d0s, 'd0s')
+            
+            from scipy.interpolate import griddata
+            grid = np.indices(data.data.shape)
+            positions = np.column_stack((d0_y, d0_x))
+            d0s_map = griddata(positions, d0s, tuple(grid), method='linear')
+            
+            d0min, d0max = np.min(d0s), np.max(d0s)
+            d0s_map = (d0s_map-d0min)/(d0max-d0min)
+            d0s_map = ndimage.filters.gaussian_filter(d0s_map, 1.0)
+            print_array(d0s_map, 'd0s_map')
+            outfile = self.get_outfile('d0s_interpolated', output_dir, ext='.npy', ir=False)
+            np.save(outfile, d0s_map)
+            
+            d0s_interpolated = np.clip(d0s_map, 0, 1)
+            cmap = mpl.cm.viridis
+            img = PIL.Image.fromarray(np.uint8(cmap(d0s_interpolated)*255))
+            outfile = self.get_outfile('d0s_interpolated', output_dir, ext='.png', ir=False)
+            img.save(outfile)
+                    
+        
+        
+        return results
+
+
+
+    def analyze_q0(self, data_fft, q0i, dqi, outfile_extra='', output_dir='./', **run_args):
+        
+        line = data_fft.circular_average()
+        line.x_rlabel = '$q \, (\mathrm{nm}^{-1})$'
+        
+        sub_line = line.sub_range(q0i-dqi,q0i+dqi)
+        lm_result, fit_line, fit_line_extended = self.fit_peak(sub_line, **run_args)
+        q0 = lm_result.params['x_center'].value
+        
+        if run_args['verbosity']>=6:
+            xpeak, ypeak = sub_line.target_y_max()
+            lines = DataLines([line, fit_line, fit_line_extended])
+            lines.copy_labels(line)
+            outfile = self.get_outfile('fit{}'.format(outfile_extra), output_dir, ext='.png', ir=False)
+            lines.plot(save=outfile, plot_range=[0, q0i*3, 0, ypeak*1.5], **run_args)
+            
+        
+        return q0
+
+
+    def fit_peak(self, line, **run_args):
+        # Usage: lm_result, fit_line, fit_line_extended = self.fit_peak(line, **run_args)
+        
+        import lmfit
+        
+        def model(v, x):
+            '''Gaussian with linear background.'''
+            m = v['prefactor']*np.exp( -np.square(x-v['x_center'])/(2*(v['sigma']**2)) ) + v['m']*x + v['b']
+            return m
+        
+        def func2minimize(params, x, data):
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        
+        m = (line.y[-1]-line.y[0])/(line.x[-1]-line.x[0])
+        b = line.y[0] - m*line.x[0]
+
+        xspan = np.max(line.x) - np.min(line.x)
+        xpeak, ypeak = line.target_y_max()
+        
+        params = lmfit.Parameters()
+        params.add('prefactor', value=ypeak-(m*xpeak+b), min=0)
+        params.add('x_center', value=xpeak, min=np.min(line.x), max=np.max(line.x))
+        params.add('sigma', value=xspan/2, min=0)
+        params.add('m', value=m)
+        params.add('b', value=b)
+        
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if run_args['verbosity']>=7:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        fit_x = np.linspace(np.min(line.x), np.max(line.x), num=200)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':4.0})
+        
+        x_span = abs(np.max(line.x) - np.min(line.x))*0.5
+        fit_x = np.linspace(np.min(line.x)-x_span, np.max(line.x)+x_span, num=200)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':2.0})
+            
+        return lm_result, fit_line, fit_line_extended
+                
+
+
+    # End class fft(Protocol)
+    ########################################
+
+
+
 class local_avg_realspace(Protocol, preprocess):
     
     
@@ -716,9 +1009,12 @@ class local_avg_realspace(Protocol, preprocess):
         
         self.default_ext = '.jpg'
         self.run_args = {
-                        'local_partition_image_size' : 75, # pixels
-                        'local_partition_step' : 1.0, # relative to image_size
+                        #'local_partition_image_size' : 75, # pixels
+                        #'local_partition_step' : 1.0, # relative to image_size
                         'preprocess' : 'default',
+                        'sub_region_size' : 75, # pixels
+                        'sub_region_step_rel' : 0.5,
+                        'blur' : 0.5,
                         }
         self.run_args.update(kwargs)
 
@@ -742,6 +1038,7 @@ class local_avg_realspace(Protocol, preprocess):
         make_dir(output_dir)
 
         results = {}
+        data = copy.deepcopy(data)
         
         
         if run_args['verbosity']>=5:
@@ -762,9 +1059,158 @@ class local_avg_realspace(Protocol, preprocess):
             data.set_z_display( [None, None, 'gamma', 1.0] )
             outfile = self.get_outfile('enhanced', output_dir, ext='.jpg', ir=True)
             data.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
+
+
+        q0 = run_args['q0']
+        dq = run_args['dq'] if 'dq' in run_args else q0*0.6
+        s = 3
+        plot_range = [-q0*s, +q0*s, -q0*s, +q0*s] if q0 is not None else [None,None,None,None]
+                
+        Z_accumluation = None
+        Re_accumluation = None
+        Im_accumluation = None
+        
+        realspace_accumulation = None
+        num_images = 0
+        
+        sub_region_size = run_args['sub_region_size']
+        sub_region_step = int(sub_region_size*run_args['sub_region_step_rel'])
+        h, w = data.data.shape
+        
+        for ix in range(sub_region_size, w-sub_region_size, sub_region_step):
+            for iy in range(sub_region_size, h-sub_region_size, sub_region_step):
+                        
+                sub_image = Data2D()
+                sub_image.data = data.data[iy-sub_region_size:iy+sub_region_size , ix-sub_region_size:ix+sub_region_size]
+                sub_image.x_scale, sub_image.y_scale = data.x_scale, data.y_scale
+                y_num, x_num = sub_image.data.shape
+                
+                #if x_num>0 and y_num>0: # Images of size greater than 0
+                if x_num>=sub_region_size*2 and y_num>=sub_region_size*2: # Full sub_images only
+                    if run_args['verbosity']>=4:
+                        print('    sub_region ({:d}, {:d}) of size {:d}×{:d}'.format(ix, iy, x_num, y_num))
+                    
+                    data_fft = sub_image.fft(update_origin=True)
+                    
+                    Re, Im = np.real(data_fft.data), np.imag(data_fft.data)
+                    data_fft.data = np.abs(data_fft.data)
+                    
+                    if run_args['blur'] is not None:
+                        data_fft.data = ndimage.filters.gaussian_filter(data_fft.data, run_args['blur'])
+                        Re = ndimage.filters.gaussian_filter(Re, run_args['blur'])
+                        Im = ndimage.filters.gaussian_filter(Im, run_args['blur'])
+                        
+                        
+                    if run_args['verbosity']>=5:
+                        outfile = self.get_outfile('sub_image_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        sub_image.plot_image(save=outfile, cmap=mpl.cm.bone, ztrim=[0,0])
+                        
+                        outfile = self.get_outfile('sub_FFT_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.25, 0.0005], dpi=50)
+                    
+                    line = data_fft.linecut_angle(d_center=q0, d_spread=dq, absolute_value=True)
+                    
+                    if run_args['verbosity']>=5:
+                        outfile = self.get_outfile('sub_angle_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        line.plot(save=outfile, plot_range=[-180,+180,None,None])
+                        outfile = self.get_outfile('sub_angle_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.dat', ir=False)
+                        line.save_data(outfile)                        
+
+                    if run_args['verbosity']>=10:
+                        # Show where the linecut is being applied
+                        data_fft.x_scale, data_fft.y_scale = 1, 1 # Hack because currently show_region assumes no coordinates have been applied
+                        data_fft.origin = [0,0]
+                        #plot_range = [None,None,None,None]
+                        y_num, x_num = data_fft.data.shape
+                        ws = 30
+                        plot_range_c = [(x_num-ws)/2,(x_num+ws)/2,(y_num-ws)/2,(y_num+ws)/2]
+                        data_fft.plot(save=False, plot_range=plot_range_c, dpi=50, show_region=True, show=True)
+                        
+                        
+                    # Rotate the FFT to align the maximum
+                    xm, ym = line.target_y_max()
+                    Zabs = ndimage.interpolation.rotate(data_fft.data, -xm, reshape=False)
+                    Re = ndimage.interpolation.rotate(Re, -xm, reshape=False)
+                    Im = ndimage.interpolation.rotate(Im, -xm, reshape=False)
+                    realspace = ndimage.interpolation.rotate(sub_image.data, -xm, reshape=False)
+                    
+
+                    if run_args['verbosity']>=5:
+                        outfile = self.get_outfile('rot_FFT_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        Z = data_fft.data
+                        data_fft.data = Zabs
+                        data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.25, 0.0005], dpi=50)
+                        line2 = data_fft.linecut_angle(d_center=q0, d_spread=dq, absolute_value=True)
+                        outfile = self.get_outfile('rot_angle_ix{:03d}iy{:03d}'.format(ix,iy), output_dir, ext='.jpg', ir=False)
+                        line2.plot(save=outfile, plot_range=[-180,+180,None,None])
+                        data_fft.data = Z
+
+
+                    # Accumulate the rotated data
+                    if Z_accumluation is None:
+                        Z_accumluation = Zabs
+                        Re_accumluation = Re
+                        Im_accumluation = Im
+                        realspace_accumulation = realspace
+                    else:
+                        Z_accumluation += Zabs
+                        Re_accumluation += Re
+                        Im_accumluation += Im
+                        realspace_accumulation += realspace
+                    num_images += 1
+            
+            
+            
+        Z_accumluation /= num_images
+        Re_accumluation /= num_images
+        Im_accumluation /= num_images
+        realspace_accumulation /= num_images
+            
+        if run_args['verbosity']>=5:
+            sub_image.data = realspace_accumulation
+            outfile = self.get_outfile('avg_realspace', output_dir, ext='.jpg', ir=True)
+            sub_image.plot_image(save=outfile, ztrim=[0,0], cmap=mpl.cm.bone)
+            
+        if run_args['verbosity']>=3:
+            data_fft.data = Z_accumluation
+            outfile = self.get_outfile('avg_FFT_abs', output_dir, ext='.jpg', ir=True)
+            data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.25,0.001])
+            data_fft.data = Re_accumluation
+            outfile = self.get_outfile('avg_FFT_Re', output_dir, ext='.jpg', ir=True)
+            data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.1,0.01])
+            data_fft.data = Im_accumluation
+            outfile = self.get_outfile('avg_FFT_Im', output_dir, ext='.jpg', ir=True)
+            data_fft.plot(save=outfile, plot_range=plot_range, ztrim=[0.1,0.01])
+            
+        
+        outfile = self.get_outfile('avg_realspace', output_dir, ext='.npy', ir=False)
+        np.save(outfile, realspace_accumulation)
+        outfile = self.get_outfile('avg_FFT_abs', output_dir, ext='.npy', ir=False)
+        np.save(outfile, Z_accumluation)
+        outfile = self.get_outfile('avg_FFT_Re', output_dir, ext='.npy', ir=False)
+        np.save(outfile, Re_accumluation)
+        outfile = self.get_outfile('avg_FFT_Im', output_dir, ext='.npy', ir=False)
+        np.save(outfile, Im_accumluation)
+        
+        if run_args['verbosity']>=2:
+            data_fft.data = Z_accumluation
+            data_fft.recenter() # Put FFT origin back into corners
+            realspace = Data2D()
+            realspace.data = np.abs( np.fft.ifftn( data_fft.data ) )
+            realspace.recenter(update_origin=True)
+            y_num, x_num = data_fft.data.shape
+            realspace.x_scale, realspace.y_scale = 2*np.pi/(data_fft.x_scale*x_num), 2*np.pi/(data_fft.x_scale*y_num)
+            outfile = self.get_outfile('local_avg_realspace', output_dir, ext='.png', ir=False)
+            realspace.x_rlabel, realspace.y_rlabel = r'$x \, (\mathrm{nm})$', r'$y \, (\mathrm{nm})$'
+            realspace.plot(save=outfile, cmap='gist_heat', ztrim=[0.05, 0.03])
+        
+                    
+                    
+        return results
+
         
         
-        exit()
+    def __deprecated_working_code(self):
         import imreg_dft as ird
         seed = Data2DImage(os.path.join(output_dir, '../seed.png'))
         local_image = Data2DImage()
@@ -818,6 +1264,8 @@ class local_avg_realspace(Protocol, preprocess):
     
     
     
+    # End local_avg_realspace(Protocol, preprocess):
+    ########################################
 
 
         
@@ -852,6 +1300,7 @@ class particles(Protocol, preprocess):
         data.maximize_intensity_spread()        
         
         return data
+
 
 
     def _find_objects(self, data, output_dir, results, **run_args):
@@ -899,7 +1348,7 @@ class particles(Protocol, preprocess):
         results['num_particles'] = num_features
 
         # Remove objects not meeting size criteria
-        for i in range(np.max(labeled_array)):
+        for i in range(np.max(labeled_array)+1):
             particle = (labeled_array==i).astype(np.uint8)
             area_pix = np.sum(particle)
             area_nm2 = area_pix*data.x_scale*data.y_scale # nm^2
@@ -937,31 +1386,18 @@ class particles(Protocol, preprocess):
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
         
-        
         results = {}
+        data = copy.deepcopy(data)
         
         results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
 
 
-        if run_args['verbosity']>=3 and False:
+        if run_args['verbosity']>=3:
             # Colored image
             
             im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
             im = im.convert('RGB')
             pix = im.load()
-            
-            color_list = [ (1,0,0), (0,1,0), (0,0,1), (1,1,0), (1,0,1),(0,1,1),(1,1,1),]
-            color_list2 = [ (0.7*c[0], 0.7*c[1], 0.7*c[2]) for c in color_list ]
-            color_list3 = [ (0.5*c[0], 1.0*c[1], 1.0*c[2]) for c in color_list ]
-            color_list4 = [ (1.0*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list ]
-            color_list5 = [ (1.0*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list ]
-            color_list6 = [ (1.0*c[0], 0.7*c[1], 0.5*c[2]) for c in color_list ]
-            color_list7 = [ (1.0*c[0], 0.5*c[1], 0.7*c[2]) for c in color_list ]
-            color_list8 = [ (0.7*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list ]
-            color_list9 = [ (0.5*c[0], 1.0*c[1], 0.7*c[2]) for c in color_list ]
-            color_list10 = [ (0.7*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list ]
-            color_list11 = [ (0.5*c[0], 0.7*c[1], 1.0*c[2]) for c in color_list ]
-            color_list = color_list + color_list2 + color_list3 + color_list4 + color_list5 + color_list6 + color_list7 + color_list8 + color_list9 + color_list10 + color_list11
             
             h, w = data.data.shape
             for ix in range(w):
@@ -979,7 +1415,7 @@ class particles(Protocol, preprocess):
             im.save(outfile)
             
         
-        if run_args['verbosity']>=4 and False:
+        if run_args['verbosity']>=4:
             # Boundary image
             
             im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
@@ -1051,7 +1487,7 @@ class particles(Protocol, preprocess):
         analyzed_image = np.zeros((h,w,3))
         PrAs = []
         eccentricities = []
-        for i in range(np.max(labeled_array)):
+        for i in range(np.max(labeled_array)+1):
             
             if i>0: # Ignore the background object (index 0)
                 
@@ -1089,31 +1525,38 @@ class particles(Protocol, preprocess):
                     contour = measure.find_contours(particle, 0.5)[0]
                     ellipse = measure.EllipseModel()
                     ellipse.estimate(contour)
-                    xc, yc, a, b, theta = ellipse.params
-                    if a>=b:
-                        eccentricity = np.sqrt(1 - b**2/a**2)
-                    else:
-                        eccentricity = np.sqrt(1 - a**2/b**2)
-                    eccentricities.append(eccentricity)
-
-                    if run_args['verbosity']>=4:
-                        print('    Particle {} ({} pixels)'.format(i, area_pix))
-                        print('      A = {:.1f} nm^2; r = {:.1f} nm'.format(area_nm2, radius_nm))
-                        print('      P = {:.1f} nm; P/A = {:.2g} 1/nm; Pr/A = {:.2f}'.format(perimeter_nm, perimeter_nm/area_nm2, PrA))
-                        print('      e = {:.2f}'.format(eccentricity))
-
-                    if run_args['verbosity']>=5:
-                        analyzed_image += np.stack( (particle*255, particle*255, particle*255), axis=-1 )
-                        xy = ellipse.predict_xy( np.linspace(0, 2*np.pi, 90) )
-                        for y, x in xy:
-                            if x>=0 and y>=0 and x<w and y<h:
-                                analyzed_image[int(y),int(x)] = [255, 0, 0]
                     
-                    if run_args['verbosity']>=10:
-                        # Output image of each particle separately (mostly for debugging)
-                        outfile = self.get_outfile('particle{}'.format(i), output_dir, ext='.png', ir=False)
-                        import scipy.misc
-                        scipy.misc.toimage(particle*255).save(outfile)
+                    if ellipse.params is None:
+                        if run_args['verbosity']>=1:
+                            print("WARNING: params is None for particle {:d}".format(i))
+                    else:
+                        xc, yc, a, b, theta = ellipse.params
+                        if a>=b:
+                            eccentricity = np.sqrt(1 - b**2/a**2)
+                        else:
+                            eccentricity = np.sqrt(1 - a**2/b**2)
+                        eccentricities.append(eccentricity)
+
+                        if run_args['verbosity']>=4:
+                            print('    Particle {} ({} pixels)'.format(i, area_pix))
+                            print('      A = {:.1f} nm^2; r = {:.1f} nm'.format(area_nm2, radius_nm))
+                            print('      P = {:.1f} nm; P/A = {:.2g} 1/nm; Pr/A = {:.2f}'.format(perimeter_nm, perimeter_nm/area_nm2, PrA))
+                            print('      e = {:.2f}'.format(eccentricity))
+
+                        if run_args['verbosity']>=5:
+                            analyzed_image += np.stack( (particle*255, particle*255, particle*255), axis=-1 )
+                            xy = ellipse.predict_xy( np.linspace(0, 2*np.pi, 90) )
+                            for y, x in xy:
+                                if x>=0 and y>=0 and x<w and y<h:
+                                    analyzed_image[int(y),int(x)] = [255, 0, 0]
+                        
+                        if run_args['verbosity']>=10:
+                            # Output image of each particle separately (mostly for debugging)
+                            outfile = self.get_outfile('particle{}'.format(i), output_dir, ext='.png', ir=False)
+                            #import scipy.misc
+                            #scipy.misc.toimage(particle*255).save(outfile) # Deprecated
+                            particle_image = particle*255
+                            Image.fromarray(particle_image.astype(np.uint8)).save(outfile)
 
 
         results['PrA_average'] = np.average(PrAs)
@@ -1128,8 +1571,9 @@ class particles(Protocol, preprocess):
                     
         if run_args['verbosity']>=5:
             outfile = self.get_outfile('analyzed', output_dir, ext='.png', ir=True)
-            import scipy.misc
-            scipy.misc.toimage(analyzed_image).save(outfile)
+            #import scipy.misc
+            #scipy.misc.toimage(analyzed_image).save(outfile) # Deprecated
+            Image.fromarray(analyzed_image.astype(np.uint8)).save(outfile)
                 
             
         
@@ -1138,33 +1582,16 @@ class particles(Protocol, preprocess):
             
             class DataHistogram_current(DataHistogram):
                 def _plot_extra(self, **plot_args):
+                    
                     xi, xf, yi, yf = self.ax.axis()
-                    yf = yf*1.2
+                    yf *= 1.2
+                    self.ax.axis([xi, xf, yi, yf])
                     
-                    
-                    self.ax.axvline(self.mean, color='b', linewidth=3.0, zorder=4)
-                    self.ax.text(self.mean, yf, 'mean', color='b', rotation=90, verticalalignment='top', horizontalalignment='right', zorder=4)
-                    
-                    self.ax.axvspan( self.mean-self.std, self.mean+self.std, color='b', alpha=0.05, zorder=-10)
-                    self.ax.axvspan( self.mean-2*self.std, self.mean+2*self.std, color='b', alpha=0.05, zorder=-10)
-
-                    self.ax.axvline(self.median, color='purple', linewidth=2.0)
-                    self.ax.text(self.median, yf, 'median', color='purple', rotation=90, verticalalignment='top', horizontalalignment='right')
+                    self._plot_stats(**plot_args)
                     
                     lm_result, fit_line, fit_line_e = self.fit_peak(self)
                     self.ax.axvline(lm_result.params['x_center'], color='r', linewidth=2.0)
                     self.ax.plot(fit_line_e.x, fit_line_e.y, 'r', linewidth=2.0)
-                    
-                    # Determine the units for the values
-                    els = self.x_rlabel.split('\,')
-                    if len(els)>1:
-                        s = '{}= {:.1f} \pm {:.1f} \, {}'.format( els[0], self.mean, self.std, els[1].replace('(','').replace(')','') )
-                    else:
-                        s = '{}= {:.1f} \pm {:.1f}$'.format( els[0][:-1], self.mean, self.std )
-                    
-                    self.ax.text(xf, yf, s, size=30, verticalalignment='top', horizontalalignment='right')
-                    
-                    self.ax.axis( [xi, xf, yi, yf] )
                     
                     
                 def fit_peak(self, line, **run_args):
@@ -1333,8 +1760,482 @@ class particles_annotated(particles):
         
         return results, labeled_array
     
+    
+    
+class skeletonize(particles):
+    
+    def __init__(self, name='skeletonize', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+                        'threshold' : 127,
+                        'invert' : False,
+                        'diagonal_detection' : False,
+                        'cmap' : mpl.cm.bone,
+                        'preprocess' : 'default',
+                        'hist_bins' : 100,
+                        }
+        self.run_args.update(kwargs)
+
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+        
+        results = {}
+        orig_img = data.data
+        data = copy.deepcopy(data)
+        
+        results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
+        
+        results, skeleton = self._skeletonize(data, output_dir, results, labeled_array, **run_args)
+        
+        return results
+
+
+    def _skeletonize(self, data, output_dir, results, labeled_array, **run_args):
+        
+        if run_args['verbosity']>=4:
+            # Colored image
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
             
-class grain_size_hex(Protocol, preprocess):
+            h, w = data.data.shape
+            for ix in range(w):
+                for iy in range(h):
+                    object_index = labeled_array[iy,ix]
+                    if object_index==0:
+                        c = (0, 0, 0)
+                    else:
+                        c = color_list[ object_index%len(color_list) ]
+                        c = ( int(c[0]*255), int(c[1]*255), int(c[2]*255) )
+                    pix[ix,iy] = c            
+            
+            
+            outfile = self.get_outfile('colored', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+
+        # Statistics on particles that have been found
+        bins = np.bincount(labeled_array.flatten('C'))
+        h, w = data.data.shape
+        total_pixels = w*h
+        background_pixels = bins[0]
+        particle_pixels = total_pixels - background_pixels
+        coverage = particle_pixels*1./(total_pixels*1.)
+        results['coverage'] = coverage
+        if run_args['verbosity']>=4:
+            print('    {} particles'.format(results['num_particles']))
+            print('    Particle coverage: {:.1f}%'.format(coverage*100.))
+                    
+        # Remove 'particles' of zero size
+        idx = np.nonzero(bins)
+        bins = bins[idx]
+        # Remove the 'surrounding field' (index 0)
+        bins = bins[1:]
+        
+        # Exclude particles
+        particle_sizes = bins*data.x_scale*data.y_scale # nm^2
+        if 'area_min' in run_args:
+            particle_sizes = particle_sizes[particle_sizes>run_args['area_min']]
+        if 'area_max' in run_args:
+            particle_sizes = particle_sizes[particle_sizes<run_args['area_max']]
+        
+        particle_radii = np.sqrt(particle_sizes/np.pi) # nm
+        if 'radius_min' in run_args:
+            particle_radii = particle_radii[particle_radii>run_args['radius_min']]
+        if 'radius_max' in run_args:
+            particle_radii = particle_radii[particle_radii<run_args['radius_max']]
+
+        particle_sizes = np.pi*np.square(particle_radii)
+        
+        results['area_average'] = np.average(particle_sizes)
+        results['area_std'] = np.std(particle_sizes)
+        results['area_median'] = np.median(particle_sizes)
+        
+        results['radius_average'] = np.average(particle_radii)
+        results['radius_std'] = np.std(particle_radii)
+        results['radius_median'] = np.median(particle_radii)
+        
+        
+        from skimage.morphology import skeletonize
+        data.data = np.where(data.data>127, 1, 0)
+        skeleton = skeletonize(data.data).astype(int)
+        data.data = skeleton
+        
+        results['skeleton_coverage'] = np.sum(data.data)/total_pixels
+
+
+
+        if run_args['verbosity']>=3:
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('skeleton', output_dir, ext='.png', ir=True)
+            data.plot_image(save=outfile, zmin=0, zmax=1, cmap=mpl.cm.binary_r)
+        
+        
+        #s = [[1,1,1],
+        #    [1,1,1],
+        #    [1,1,1]]
+        s = ndimage.generate_binary_structure(2,2) # Detect along diagonals
+        labeled_array, num_features = ndimage.measurements.label(data.data, structure=s)
+        results['num_lines'] = num_features
+
+        if run_args['verbosity']>=4:
+            print('    {} skeleton lines'.format(num_features))
+            print('    Skeleton coverage: {:.1f}%'.format(results['skeleton_coverage']*100.))
+
+        if run_args['verbosity']>=5:
+            # Colored image
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
+            
+            h, w = data.data.shape
+            for ix in range(w):
+                for iy in range(h):
+                    object_index = labeled_array[iy,ix]
+                    if object_index==0:
+                        c = (0, 0, 0)
+                    else:
+                        c = color_list[ object_index%len(color_list) ]
+                        c = ( int(c[0]*255), int(c[1]*255), int(c[2]*255) )
+                    pix[ix,iy] = c            
+            
+            outfile = self.get_outfile('colored', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+            
+        return results, skeleton
+
+
+class skeleton_lines(skeletonize):
+    
+    def __init__(self, name='skeleton_lines', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+                        'threshold' : 127,
+                        'invert' : False,
+                        'diagonal_detection' : False,
+                        'cmap' : mpl.cm.bone,
+                        'preprocess' : 'default',
+                        'hist_bins' : 100,
+                        }
+        self.run_args.update(kwargs)
+
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+        
+        results = {}
+        orig_img = data.data
+        data = copy.deepcopy(data)
+        
+        results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
+        
+        results, skeleton = self._skeletonize(data, output_dir, results, labeled_array, **run_args)
+        
+        results = self._skeletonize_lines(data, output_dir, results, skeleton, orig_img, **run_args)
+        
+        return results
+
+
+    def _skeletonize_lines(self, data, output_dir, results, skeleton, orig_img, **run_args):
+
+
+        # Neighbor image
+        def filter_function(values):
+            return values.sum()
+        footprint = np.array([[1,1,1],
+                            [1,0,1],
+                            [1,1,1]])
+        
+        neighbors = ndimage.generic_filter(skeleton, filter_function, footprint=footprint, mode='constant')
+        neighbors *= skeleton
+        
+        # Count certain kinds of defects
+        results['line_ends_count'] = len(neighbors[neighbors==1])
+        results['line_ends_density'] = results['line_ends_count']/data.image_area()
+        
+        junctions = np.where(neighbors>=3, 1, 0)
+        s = ndimage.generate_binary_structure(2,2) # Detect along diagonals
+        labeled_junctions, num_junctions = ndimage.measurements.label(junctions, structure=s)
+        results['junctions_count'] = num_junctions
+        results['junctions_density'] = results['junctions_count']/data.image_area()
+
+        if run_args['verbosity']>=3:
+            print('    {:d} line ends ({:.3g}/nm^2 = {:.2g}/μm^2)'.format(results['line_ends_count'], results['line_ends_density'], results['line_ends_density']*1e6))
+            print('    {:d} junctions ({:.3g}/nm^2 = {:.2g}/μm^2))'.format(results['junctions_count'], results['junctions_density'], results['junctions_density']*1e6))
+
+        if run_args['verbosity']>=6:
+            #print_array(neighbors, 'neighbors')
+            data.data = neighbors
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('neighbors', output_dir, ext='.png', ir=True)
+            data.plot_image(save=outfile, zmin=0, zmax=5, cmap=mpl.cm.jet)
+            data.data = skeleton
+            
+        if run_args['verbosity']>=6:
+            data.data = junctions
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('junctions', output_dir, ext='.png', ir=True)
+            data.plot_image(save=outfile, zmin=0, ztrim=[0,0], cmap=mpl.cm.binary_r)
+            data.data = skeleton
+
+        if run_args['verbosity']>=3:
+            from PIL import ImageDraw
+            # Two equivalent ways to extend the grayscale array into a RGB array
+            #analyzed_image = np.repeat(orig_img[:, :, np.newaxis], 3, axis=2)
+            analyzed_image = np.dstack([orig_img]*3)
+            image = Image.fromarray(analyzed_image.astype(np.uint8))
+            draw = ImageDraw.Draw(image)
+
+            # Mark ends of lines
+            line_end_idx = np.argwhere(neighbors==1)
+            if 'd0' in run_args:
+                r = 0.5*run_args['d0']/data.get_scale()
+            elif 'q0' in run_args:
+                r = 0.5*(2*np.pi/run_args['q0'])/data.get_scale()
+            else:
+                r = 10 # pixels
+            for y, x in line_end_idx:
+                draw.ellipse((x-r, y-r, x+r, y+r), outline=(255,0,0,0), fill=None)
+                
+            # Mark junctions
+            import scipy
+            com = scipy.ndimage.measurements.center_of_mass(junctions, labels=labeled_junctions, index=range(1,num_junctions+1))
+            for y, x in com:
+                draw.ellipse((x-r, y-r, x+r, y+r), outline=(0,0,255,0), fill=None)
+            
+            outfile = self.get_outfile('defects', output_dir, ext='.png', ir=True)
+            image.save(outfile)
+
+        if run_args['verbosity']>=6:
+            # A black-and-white image that localizes areas with defects
+            image = Image.fromarray(np.zeros_like(analyzed_image).astype(np.uint8))
+            draw = ImageDraw.Draw(image)
+
+            rc = r*3
+            for y, x in line_end_idx:
+                draw.ellipse((x-rc, y-rc, x+rc, y+rc), fill=(255,255,255,0))
+            
+            rc = r*4
+            for y, x in com:
+                draw.ellipse((x-rc, y-rc, x+rc, y+rc), fill=(255,255,255,0))
+            
+            outfile = self.get_outfile('defect_regions', output_dir, ext='.png', ir=True)
+            image.save(outfile)            
+            
+        return results
+
+        
+class skeleton_angles(skeleton_lines):
+    
+    def __init__(self, name='skeleton_angles', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+                        'threshold' : 127,
+                        'invert' : False,
+                        'diagonal_detection' : False,
+                        'cmap' : mpl.cm.bone,
+                        'preprocess' : 'default',
+                        'hist_bins' : 30,
+                        'lookout_distance_pix' : 6,
+                        }
+        self.run_args.update(kwargs)
+
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+        
+        results = {}
+        orig_img = data.data
+        data = copy.deepcopy(data)
+        
+        results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
+        
+        results, skeleton = self._skeletonize(data, output_dir, results, labeled_array, **run_args)
+        
+        results = self._skeletonize_lines(data, output_dir, results, skeleton, orig_img, **run_args)
+        
+        results = self._skeletonize_angles(data, output_dir, results, labeled_array, skeleton, **run_args)
+        
+        return results        
+
+
+    def _skeletonize_angles(self, data, output_dir, results, labeled_array, skeleton, **run_args):
+        '''Use the computed skeleton, and calculate at each point along this skeleton the local
+        "bending angle". To do this, for each pixel we look out to a local window. The bright
+        pixels at the edge of this window are assumed to be extensions of our current line.
+        (This is valid if the lines are thin compared to how close they are to each other.)
+        Then we calculate the angles between these edge-pixels. Since we are centered on a
+        particular line-pixel, these angle different between edge-pixels is the amount of
+        bending.'''
+        
+        
+        # Compute the local "bending" angle of skeleton lines
+        # out to a "lookout" distance of l.
+        l = run_args['lookout_distance_pix']
+        s = 2*l+1 # Size of window
+        
+        # We define a "footprint" for the window that will search at any given point.
+        # For instance, a footprint that searches 2 pixels away from the target point is a 5x5 matrix:
+        #footprint = [ [1, 1, 1, 1, 1] ,
+        #              [1, 0, 0, 0, 1] ,
+        #              [1, 0, 0, 0, 1] ,
+        #              [1, 0, 0, 0, 1] ,
+        #              [1, 1, 1, 1, 1] ]
+        footprint = np.ones((s,s)) # Set all values (including edges) to 1.0
+        footprint[1:-1,1:-1] = 0 # Set inner (non-edge) values to 0.0
+
+        # We pre-compute angles for the footprint, which has indices like:
+        #  0  1  2  3  4
+        #  5  -  -  -  6
+        #  7  -  -  -  8
+        #  9  -  -  - 10
+        # 11 12 13 14 15
+        #delta_x = [-2, -1, +0, +1, +2,    -2, +2, -2, +2, -2, +2,    -2, -1, +0, +1, +2]
+        #delta_y = [+2, +2, +2, +2, +2,    +1, +1, +0, +0, -1, -1,    -2, -2, -2, -2, -2]
+        grid = np.indices((s,s))
+        delta_x = grid[1]-l
+        delta_x = delta_x[footprint==1]
+        delta_y = (grid[0]-l)*-1
+        delta_y = delta_y[footprint==1]
+        angle_lookup = np.degrees(np.arctan2(delta_y, delta_x))
+        
+        def filter_function(values):
+            '''Calculates the local bending angle at this pixel.'''
+            idx = np.where(values>0)[0]
+            n = len(idx)
+            if n<=1:
+                return 0
+            elif n==2:
+                angle0 = angle_lookup[idx[0]]
+                angle1 = angle_lookup[idx[1]]
+                angle_diff = abs(angle1-angle0)
+                angle_diff = min(angle_diff, 360-angle_diff)
+                bend = 180-angle_diff
+                return bend
+            elif n==3:
+                angle0 = angle_lookup[idx[0]]
+                angle1 = angle_lookup[idx[1]]
+                angle2 = angle_lookup[idx[2]]
+                angle_diff01 = abs(angle1-angle0)
+                angle_diff01 = min(angle_diff01, 360-angle_diff01)
+                angle_diff12 = abs(angle2-angle1)
+                angle_diff12 = min(angle_diff12, 360-angle_diff12)
+                angle_diff20 = abs(angle0-angle2)
+                angle_diff20 = min(angle_diff20, 360-angle_diff20)
+                angles = sorted([angle_diff01, angle_diff12, angle_diff20])[:n-1]
+                bends = 180-np.asarray(angles)
+                return np.average(bends)
+            
+            else:
+                # This block works for all n, but the above code might be slightly more efficient
+                # (and is retained to document how this method works)
+                angles = []
+                for i in range(n):
+                    angle_i = angle_lookup[idx[i]]
+                    for j in range(i+1, n):
+                        angle_j = angle_lookup[idx[j]]
+                        diff = abs(angle_i-angle_j)
+                        diff = min(diff, 360-diff)
+                        angles.append(diff)
+                angles = sorted(angles)[:n-1] # Exclude the largest outer angle
+                bends = 180-np.asarray(angles)
+                return np.average(bends)
+                
+        
+        # Apply the local "angle calculator" to every pixel in the image.
+        angles = ndimage.generic_filter(skeleton, filter_function, footprint=footprint, mode='constant', output=np.float)
+        angles *= skeleton # Set to zero any non-skeleton pixels
+        if run_args['verbosity']>=6:
+            print_array(angles, 'angles')
+            
+        
+        if run_args['verbosity']>=3:
+            angles[skeleton==0] = -10 # We can set the non-skeleton values to some other number to help with visualizing.
+            data.data = angles
+            data.set_z_display( [None, None, 'gamma', 1.0] )
+            outfile = self.get_outfile('angles', output_dir, ext='.png', ir=True)
+            data.plot_image(save=outfile, zmin=-10, zmax=90, _ztrim=[0,0], cmap=mpl.cm.jet)
+            #data.plot(show=True, zmin=-90, zmax=90, _ztrim=[0,0], cmap=mpl.cm.jet)
+            data.data = skeleton
+            
+            
+        # Select only the valid pixels (along skeleton)
+        angles = angles[skeleton==1]
+            
+            
+        if run_args['verbosity']>=6:
+            from scipy.interpolate import griddata
+            grid = np.indices(skeleton.shape)
+            positions = np.column_stack((grid[0][skeleton==1],grid[1][skeleton==1]))
+            angle_map = griddata(positions, angles, tuple(grid), method='linear')
+            
+            angle_map = ndimage.filters.gaussian_filter(angle_map, l/4)
+            outfile = self.get_outfile('angles_interpolated', output_dir, ext='.npy', ir=False)
+            np.save(outfile, angle_map)
+            
+            angle_map = np.clip(angle_map/90, 0, 1)
+            cmap = mpl.cm.jet
+            img = PIL.Image.fromarray(np.uint8(cmap(angle_map)*255))
+            outfile = self.get_outfile('angles_interpolated', output_dir, ext='.png', ir=True)
+            img.save(outfile)
+        
+        
+        
+        # Calculate stats and histogram
+        results['bending_angle_average'] = np.average(angles)
+        results['bending_angle_std'] = np.std(angles)
+        results['bending_angle_median'] = np.median(angles)
+        
+        y, x = np.histogram(angles, bins=run_args['hist_bins'], range=[0, 180])
+        x = [ (x[i]+x[i+1])/2.0 for i in range(len(x)-1) ] # bin_edges to bin centers
+        outfile = self.get_outfile('bending_angles', output_dir, ext='.dat')
+        np.savetxt(outfile, np.stack([x, y], axis=1))
+        
+
+        if run_args['verbosity']>=2:
+            class DataHistogram_current(DataHistogram):
+                def _plot_extra(self, **plot_args):
+                    xi, xf, yi, yf = self.ax.axis()
+                    yf = np.max(self.y[1:])*0.25
+                    self.ax.axis([xi, xf, yi, yf])
+                    
+                    self._plot_stats(**plot_args)
+                    
+                    self.ax.set_xticks(range(0, 120+30, 30))
+
+            
+            hist = DataHistogram_current(x=x, y=y, x_label='angle', x_rlabel=r'$\theta_{\mathrm{bend}} \, (^{\circ})$', y_label='count')
+            hist.mean = results['bending_angle_average']
+            hist.std = results['bending_angle_std']
+            hist.median = results['bending_angle_median']
+            
+            outfile = self.get_outfile('bending_angles', output_dir, ext='.png')
+            hist.plot(save=outfile, plot_range=[0, 120, 0, None], plot_buffers=[0.18,0.05,0.18,0.05],)
+
+        
+        return results
+
+
+            
+class grain_size_hex(Protocol, preprocess, mask):
     
     def __init__(self, name='grain_size_hex', **kwargs):
         
@@ -1397,12 +2298,16 @@ class grain_size_hex(Protocol, preprocess):
     @run_default
     def run(self, data, output_dir, **run_args):
         
+        run_args['mask'] = self.get_mask(data, output_dir=output_dir, **run_args)
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
+        
+        
         
         orig_data = data.data.copy()
         
         results = {}
+        data = copy.deepcopy(data)
         
         if run_args['verbosity']>=5:
             im = PIL.Image.fromarray( np.uint8(data.data) )
@@ -1534,19 +2439,6 @@ class grain_size_hex(Protocol, preprocess):
             im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
             im = im.convert('RGB')
             pix = im.load()
-            
-            color_list = [ (1,0,0), (0,1,0), (0,0,1), (1,1,0), (1,0,1),(0,1,1),(1,1,1),]
-            color_list2 = [ (0.7*c[0], 0.7*c[1], 0.7*c[2]) for c in color_list ]
-            color_list3 = [ (0.5*c[0], 1.0*c[1], 1.0*c[2]) for c in color_list ]
-            color_list4 = [ (1.0*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list ]
-            color_list5 = [ (1.0*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list ]
-            color_list6 = [ (1.0*c[0], 0.7*c[1], 0.5*c[2]) for c in color_list ]
-            color_list7 = [ (1.0*c[0], 0.5*c[1], 0.7*c[2]) for c in color_list ]
-            color_list8 = [ (0.7*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list ]
-            color_list9 = [ (0.5*c[0], 1.0*c[1], 0.7*c[2]) for c in color_list ]
-            color_list10 = [ (0.7*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list ]
-            color_list11 = [ (0.5*c[0], 0.7*c[1], 1.0*c[2]) for c in color_list ]
-            color_list = color_list + color_list2 + color_list3 + color_list4 + color_list5 + color_list6 + color_list7 + color_list8 + color_list9 + color_list10 + color_list11
             
             h, w = data.data.shape
             for ix in range(w):
@@ -2111,16 +3003,31 @@ class grain_size_hex(Protocol, preprocess):
         count_accumulator = np.zeros( (h*2,w*2) ) # Keep track of counts (for normalization)
         one_field = np.ones( (h,w) )
         
-        for ix in range(ex, w-ex, step):
-            if run_args['verbosity']>=3:
-                print( '        Correlation analysis {:.1f}%'.format (100.*ix/w))
-            for iy in range(ex, h-ex, step):
-                
-                deltatheta = angles[iy,ix] - angles
-                orderparameter = np.cos(symmetry*deltatheta)
-                
-                accumulator[h-iy:-iy, w-ix:-ix] += orderparameter
-                count_accumulator[h-iy:-iy, w-ix:-ix] += one_field
+        if 'mask' not in run_args or run_args['mask'] is None:
+            # Normal analysis
+            for ix in range(ex, w-ex, step):
+                if run_args['verbosity']>=3:
+                    print( '        Correlation analysis {:.1f}%'.format (100.*ix/w))
+                for iy in range(ex, h-ex, step):
+                    deltatheta = angles[iy,ix] - angles
+                    orderparameter = np.cos(symmetry*deltatheta)
+                    
+                    accumulator[h-iy:-iy, w-ix:-ix] += orderparameter
+                    count_accumulator[h-iy:-iy, w-ix:-ix] += one_field
+                    
+        else:
+            # Analysis that ignores pixels excluded by the mask
+            mask = run_args['mask']
+            for ix in range(ex, w-ex, step):
+                if run_args['verbosity']>=3:
+                    print( '        Correlation analysis {:.1f}%'.format (100.*ix/w))
+                for iy in range(ex, h-ex, step):
+                    if mask[iy,ix]==1:
+                        deltatheta = angles[iy,ix] - angles
+                        orderparameter = np.cos(symmetry*deltatheta)
+                        
+                        accumulator[h-iy:-iy, w-ix:-ix] += orderparameter*mask
+                        count_accumulator[h-iy:-iy, w-ix:-ix] += one_field*mask
 
         # Compute array of distances associated with the accumulator
         r_dist = np.zeros( (h*2,w*2) )
@@ -2447,10 +3354,14 @@ class grain_size(grain_size_hex):
     @run_default
     def run(self, data, output_dir, **run_args):
         
+        run_args['mask'] = self.get_mask(data, output_dir=output_dir, **run_args)
         output_dir = os.path.join(output_dir, data.name)
         make_dir(output_dir)
         
+        
+        
         results = {}
+        data = copy.deepcopy(data)
         
         #orig_data = data.data.copy()
 
@@ -2567,6 +3478,7 @@ class defects_lines(grain_size_hex):
         orig_data = data.data.copy()
         
         results = {}
+        data = copy.deepcopy(data)
         
         if run_args['verbosity']>=5:
             im = PIL.Image.fromarray( np.uint8(data.data) )
@@ -2683,19 +3595,6 @@ class defects_lines(grain_size_hex):
             im = im.convert('RGB')
             pix = im.load()
             
-            color_list = [ (1,0,0), (0,1,0), (0,0,1), (1,1,0), (1,0,1),(0,1,1),(1,1,1),]
-            color_list2 = [ (0.7*c[0], 0.7*c[1], 0.7*c[2]) for c in color_list ]
-            color_list3 = [ (0.5*c[0], 1.0*c[1], 1.0*c[2]) for c in color_list ]
-            color_list4 = [ (1.0*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list ]
-            color_list5 = [ (1.0*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list ]
-            color_list6 = [ (1.0*c[0], 0.7*c[1], 0.5*c[2]) for c in color_list ]
-            color_list7 = [ (1.0*c[0], 0.5*c[1], 0.7*c[2]) for c in color_list ]
-            color_list8 = [ (0.7*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list ]
-            color_list9 = [ (0.5*c[0], 1.0*c[1], 0.7*c[2]) for c in color_list ]
-            color_list10 = [ (0.7*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list ]
-            color_list11 = [ (0.5*c[0], 0.7*c[1], 1.0*c[2]) for c in color_list ]
-            color_list = color_list + color_list2 + color_list3 + color_list4 + color_list5 + color_list6 + color_list7 + color_list8 + color_list9 + color_list10 + color_list11
-            
             h, w = data.data.shape
             for ix in range(w):
                 for iy in range(h):
@@ -2799,3 +3698,284 @@ class defects_lines(grain_size_hex):
             
             
         return results
+
+
+
+
+class dots_vs_lines(particles):
+    
+    def __init__(self, name='dots_vs_lines', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+                        'threshold' : 127,
+                        'invert' : False,
+                        'diagonal_detection' : False,
+                        'cmap' : mpl.cm.bone,
+                        'preprocess' : 'default',
+                        'method' : 'nearest',
+                        }
+        self.run_args.update(kwargs)
+        
+    def preprocess_default(self, data, **run_args):
+        #data.equalize()
+        data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        for i in range(2):
+            data.highpass(run_args['q0']*0.1, run_args['q0']*0.4)
+        #data.lowkill(run_args['q0']*0.1)
+        
+        data.blur(2.0) # lowpass
+        data.blur(2.0) # lowpass
+        #data.blur(1.0) # lowpass
+        #data.blur(0.6) # lowpass
+        #data.enhance(contrast=1.3, contrast_passes=0, resharpen_passes=2)
+        data.equalize()
+        data.maximize_intensity_spread()
+        
+        return data        
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        output_dir = os.path.join(output_dir, data.name)
+        make_dir(output_dir)
+        
+        results = {}
+        data = copy.deepcopy(data)
+        
+        results, labeled_array = self._find_objects(data, output_dir, results, **run_args)
+
+        if run_args['verbosity']>=2:
+            print("    Identifying regions using '{}' method.".format(run_args['method']))
+        method = getattr(self, 'identify_regions_{}'.format(run_args['method']))
+        new_results = method(data, output_dir, labeled_array, **run_args)
+        results.update(new_results)
+
+
+
+        return results
+
+
+    def identify_regions_nearest(self, data, output_dir, labeled_array, grow_size=3, **run_args):
+        
+        results = {}
+        
+        scale_nm = (data.x_scale+data.y_scale)/2 # nm/pixel
+        cutoff_pix = run_args['dot_size_cutoff_nm']/scale_nm
+        cutoff_area = np.pi*np.square(cutoff_pix) # pixels
+        
+        if run_args['verbosity']>=5:
+            print('        Cutoff {:.2f} nm ({:.1f} pixels); surface area {:.1f} pixels'.format(run_args['dot_size_cutoff_nm'], cutoff_pix, cutoff_area))
+        
+        particle_areas = np.bincount( labeled_array.flatten() )
+
+        if run_args['verbosity']>=6:
+            # Color-coded image of object types
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
+            
+            
+        # Sort labelled objects into the two size categories
+        start_time = time.time()
+        
+        particles_sized = particle_areas[labeled_array] # Image where each pixel has the corresponding size of that object (we obtain this by returning the particle_areas as a lookup table and labeled_array for the object indices)
+        
+        labeled_array_categories = np.where( (particles_sized<cutoff_area) & (labeled_array>0), 1, 0 ) # Small particles
+        labeled_array_categories += np.where( (particles_sized>=cutoff_area) & (labeled_array>0), 2, 0 ) # Big particles
+        
+        if run_args['verbosity']>=5:
+            # Create a color-coded image of the objects
+            color_background = [0, 0, 0] # Black
+            color_small = [255, 0, 0 ] # Red
+            color_big = [0, 255, 0] # Green
+            
+            red = np.where( (particles_sized<cutoff_area) & (labeled_array>0), color_small[0], color_background[0] )
+            red = np.where( (particles_sized>=cutoff_area) & (labeled_array>0), color_big[0], red )
+            
+            green = np.where( (particles_sized<cutoff_area) & (labeled_array>0), color_small[1], color_background[0] )
+            green = np.where( (particles_sized>=cutoff_area) & (labeled_array>0), color_big[1], green )
+            
+            blue = np.where( (particles_sized<cutoff_area) & (labeled_array>0), color_small[2], color_background[0] )
+            blue = np.where( (particles_sized>=cutoff_area) & (labeled_array>0), color_big[2], blue )
+            image_data = np.dstack( (red, green, blue) )
+            
+            image = PIL.Image.fromarray( np.uint8(image_data) )
+            outfile = self.get_outfile('coded', output_dir, ext='.png', ir=True)
+            image.save(outfile)
+            
+        
+        if run_args['verbosity']>=4:
+            print("    categorizing took {:.1f} s".format(time.time()-start_time))
+
+        # Binarize image based on categories
+        start_time = time.time()
+        
+        idx = np.where(labeled_array>0) # Only non-background objects
+        values = labeled_array_categories[idx] - 1
+        h, w = labeled_array.shape
+        XI, YI = np.meshgrid(range(w), range(h))
+        points = np.column_stack( (XI[idx], YI[idx]) )
+        from scipy.interpolate import griddata
+        labeled_array = griddata(points, values, (XI, YI), method='nearest')
+        # labeled_array has 0 for regions of small objects; 1 for regions of big objects
+        
+        if run_args['verbosity']>=1:
+            # Create black-and-white image
+            im_data = np.uint8(labeled_array*255.0)
+            im_data = np.dstack( (im_data, im_data, im_data) )
+            im = PIL.Image.fromarray(im_data)
+            outfile = self.get_outfile('dots_vs_lines', output_dir, ext='.png', ir=False)
+            im.save(outfile)        
+        
+        if run_args['verbosity']>=3:
+            print("    {} method took {:.1f} s".format(run_args['method'], time.time()-start_time))
+        
+        
+        region_2_pixels = np.sum(labeled_array)
+        region_1_pixels = labeled_array.size - region_2_pixels
+        print( '    Black region: {:,d} pixels ({:.1f} %)'.format(region_1_pixels, region_1_pixels*100.0/labeled_array.size) )
+        print( '    White region: {:,d} pixels ({:.1f} %)'.format(region_2_pixels, region_2_pixels*100.0/labeled_array.size) )
+        
+        results['dot_fractional_area'] = region_1_pixels*1.0/(labeled_array.size*1.0)
+        results['line_fractional_area'] = region_2_pixels*1.0/(labeled_array.size*1.0)
+        
+        return results
+
+
+    def identify_regions_grow(self, data, output_dir, labeled_array, grow_size=3, **run_args):
+        
+        
+        results = {}
+        
+        scale_nm = (data.x_scale+data.y_scale)/2 # nm/pixel
+        cutoff_pix = run_args['dot_size_cutoff_nm']/scale_nm
+        cutoff_area = np.pi*np.square(cutoff_pix) # pixels
+        
+        if run_args['verbosity']>=5:
+            print('        Cutoff {:.2f} nm ({:.1f} pixels); surface area {:.1f} pixels'.format(run_args['dot_size_cutoff_nm'], cutoff_pix, cutoff_area))
+        
+        particle_areas = np.bincount( labeled_array.flatten() )
+
+        if run_args['verbosity']>=6:
+            # Color-coded image of object types
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
+            
+        # Sort labelled objects into the two size categories
+        start_time = time.time()
+        for ix in range( len(labeled_array[0]) ):
+            for iy in range( len(labeled_array) ):
+                object_index = labeled_array[iy,ix]
+
+                if object_index==0:
+                    labeled_array[iy,ix] = 0
+                elif particle_areas[object_index]<cutoff_area:
+                    labeled_array[iy,ix] = 1
+                else:
+                    labeled_array[iy,ix] = 2
+
+                if run_args['verbosity']>=6:
+                    if object_index==0:
+                        c = (0, 0, 0) # Black (no particles)
+                    elif particle_areas[object_index]<cutoff_area:
+                        c = (255, 0, 0) # Red (small particles)
+                    else:
+                        c = (0, 255, 0 ) # Green (big particles)
+                    pix[ix,iy] = c
+                    
+        if run_args['verbosity']>=6:
+            outfile = self.get_outfile('coded', output_dir, ext='.png', ir=True)
+            im.save(outfile)
+
+        if run_args['verbosity']>=4:
+            print("    categorizing took {:.1f} s".format(time.time()-start_time))
+
+
+
+        # Grow particle regions
+        start_time = time.time()
+        found_zeros = True
+        igrow = 1
+        h, w = data.data.shape
+        while found_zeros:
+            
+            num_zero = labeled_array.size - np.count_nonzero(labeled_array)
+            print( '        Growing regions: pass {:d} ({:,d} zeros left); {:.2f}% done...'.format(igrow, num_zero, 100.0*(1-num_zero/labeled_array.size) ) )
+            igrow += 1
+            found_zeros = False
+            if num_zero>0:
+                labeled_array_cur = np.copy(labeled_array)
+                
+                for ix in range(w-(grow_size-1)):
+                    for iy in range(h-(grow_size-1)):
+                        patch = labeled_array[iy:iy+grow_size,ix:ix+grow_size]
+                        if 0 in patch:
+                            found_zeros = True
+                            if 1 in patch:
+                                if 2 in patch:
+                                    # 1's and 2's
+                                    labeled_array_cur[iy:iy+grow_size,ix:ix+grow_size] = 1 # 1's are arbitrarily given priority...
+                                else:
+                                    # Just 1's and 0's
+                                    labeled_array_cur[iy:iy+grow_size,ix:ix+grow_size] = 1
+                            elif 2 in patch:
+                                # Just 2's and 0's
+                                labeled_array_cur[iy:iy+grow_size,ix:ix+grow_size] = 2
+                            else:
+                                pass # All 0's, do nothing
+                                
+                labeled_array = labeled_array_cur
+                        
+        if run_args['verbosity']>=3:
+            print("    {} method took {:.1f} s".format(run_args['method'], time.time()-start_time))
+                        
+                        
+        region_2_pixels = np.sum(labeled_array) - labeled_array.size
+        region_1_pixels = labeled_array.size - region_2_pixels
+        print( '    Black region: {:,d} pixels ({:.1f} %)'.format(region_1_pixels, region_1_pixels*100.0/labeled_array.size) )
+        print( '    White region: {:,d} pixels ({:.1f} %)'.format(region_2_pixels, region_2_pixels*100.0/labeled_array.size) )
+        
+        results['dot_fractional_area'] = region_1_pixels*1.0/(labeled_array.size*1.0)
+        results['line_fractional_area'] = region_2_pixels*1.0/(labeled_array.size*1.0)
+        
+        if run_args['verbosity']>=1:
+            # Create black-and-white image
+            im = PIL.Image.fromarray( np.uint8(data.data*255.0) )
+            im = im.convert('RGB')
+            pix = im.load()
+            
+            for ix in range(w):
+                for iy in range(h):
+                    object_index = labeled_array[iy,ix]
+                    
+                    if labeled_array[iy,ix]==0:
+                        c = (255, 0, 0) # Red (error)
+                    elif labeled_array[iy,ix]==1:
+                        c = (0, 0, 0) # Black (small particles)
+                    else:
+                        c = (255, 255, 255 ) # White (big particles)
+                    pix[ix,iy] = c
+                    
+            outfile = self.get_outfile('dots_vs_lines', output_dir, ext='.png', ir=False)
+            im.save(outfile)
+                        
+        return results
+    
+
+
+color_list1 = [ (1,0,0), (0,1,0), (0,0,1), (1,1,0), (1,0,1),(0,1,1),(1,1,1),]
+color_list2 = [ (0.7*c[0], 0.7*c[1], 0.7*c[2]) for c in color_list1 ]
+color_list3 = [ (0.5*c[0], 1.0*c[1], 1.0*c[2]) for c in color_list1 ]
+color_list4 = [ (1.0*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list1 ]
+color_list5 = [ (1.0*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list1 ]
+color_list6 = [ (1.0*c[0], 0.7*c[1], 0.5*c[2]) for c in color_list1 ]
+color_list7 = [ (1.0*c[0], 0.5*c[1], 0.7*c[2]) for c in color_list1 ]
+color_list8 = [ (0.7*c[0], 1.0*c[1], 0.5*c[2]) for c in color_list1 ]
+color_list9 = [ (0.5*c[0], 1.0*c[1], 0.7*c[2]) for c in color_list1 ]
+color_list10 = [ (0.7*c[0], 0.5*c[1], 1.0*c[2]) for c in color_list1 ]
+color_list11 = [ (0.5*c[0], 0.7*c[1], 1.0*c[2]) for c in color_list1 ]
+color_list = color_list1 + color_list2 + color_list3 + color_list4 + color_list5 + color_list6 + color_list7 + color_list8 + color_list9 + color_list10 + color_list11

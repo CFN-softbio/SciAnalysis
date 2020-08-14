@@ -25,7 +25,7 @@
 
 
 import os
-import time
+import time, difflib
 import numpy as np
 
 from SciAnalysis.settings import * #from .settings import *
@@ -50,11 +50,21 @@ def timestamp(filepath):
     filetimestamp = statinfo.st_mtime
     return filetimestamp
 
+def print_array(data, name='array', verbosity=3):
+    '''Helper code for inspecting arrays (e.g. for debugging).'''
+    span = np.max(data)-np.min(data)
+    if verbosity>=3:
+        print('print_array for: {} (shape: {})'.format(name, data.shape))
+    if verbosity>=1:
+        print('    values: {:.4g} ± {:.4g} (span {:.3g}, from {:.3g} to {:.3g})'.format(np.average(data), np.std(data), span, np.min(data), np.max(data)))
+    if verbosity>=4:
+        print(data)
 
 
 
 # Filename
 ################################################################################
+# TODO: Modernize by using Python3's from pathlib import Path
 class Filename(object):
     '''Parses a filename into pieces following the desired pattern.'''
     
@@ -123,6 +133,15 @@ class Filename(object):
         self.full_filepath = os.path.join(self.path, path, self.filename)
         self._update()
         return self.get_filepath()
+
+    def get_best_match(self, filelist): 
+        # Find a string from the filelist that matches the filebase the most
+        length = -1; 
+        while True:
+            samplename= difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] # get the best match
+            length = length-5
+            if samplename in self.filebase: break # break if the best mathch is actually in the filename
+        return samplename	  
 
     # End class Filename(object)
     ########################################
@@ -629,6 +648,69 @@ class Processor(object):
 
 
 
+    def run_swaxs(self, basename, infiles=None, protocols=None, output_dir=None, minimum_number=None, force=False, ignore_errors=False, sort=False, load_args={}, run_args={}, verbosity=3, **kwargs):
+        '''Process the specified file sets using the specified protocols. The protocols must be able to operate on sets of datas.'''
+        # This version runs on all the supplied infiles (i.e. they are all assumed to be part of the group/set).
+        
+        l_args = self.load_args.copy()
+        l_args.update(load_args)
+        
+        r_args = self.run_args.copy()
+        r_args.update(run_args)
+        
+        if infiles is None:
+            infiles = self.infiles
+        if sort:
+            infiles.sort()
+                
+        if protocols is None:
+            protocols = self.protocols
+            
+        if output_dir is None:
+            output_dir = self.output_dir
+            
+            
+        basename = Filename(basename).get_filename()
+        setfiles = infiles
+        try:
+        
+            # Load all the files into data-objects
+            datas = []
+            for setfile in setfiles:
+	      
+                datas.append( self.load(setfile, **l_args) )
+                
+                
+            for protocol in protocols:
+                
+                #outfile = protocol.get_outfile(basename, output_dir)
+                output_dir_current = self.access_dir(output_dir, protocol.name)
+
+                if not force and protocol.output_exists(basename, output_dir_current):
+                    # Data already exists
+                    if verbosity>=2:
+                        print('Skipping {} for {}'.format(protocol.name, basename))
+                else:
+                    if verbosity>=2:
+                        print('Running {} for {}'.format(protocol.name, basename))
+                        
+                    results = protocol.run(datas, output_dir_current, basename=basename, **r_args)
+
+                    md = {}
+                    self.store_results(results, output_dir, infiles[0], protocol, **md)
+                    
+                
+        except Exception as exception:
+            if SUPPRESS_EXCEPTIONS or ignore_errors:
+                # Ignore errors, so that execution doesn't get stuck on a single bad file
+                if verbosity>=1:
+                    print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
+            else:
+                raise                        
+                            
+                    
+
+            
                 
 
     # class Processor(object)
@@ -761,8 +843,10 @@ class Protocol(object):
             extra: optional addition to filename
         Output:
             None    
-        '''             
+        '''   
+              
         outfile = self.get_outfile_HDF5(name, output_dir, extra=extra)
+        #print( 'In tools, the out put dir is: %s'%outfile )
         
         from .IO_HDF import dicttoh5
         # TODO: Handle case where there is only an x_err or y_err (but not both)
@@ -775,8 +859,8 @@ class Protocol(object):
             
         to_save = { 'data': data, 'label': label, 'results':results }
         # TODO: Handle case where results contain arrays.
-        dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')
-        
+        #print( outfile, self.name )
+        dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')       
         
     
     # End class Protocol(object)

@@ -24,7 +24,9 @@ from SciAnalysis.XSAnalysis.Data import * #from .Data import *
 from SciAnalysis.tools import * #from ..tools import *
 #from SciAnalysis.IO_HDF import *
 
-import copy
+import copy, glob, difflib
+import pandas as pd
+
 
 class ProcessorXS(Processor):
 
@@ -34,22 +36,65 @@ class ProcessorXS(Processor):
         #calibration = kwargs['calibration'] if 'calibration' in kwargs else None
         #mask = kwargs['mask'] if 'mask' in kwargs else None
         #data = Data2DScattering(infile, calibration=calibration, mask=mask)
-        
-        data = Data2DScattering(infile, **kwargs)
+        verbosity = self.run_args['verbosity']
+
+        if 'flag_swaxs' in kwargs and kwargs['flag_swaxs'] and ('waxs' in infile): # kwargs['calibration2'] and kwargs['mask2'] and 
+            if verbosity>4: print('# Using calirabtion2!')
+            data = Data2DScattering(infile, calibration=kwargs['calibration2'], mask=kwargs['mask2'])
+        else:
+            if verbosity>4: print('# Using calirabtion')
+            data = Data2DScattering(infile, **kwargs)
+	
         data.infile = infile
-        
         data.threshold_pixels(4294967295-1) # Eiger inter-module gaps
+
         
         if 'background' in kwargs:
+            data.name = data.name+'_rmbkg'	  
             if isinstance(kwargs['background'], (int, float)):
                 # Constant background to be subtracted from whole image
                 data.data -= kwargs['background']
+            
+            elif isinstance(kwargs['background'], (str)):
+                # Subtract whole image as background
+                infiles_background = glob.glob(kwargs['background'])
+                if verbosity>4: print('{} Background Files: {}'.format(len(infiles_background), infiles_background))
+                average_background_data = np.zeros(data.data.shape)
+                for ii, infile_background in enumerate(infiles_background):
+                    data_background = Data2DScattering(infile_background, **kwargs)
+                    average_background_data += data_background.data
+                average_background_data /= len(infiles_background)
+                
+                if isinstance(kwargs['transmission_int'], (str)):
+                    # Read from file
+                    df = pd.read_csv(kwargs['transmission_int'])
+                    if verbosity>4: print(df)
+                    # Find the best matched name from CSV
+                    samplename = Filename(infile).get_best_match(df['a_filename'])
+                    emptyname = Filename(infile_background).get_best_match(df['a_filename'])
+                    df0 = df[df['a_filename'].str.contains(emptyname)]
+                    df1 = df[df['a_filename'].str.contains(samplename)]
+                    print("# Found {} and {}".format(df0['a_filename'].values, df1['a_filename'].values))
+                    # User the latest if more than one
+                    factor = df1.c_I0.to_numpy()[-1] / df0.c_I0.to_numpy()[-1]
+                
+                elif isinstance(kwargs['transmission_int'], (int, float)):
+                    # Specify value
+                    factor = kwargs['transmission_int']		  
+                else:
+                    print('# WARNING: transmission_int invalid, use factor=1')
+                    factor = 1.0             
+                
+                if verbosity>4: print("# factor = {:.3f}".format(factor))
+                average_background_data[average_background_data>=0] *= factor
+                data.data -= average_background_data
+
             elif isinstance(kwargs['background'], (list, np.ndarray)):
                 # TODO: Subtract whole image as background
                 pass
             else:
                 print("ProcessorXS.load: Specified background type not recognized.")
-                
+          
         
         if 'dezing' in kwargs and kwargs['dezing']:
             data.dezinger()
@@ -146,6 +191,16 @@ class thumbnails(Protocol):
         
         #print(data.stats())
         
+        if 'label_filename' in run_args and run_args['label_filename']:
+            data.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                    'xtick.labelsize': 30,
+                                    'ytick.labelsize': 30,
+                                    'xtick.major.pad': 10,
+                                    'ytick.major.pad': 10,
+                                    },
+                                'title': data.name,
+                                } 
+            
         if 'plots' in run_args['save_results']:
             results['files_saved'] = [
                 { 'filename': '{}'.format(outfile) ,
@@ -182,18 +237,31 @@ class circular_average(Protocol):
             data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
         
         
-        line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
-        #line.smooth(2.0, bins=10)
+        line = data.circular_average_q_bin(error=0, bins_relative=run_args['bins_relative'])
+        
+        #if 'correction' in run_args:
+            #data_bkg = Data2DScattering(infile = run_args['correction'])
+            #ling_bkg = data_bkg.circular_average_q_bin(error=0, bins_relative=run_args['bins_relative'])
+        #else:
+        #    ling_bkg = DataLine(x=line.x, y = line.y*0.0)
+
+        
+        #print('### line_bkg loaded!')
+       
+        
+        #line.smooth(2.0, bins=10)        
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
-        line.plot_args = { 'rcParams': {'axes.labelsize': 25,
-                                    'xtick.labelsize': 25,
-                                    'ytick.labelsize': 25,
-                                    'xtick.major.pad': 10,
-                                    'ytick.major.pad': 10,
-                                    },
-							'title': data.name,
-                            }
+        
+        if 'label_filename' in run_args and run_args['label_filename']:
+            line.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                        'xtick.labelsize': 25,
+                                        'ytick.labelsize': 25,
+                                        'xtick.major.pad': 10,
+                                        'ytick.major.pad': 10,
+                                        },
+                                'title': data.name,
+                                }
 
         if 'twotheta' in run_args and run_args['twotheta']:
             k = data.calibration.get_k()
@@ -210,6 +278,8 @@ class circular_average(Protocol):
             line.plot(save=outfile, **run_args)
 
         if 'hdf5' in run_args['save_results']:
+            #print('here for cir_avg.....')
+            #print( output_dir, data.name)
             self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
 
        
@@ -282,8 +352,7 @@ class circular_average_sum(circular_average):
 
 
         return results
-                
-                
+                             
                 
 class circular_average_q2I(Protocol):
 
@@ -308,6 +377,10 @@ class circular_average_q2I(Protocol):
         results = {}
         
         line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
+        
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+        
         
         if run_args['qn_power']==2.0:
             line.y *= np.square(line.x)
@@ -398,7 +471,6 @@ class fit_peaks(Protocol):
                 s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_peaks_chi_squared'])
                 self.ax.text(xi, yi, s, size=font_size, color='b', verticalalignment='bottom', horizontalalignment='left')
 
-
                 for i in range(self._run_args['num_curves']):
                     
                     if i<=1:
@@ -436,7 +508,7 @@ class fit_peaks(Protocol):
                 lines.add_line(curve)
         lines.results = results
         lines._run_args = run_args
-        lines.copy_labels(line)            
+        lines.copy_labels(line)
         
         # Note that the results dictionary is modified within this function.
         # Thus although it is not returned, it is part of the set of returned
@@ -463,7 +535,14 @@ class fit_peaks(Protocol):
             for i in range(num_curves):
                 m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
             return m
-        
+ 
+ 
+        def model_Gaussian(v, x, i):           
+            # Gaussian peaks
+            m = v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+            return m
+ 
+ 
         def func2minimize(params, x, data):
             
             v = params.valuesdict()
@@ -500,7 +579,7 @@ class fit_peaks(Protocol):
             
         
         xspan = np.max(line.x) - np.min(line.x)
-        xpeak, ypeak = line.target_y(np.max(line.y))
+        xpeak, ypeak = line.target_y_max()
 
 
 
@@ -521,7 +600,7 @@ class fit_peaks(Protocol):
             x_sorted = xs[indices]
             y_sorted = ys[indices]
             
-            idx = np.where( x_sorted>=q0 )[0][0]
+            idx = np.where( x_sorted>=q0[0] )[0][0]
 
             xpeak = x_sorted[idx]
             ypeak = y_sorted[idx]
@@ -548,7 +627,6 @@ class fit_peaks(Protocol):
             sigma = 0.1*xspan
         
         for i in range(num_curves):
-            
             params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=max(np.max(line.y)*1.5,0)+1e-12, vary=False)
             if i==0:
                 # 1st peak should be at max location
@@ -563,7 +641,7 @@ class fit_peaks(Protocol):
                 params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
                 
             params.add('sigma{:d}'.format(i+1), value=sigma, min=0.00001, max=xspan*0.5, vary=False)
-        
+       
         
         # Fit only the peak width
         params['sigma1'].vary = True
@@ -588,6 +666,7 @@ class fit_peaks(Protocol):
                 lm_result.params['x_center{:d}'.format(i+1)].vary = True
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             
+            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             #lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y), method='nelder')
         
         if run_args['verbosity']>=5:
@@ -668,7 +747,7 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
         
         if 'plots' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
-            lines.plot(save=outfile, **run_args)        
+            lines.plot(save=outfile, **run_args)
         
         
         if 'hdf5' in run_args['save_results']:
@@ -711,13 +790,14 @@ class sector_average(Protocol):
         
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
-        line.plot_args = { 'rcParams': {'axes.labelsize': 25,
-                                    'xtick.labelsize': 25,
-                                    'ytick.labelsize': 25,
-                                    'xtick.major.pad': 10,
-                                    'ytick.major.pad': 10,
-                                    },
-							'title': data.name,
+        if 'label_filename' in run_args and run_args['label_filename']:
+            line.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                'xtick.labelsize': 25,
+                                'ytick.labelsize': 25,
+                                'xtick.major.pad': 10,
+                                'ytick.major.pad': 10,
+                                },
+                            'title': data.name,
                             }
         
         if 'show_region' in run_args and run_args['show_region']:
@@ -735,10 +815,79 @@ class sector_average(Protocol):
         if 'hdf5' in run_args['save_results']:          
             self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
 
+        return results
+    
+
+class sector_average_fit(sector_average, fit_peaks):
+
+    def __init__(self, name=None, **kwargs):
         
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+            'bins_relative' : 1.0,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            'error' : True, 
+            'show_region' : False,
+            'qn_power' : None,
+            'num_curves' : 1,
+            }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if 'dezing' in run_args and run_args['dezing']:
+            data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
+        
+        
+        line = data.sector_average_q_bin(**run_args)
+        #line.smooth(2.0, bins=10)
+        
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+        
+        if run_args['qn_power'] is not None:
+            if run_args['qn_power']==2.0:
+                line.y *= np.square(line.x)
+                line.y_label = 'q^2*I(q)'
+                line.y_rlabel = '$q^2 I(q) \, (\AA^{-2} \mathrm{counts/pixel})$'
+            else:
+                line.y *= np.power(line.x, run_args['qn_power'])
+                line.y_label = 'q^n*I(q)'
+                line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
+        
+        
+        if 'show_region' in run_args and run_args['show_region']:
+            data.plot(show=True)
+        
+        
+        #if 'plots' in run_args['save_results']:
+            #outfile = self.get_outfile(data.name, output_dir)
+            #line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:          
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
+
+
+        # Do fit
+        lines = self._fit(line, results, **run_args)
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            lines.plot(save=outfile, **run_args)        
         
         return results
-                                
+    
+
                 
 class roi(Protocol):
 
@@ -944,6 +1093,19 @@ class linecut_q(Protocol):
 
         if 'hdf5' in run_args['save_results']:
             self.save_DataLine_HDF5(line, data.name, output_dir, results=results)          
+        
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'plots' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
+
+        if 'hdf5' in run_args['save_results']:
+            #print('here for linecut_q.....')
+            #print( output_dir, data.name)            
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)           
         
         return results
 
@@ -1263,7 +1425,7 @@ class _old_linecut_qr_fit(linecut_qr):
 
 
 
-class linecut_qz_fit(linecut_qz):
+class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
 
     def __init__(self, name='linecut_qz_fit', **kwargs):
         
@@ -1525,6 +1687,7 @@ class linecut_qz_fit(linecut_qz):
 
                 
     def _fit_peaks(self, line, num_curves=1, **run_args):
+        # TODO: Use class fit_peaks
         
         # Usage: lm_result, fit_line, fit_line_extended = self.fit_peaks(line, **run_args)
         
@@ -1873,6 +2036,20 @@ class calibration_check(Protocol):
             
             for i in range(11):
                 data.overlay_ring(q0*(i+1), q0*(i+1)*dq)
+
+        if 'CeO2' in run_args and run_args['CeO2']:
+            
+            #FCC sturcture, a=5.411
+            #ref: https://community.dur.ac.uk/john.evans/topas_workshop/data/ceo2.cif
+            q0 = 2*np.pi/5.411*np.sqrt(3) # A^-1, (111)
+            
+            qlist = q0/np.sqrt(3)*np.array((np.sqrt(3), 2, np.sqrt(8),np.sqrt(11),np.sqrt(12),np.sqrt(16),np.sqrt(19),  np.sqrt(20)))
+            
+            data.overlay_ring(q0, q0*dq)
+            for q in qlist:
+                data.overlay_ring(q, q*dq)
+            #print(q0)    
+                
                 
         if 'CeO2' in run_args and run_args['CeO2']:
             # FCC structure, a = 5.411 Angstroms
@@ -2124,7 +2301,16 @@ class q_image(Protocol):
                                     },
                             } 
 
-
+        if 'label_filename' in run_args and run_args['label_filename']:
+            q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                    'xtick.labelsize': 25,
+                                    'ytick.labelsize': 25,
+                                    'xtick.major.pad': 10,
+                                    'ytick.major.pad': 10,
+                                    },
+                                'title': data.name,
+                                } 
+            
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
         q_data.plot(outfile, **run_args)
@@ -2145,11 +2331,11 @@ class qr_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-            'blur' : None,
-            'ztrim' : [0.05, 0.005],
-            'method' : 'nearest',
-            'save_data' : False,
-            }
+                        'blur' : None,
+                        'ztrim' : [0.05, 0.005],
+                        'method' : 'nearest',
+                        'save_data' : True,
+                        }
         self.run_args.update(kwargs)
         
 
@@ -2177,14 +2363,17 @@ class qr_image(Protocol):
             run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
         
         q_data.set_z_display([None, None, 'gamma', 0.3])
-        q_data.plot_args = { 'rcParams': {'axes.labelsize': 30,
-                                    'xtick.labelsize': 30,
-                                    'ytick.labelsize': 30,
+        
+        if 'label_filename' in run_args and run_args['label_filename']:
+            q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                    'xtick.labelsize': 25,
+                                    'ytick.labelsize': 25,
                                     'xtick.major.pad': 10,
                                     'ytick.major.pad': 10,
                                     },
-							'title': data.name,
-                            } 
+                                'title': data.name,
+                                } 
+            
         q_data.x_label = 'qr'
         q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
 
@@ -2192,7 +2381,8 @@ class qr_image(Protocol):
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
         q_data.plot(outfile, **run_args)
         
-        if run_args['save_data']:
+        if 'save_data' in run_args and run_args['save_data']:
+            print('data is saving')
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
         
@@ -2451,15 +2641,15 @@ class q_phi_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-            'blur' : None,
-            'bins_relative' : 0.5,
-            'bins_phi' : 360.0/1.0,
-            'ztrim' : [0.05, 0.005],
-            'method' : 'nearest',
-            'yticks' : [-180, -90, 0, 90, 180],
-            'save_data' : False,
-            'save_data_pickle' : True,
-            }
+                        'blur' : None,
+                        'bins_relative' : 0.5,
+                        'bins_phi' : 360.0/1.0,
+                        'ztrim' : [0.05, 0.005],
+                        'method' : 'nearest',
+                        'yticks' : [-180, -90, 0, 90, 180],
+                        'save_data' : True,
+                        'save_data_pickle' : True,
+                        }
         self.run_args.update(kwargs)
         
 
@@ -2491,6 +2681,12 @@ class q_phi_image(Protocol):
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.20,0.05,0.20,0.05]
         q_data.plot(outfile, **run_args)
+
+        q_data.x_label = 'q'
+        q_data.x_rlabel = '$q \, (\mathrm{\AA{-1]})$'
+        q_data.y_label = 'phi'
+        q_data.y_rlabel = '$phi \, (\mathrm{\deg})$'
+
         
         if run_args['save_data']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
@@ -2505,6 +2701,9 @@ class q_phi_image(Protocol):
                 out_data = q_data.data, q_data.x_axis, q_data.y_axis
                 pickle.dump(out_data, fout)
 
+
+        
+        
         
         return results
 

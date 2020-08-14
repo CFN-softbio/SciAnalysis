@@ -40,7 +40,11 @@ import PIL # Python Image Library (for opening PNG, etc.)
 
 from .. import tools
 from ..Data import *
-from .Eiger import *
+try:
+    from .Eiger import *
+except ImportError:
+    # Eiger support is optional
+    pass
 
 
 
@@ -138,7 +142,7 @@ class Data2DScattering(Data2D):
     def load_tiff(self, infile):
         
         img = PIL.Image.open(infile).convert('I') # 'I' : 32-bit integer pixels
-        self.data = np.copy( np.asarray(img) )
+        self.data = (np.copy( np.asarray(img) )).astype(np.float)
         del img
         
         
@@ -286,8 +290,8 @@ class Data2DScattering(Data2D):
         data is average over 'chi', so that the resulting curve is as a function
         of q.'''
         
-        return self.circular_average_q(**kwargs)
-        #return self.circular_average_q_bin(**kwargs)
+        #return self.circular_average_q(**kwargs)
+        return self.circular_average_q_bin(**kwargs)
     
     
     def circular_average_pixel(self, **kwargs):
@@ -390,7 +394,7 @@ class Data2DScattering(Data2D):
         
         # This version uses numpy.histogram instead of converting the binning
         # into an equivalent integer list (and then using numpy.bincount).
-        # This code is slightly slower (30-40% longer to run. However, this
+        # This code is slightly slower (30-40% longer to run). However, this
         # version is slightly more general inasmuch as one can be more
         # arbitrary about the number of bins to be used (doesn't have to match
         # the q-spacing).
@@ -874,7 +878,7 @@ class Data2DScattering(Data2D):
     # Data remeshing
     ########################################
     
-    def remesh_q_interpolate(self, bins_relative=1.0, **kwargs):
+    def remesh_q_interpolate(self, bins_relative=1.0, dq=None, **kwargs):
         '''Converts the data from detector-space into reciprocal-space. The returned
         object has a regular grid in reciprocal-space.
         The data is converted into a (qx,qz) plane (qy contribution ignored).'''
@@ -903,7 +907,38 @@ class Data2DScattering(Data2D):
         
         return q_data
 
+    def remesh_q_interpolate_explicit(self, qx_min=0, qx_max=1, qz_min=0, qz_max=1, **kwargs):
+        '''Converts the data from detector-space into reciprocal-space. The returned
+        object has a regular grid in reciprocal-space.
+        The data is converted into a (qx,qz) plane (qy contribution ignored).'''
+        
+        # Determine limits
+        #dq = self.calibration.get_q_per_pixel()/bins_relative
+        #qx_min = np.min(self.calibration.qx_map())
+        #qx_max = np.max(self.calibration.qx_map())
+        #qz_min = np.min(self.calibration.qz_map())
+        #qz_max = np.max(self.calibration.qz_map())
+        
+        dq = kwargs['dq']
+        qx = np.arange(qx_min, qx_max+dq, dq)
+        qz = np.arange(qz_min, qz_max+dq, dq)
+        QX, QZ = np.meshgrid(qx, qz)
+        
+        
+        from scipy.interpolate import griddata
 
+        points = np.column_stack((self.calibration.qx_map().ravel(), self.calibration.qz_map().ravel()))
+        values = self.data.ravel()
+        
+        remesh_data = griddata(points, values, (QX, QZ), method=kwargs['method'])
+        num_per_pixel = griddata(points, self.mask.data.ravel(), (QX, QZ), method=kwargs['method'])
+        
+        #q_data = Data2DReciprocal()
+        #q_data.data = remesh_data
+        
+        return remesh_data, num_per_pixel
+      
+      
     def remesh_q_bin(self, bins_relative=1.0, **kwargs):
         '''Converts the data from detector-space into reciprocal-space. The returned
         object has a regular grid in reciprocal-space.
