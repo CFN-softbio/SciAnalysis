@@ -47,7 +47,6 @@ class ProcessorXS(Processor):
 	
         data.infile = infile
         data.threshold_pixels(4294967295-1) # Eiger inter-module gaps
-
         
         if 'background' in kwargs:
             data.name = data.name+'_rmbkg'	  
@@ -58,7 +57,7 @@ class ProcessorXS(Processor):
             elif isinstance(kwargs['background'], (str)):
                 # Subtract whole image as background
                 infiles_background = glob.glob(kwargs['background'])
-                if verbosity>4: print('{} Background Files: {}'.format(len(infiles_background), infiles_background))
+                if verbosity>4: print('# {} Background Files: {}'.format(len(infiles_background), infiles_background))
                 average_background_data = np.zeros(data.data.shape)
                 for ii, infile_background in enumerate(infiles_background):
                     data_background = Data2DScattering(infile_background, **kwargs)
@@ -67,9 +66,13 @@ class ProcessorXS(Processor):
                 
                 if isinstance(kwargs['transmission_int'], (str)):
                     # Read from file
-                    df = pd.read_csv(kwargs['transmission_int'])
+                    try:
+                        df = pd.read_csv(kwargs['transmission_int'])
+                    except:
+                        print('# Error reading {}'.format(kwargs['transmission_int']))
                     if verbosity>4: print(df)
                     # Find the best matched name from CSV
+                    print(infile)
                     samplename = Filename(infile).get_best_match(df['a_filename'])
                     emptyname = Filename(infile_background).get_best_match(df['a_filename'])
                     df0 = df[df['a_filename'].str.contains(emptyname)]
@@ -85,9 +88,14 @@ class ProcessorXS(Processor):
                     print('# WARNING: transmission_int invalid, use factor=1')
                     factor = 1.0             
                 
-                if verbosity>4: print("# factor = {:.3f}".format(factor))
+                if verbosity>2: print("# factor = {:.3f}".format(factor))
                 average_background_data[average_background_data>=0] *= factor
+                if verbosity>4:
+                    print("# Before: data MAX {:.3f}, MEAN {:.3f}".format(np.max(data.data), np.mean(data.data)))
+                
                 data.data -= average_background_data
+                if verbosity>4:
+                    print("# After: data MAX {:.3f}, MEAN {:.3f}".format(np.max(data.data),np.mean(data.data)))
 
             elif isinstance(kwargs['background'], (list, np.ndarray)):
                 # TODO: Subtract whole image as background

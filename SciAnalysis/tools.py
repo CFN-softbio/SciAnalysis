@@ -137,8 +137,9 @@ class Filename(object):
     def get_best_match(self, filelist): 
         # Find a string from the filelist that matches the filebase the most
         length = -1; 
-        while True:
-            samplename= difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] # get the best match
+        while True and length>(-len(self.filebase)):
+            samplename= difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+            # get the best match
             length = length-5
             if samplename in self.filebase: break # break if the best mathch is actually in the filename
         return samplename	  
