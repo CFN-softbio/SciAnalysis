@@ -56,6 +56,8 @@ infiles.sort()
 
 load_args = { 'calibration' : calibration, 
              'mask' : mask,
+             #'background' : source_dir+'empty*saxs.tiff',
+            #'transmission_int': '../../data/Transmission_output.csv', # Can also specify an float value.
              }
 run_args = { 'verbosity' : 3,
             #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
@@ -71,7 +73,7 @@ process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 protocols = [
     #Protocols.HDF5(save_results=['hdf5'])
     #Protocols.calibration_check(show=False, AgBH=True, q0=0.010, num_rings=4, ztrim=[0.05, 0.05], ) ,
-    #Protocols.circular_average(ylog=True, plot_range=[0, 0.12, None, None]) ,
+    #Protocols.circular_average(ylog=True, plot_range=[0, 0.12, None, None], label_filename=True) ,
     Protocols.thumbnails(crop=None, resize=1.0, blur=None, cmap=cmap_vge, ztrim=[0.01, 0.001]) ,
     ]
     

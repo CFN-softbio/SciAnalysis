@@ -142,7 +142,7 @@ class Data2DScattering(Data2D):
     def load_tiff(self, infile):
         
         img = PIL.Image.open(infile).convert('I') # 'I' : 32-bit integer pixels
-        self.data = np.copy( np.asarray(img) )
+        self.data = ( np.copy( np.asarray(img) ) ).astype(np.float)
         del img
         
         
@@ -878,7 +878,7 @@ class Data2DScattering(Data2D):
     # Data remeshing
     ########################################
     
-    def remesh_q_interpolate(self, bins_relative=1.0, **kwargs):
+    def remesh_q_interpolate(self, bins_relative=1.0, method='linear', **kwargs):
         '''Converts the data from detector-space into reciprocal-space. The returned
         object has a regular grid in reciprocal-space.
         The data is converted into a (qx,qz) plane (qy contribution ignored).'''
@@ -894,19 +894,40 @@ class Data2DScattering(Data2D):
         qz = np.arange(qz_min, qz_max+dq, dq)
         QX, QZ = np.meshgrid(qx, qz)
         
-        
         from scipy.interpolate import griddata
 
         points = np.column_stack((self.calibration.qx_map().ravel(), self.calibration.qz_map().ravel()))
         values = self.data.ravel()
         
-        remesh_data = griddata(points, values, (QX, QZ), method=kwargs['method'])
+        remesh_data = griddata(points, values, (QX, QZ), method=method)
         
         q_data = Data2DReciprocal()
         q_data.data = remesh_data
         
         return q_data
 
+
+    def remesh_q_interpolate_explicit(self, qx_min=0, qx_max=1, qz_min=0, qz_max=1, method='linear', **kwargs):
+        '''Converts the data from detector-space into reciprocal-space. The returned
+        object has a regular grid in reciprocal-space.
+        The data is converted into a (qx,qz) plane (qy contribution ignored).'''
+        
+        # Determine limits
+        dq = kwargs['dq']
+        qx = np.arange(qx_min, qx_max+dq, dq)
+        qz = np.arange(qz_min, qz_max+dq, dq)
+        QX, QZ = np.meshgrid(qx, qz)
+        
+        from scipy.interpolate import griddata
+
+        points = np.column_stack((self.calibration.qx_map().ravel(), self.calibration.qz_map().ravel()))
+        values = self.data.ravel()
+        
+        remesh_data = griddata(points, values, (QX, QZ), method=method)
+        num_per_pixel = griddata(points, self.mask.data.ravel(), (QX, QZ), method=method)
+        
+        return remesh_data, num_per_pixel
+    
 
     def remesh_q_bin(self, bins_relative=1.0, **kwargs):
         '''Converts the data from detector-space into reciprocal-space. The returned

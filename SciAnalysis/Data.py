@@ -431,11 +431,11 @@ class DataLine(object):
         if 'gridlines' in plot_args and plot_args['gridlines']:
             plt.grid()
         
-        if 'title' in plot_args and plot_args['title'] is not None:
-            size = plot_args['rcParams']['axes.labelsize']
-            #size = plot_args['rcParams']['xtick.labelsize']
+        if 'title' in plot_args and isinstance(plot_args['title'], str):
+            #size = plot_args['rcParams']['axes.labelsize']
+            size = plot_args['rcParams']['xtick.labelsize']
+            size *= 0.75 # Make text smaller
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
-        
         
         # Axis scaling
         xi, xf, yi, yf = self.ax.axis()
@@ -444,6 +444,18 @@ class DataLine(object):
         if plot_range[2] != None: yi = plot_range[2]
         if plot_range[3] != None: yf = plot_range[3]
         self.ax.axis( [xi, xf, yi, yf] )
+        
+        if 'reflines' in plot_args:
+            # Plot a series of vertical reference lines at the specified x-values.
+            for i, xs in enumerate(plot_args['reflines']):
+                color_list = ['purple', 'darkblue', 'blue', 'cyan'] # Use distinct color for first few lines
+                color = 'lightblue' if i>=len(color_list) else color_list[i] # Use generic color thereafter
+                if not isinstance(xs, (tuple, list, np.ndarray) ):
+                    # Each refline can either be a single x-value, or a sequence of x-values that form a series
+                    xs = [xs]
+                for xpos in xs:
+                    self.ax.axvline(xpos, color=color, dashes=[3,3])
+                    self.ax.text(xpos, yf, str(xpos), size=12, color=color, verticalalignment='top', horizontalalignment='left', rotation=90)
         
         self._plot_extra(**plot_args)
         
@@ -1692,8 +1704,9 @@ class Data2D(object):
                 colorbar_labels = [ zmin + i*(zmax-zmin)/4 for i in range(5) ]
             
             tick_positions = self._plot_z_transform(data=colorbar_labels, set_Z=False)
-            #cbar = plt.colorbar(ticks=tick_positions, fraction=0.045, pad=0.02)
-            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.03, aspect=30)
+            #cbar = plt.colorbar(ticks=tick_positions, fraction=0.045, pad=0.02) # Shorter and wider
+            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.03, aspect=30) # Taller and thinner
+            #cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.02, aspect=65) # Very tall and thin (preferred at CMS)
             colorbar_labels = ["{:.0f}".format(c) for c in colorbar_labels]
             cbar.ax.set_yticklabels(colorbar_labels, size=18)
         
@@ -1708,9 +1721,10 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
-        if 'title' in plot_args and plot_args['title'] is not None:
-            size = plot_args['rcParams']['axes.labelsize']
-            #size = plot_args['rcParams']['xtick.labelsize']
+        if 'title' in plot_args and isinstance(plot_args['title'], str):
+            #size = plot_args['rcParams']['axes.labelsize']
+            size = plot_args['rcParams']['xtick.labelsize']
+            size *= 0.75 # Make text smaller
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         self._plot_extra(**plot_args)
@@ -1897,9 +1911,10 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
-        if 'title' in plot_args and plot_args['title'] is not None:
-            size = plot_args['rcParams']['axes.labelsize']
-            #size = plot_args['rcParams']['xtick.labelsize']
+        if 'title' in plot_args and isinstance(plot_args['title'], str):
+            #size = plot_args['rcParams']['axes.labelsize']
+            size = plot_args['rcParams']['xtick.labelsize']
+            size *= 0.75 # Make text smaller
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         self._plot_extra3D(**plot_args)

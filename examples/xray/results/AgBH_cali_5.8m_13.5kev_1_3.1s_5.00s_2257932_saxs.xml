@@ -14,4 +14,154 @@
   <protocol end_timestamp="1591992216.5505638" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.7914838790893555" save_timestamp="1591992216.5510151" start_timestamp="1591992215.75908"/>
   <protocol end_timestamp="1591992443.1632771" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.690546989440918" save_timestamp="1591992443.1637564" start_timestamp="1591992442.4727302"/>
   <protocol end_timestamp="1591992465.1988502" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="18.08733630180359" save_timestamp="1591992465.1993744" start_timestamp="1591992447.1115139"/>
+  <protocol end_timestamp="1597410762.8748908" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="3.521718740463257" save_timestamp="1597410762.8762672" start_timestamp="1597410759.353172"/>
+  <protocol end_timestamp="1597410772.7820346" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.8304431438446045" save_timestamp="1597410772.7823784" start_timestamp="1597410771.9515915"/>
+  <protocol end_timestamp="1597410805.7751155" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.7956933975219727" save_timestamp="1597410805.775519" start_timestamp="1597410804.979422"/>
+  <protocol end_timestamp="1597410851.8719003" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.868408203125" save_timestamp="1597410851.872378" start_timestamp="1597410851.003492"/>
+  <protocol end_timestamp="1597410871.7861803" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.8045332431793213" save_timestamp="1597410871.7866013" start_timestamp="1597410870.981647"/>
+  <protocol end_timestamp="1597410913.7891207" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.8140344619750977" save_timestamp="1597410913.7895348" start_timestamp="1597410912.9750862"/>
+  <protocol end_timestamp="1597410922.6548045" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.7785210609436035" save_timestamp="1597410922.655197" start_timestamp="1597410921.8762834"/>
+  <protocol end_timestamp="1597410939.621244" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="linecut_angle" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.8631138801574707" save_timestamp="1597410939.6216557" start_timestamp="1597410938.75813"/>
+  <protocol end_timestamp="1597411075.3559275" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="4.129056453704834" save_timestamp="1597411075.356585" start_timestamp="1597411071.226871"/>
+  <protocol end_timestamp="1597411205.5061674" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="29.714582920074463" save_timestamp="1597411205.5069005" start_timestamp="1597411175.7915845"/>
+  <protocol end_timestamp="1597411213.5137646" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="5.923736810684204" save_timestamp="1597411213.5145502" start_timestamp="1597411207.5900278"/>
+  <protocol end_timestamp="1597411216.6174448" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.078996181488037" save_timestamp="1597411216.6178882" start_timestamp="1597411215.5384486"/>
+  <protocol end_timestamp="1597411268.0377114" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.0236783027648926" save_timestamp="1597411268.0381434" start_timestamp="1597411267.014033"/>
+  <protocol end_timestamp="1597411364.4983485" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.015136480331421" save_timestamp="1597411364.4990368" start_timestamp="1597411363.483212"/>
+  <protocol end_timestamp="1597411561.0050025" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.0322768688201904" save_timestamp="1597411561.0057285" start_timestamp="1597411559.9727256"/>
+  <protocol end_timestamp="1597411676.1217592" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.9730980396270752" save_timestamp="1597411676.1222534" start_timestamp="1597411675.1486611"/>
+  <protocol end_timestamp="1597411726.352026" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.9761714935302734" save_timestamp="1597411726.3525023" start_timestamp="1597411725.3758545"/>
+  <protocol end_timestamp="1597412056.3659089" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.0025105476379395" save_timestamp="1597412056.3665707" start_timestamp="1597412055.3633983"/>
+  <protocol end_timestamp="1597412224.7655132" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.0804047584533691" save_timestamp="1597412224.7662427" start_timestamp="1597412223.6851084"/>
+  <protocol end_timestamp="1597412248.8985105" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.9773352146148682" save_timestamp="1597412248.8989472" start_timestamp="1597412247.9211752"/>
+  <protocol end_timestamp="1597412331.2969944" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.0298166275024414" save_timestamp="1597412331.297669" start_timestamp="1597412330.2671778"/>
+  <protocol end_timestamp="1597412414.6532445" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="0.9562578201293945" save_timestamp="1597412414.65373" start_timestamp="1597412413.6969867"/>
+  <protocol end_timestamp="1597412423.724714" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.026625394821167" save_timestamp="1597412423.7252066" start_timestamp="1597412422.6980886"/>
+  <protocol end_timestamp="1597412615.0384474" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.4669573307037354" save_timestamp="1597412615.038998" start_timestamp="1597412613.57149"/>
+  <protocol end_timestamp="1597412636.535288" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.4267361164093018" save_timestamp="1597412636.5359945" start_timestamp="1597412635.108552"/>
+  <protocol end_timestamp="1597412651.0155804" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.394407033920288" save_timestamp="1597412651.0161529" start_timestamp="1597412649.6211734"/>
+  <protocol end_timestamp="1597412684.8724358" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.651365041732788" save_timestamp="1597412684.8731782" start_timestamp="1597412683.2210708"/>
+  <protocol end_timestamp="1597412752.6427448" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.4372236728668213" save_timestamp="1597412752.643282" start_timestamp="1597412751.205521"/>
+  <protocol end_timestamp="1597412776.2461882" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.4326667785644531" save_timestamp="1597412776.2468927" start_timestamp="1597412774.8135214"/>
+  <protocol end_timestamp="1597412784.7858663" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.4700956344604492" save_timestamp="1597412784.7864006" start_timestamp="1597412783.3157706"/>
+  <protocol end_timestamp="1597414826.4383757" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.546264410018921" save_timestamp="1597414826.4391139" start_timestamp="1597414824.8921113"/>
+  <protocol end_timestamp="1597414849.9894333" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.4260485172271729" save_timestamp="1597414849.9902213" start_timestamp="1597414848.5633848"/>
+  <protocol end_timestamp="1597414858.5442975" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.465731143951416" save_timestamp="1597414858.5448937" start_timestamp="1597414857.0785663"/>
+  <protocol end_timestamp="1597414924.1904793" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.3410189151763916" save_timestamp="1597414924.1910088" start_timestamp="1597414922.8494604"/>
+  <protocol end_timestamp="1597414932.746746" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.5451412200927734" save_timestamp="1597414932.7475803" start_timestamp="1597414931.2016048"/>
+  <protocol end_timestamp="1597414945.867207" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="5.0822365283966064" save_timestamp="1597414945.8680818" start_timestamp="1597414940.7849705"/>
+  <protocol end_timestamp="1597414960.060174" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="5.123364210128784" save_timestamp="1597414960.0610738" start_timestamp="1597414954.9368098"/>
+  <protocol end_timestamp="1597418448.7483375" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.0182592868804932" save_timestamp="1597418448.7491639" start_timestamp="1597418447.7300782"/>
+  <protocol end_timestamp="1597418464.9031172" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.051771879196167" save_timestamp="1597418464.9036593" start_timestamp="1597418463.8513453"/>
+  <protocol end_timestamp="1597418489.0780835" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.0780181884765625" save_timestamp="1597418489.0788069" start_timestamp="1597418488.0000653"/>
+  <protocol end_timestamp="1597418553.8675492" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.0029568672180176" save_timestamp="1597418553.868083" start_timestamp="1597418552.8645923"/>
+  <protocol end_timestamp="1597418635.3969789" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.142024040222168" save_timestamp="1597418635.3975232" start_timestamp="1597418634.2549548"/>
+  <protocol end_timestamp="1597418866.224428" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average_q2I_fit" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="3.78061842918396" save_timestamp="1597418866.2253752" start_timestamp="1597418862.4438095">
+    <result error="None" name="fit_peaks_qalpha" value="1.0"/>
+    <result name="fit_peaks_d01" value="5.81756269882903"/>
+    <result error="None" name="fit_peaks_qp" value="0"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0026835335719911616"/>
+    <result name="fit_peaks_prefactor_total" value="0.4688968691465979"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.4688968691465979"/>
+    <result name="fit_peaks_grain_size" value="93.40774793330056"/>
+    <result name="fit_peaks_chi_squared" value="0.000174135964756021"/>
+    <result error="None" name="fit_peaks_m" value="-1.850110612709873e-06"/>
+    <result name="fit_peaks_d0" value="5.81756269882903"/>
+    <result error="None" name="fit_peaks_b" value="0.009414217758179369"/>
+    <result name="fit_peaks_grain_size1" value="93.40774793330056"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.10800374026814147"/>
+  </protocol>
+  <protocol end_timestamp="1597418981.3611953" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average_q2I_fit" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="3.580702304840088" save_timestamp="1597418981.3618016" start_timestamp="1597418977.780493">
+    <result error="None" name="fit_peaks_x_center1" value="0.10800374026814147"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0026835335719911616"/>
+    <result name="fit_peaks_d0" value="5.81756269882903"/>
+    <result name="fit_peaks_grain_size" value="93.40774793330056"/>
+    <result name="fit_peaks_prefactor_total" value="0.4688968691465979"/>
+    <result name="fit_peaks_d01" value="5.81756269882903"/>
+    <result error="None" name="fit_peaks_qalpha" value="1.0"/>
+    <result error="None" name="fit_peaks_b" value="0.009414217758179369"/>
+    <result error="None" name="fit_peaks_m" value="-1.850110612709873e-06"/>
+    <result name="fit_peaks_grain_size1" value="93.40774793330056"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.4688968691465979"/>
+    <result error="None" name="fit_peaks_qp" value="0"/>
+    <result name="fit_peaks_chi_squared" value="0.000174135964756021"/>
+  </protocol>
+  <protocol end_timestamp="1597419076.782386" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average_q2I_fit" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="3.736884593963623" save_timestamp="1597419076.7830641" start_timestamp="1597419073.0455015">
+    <result error="None" name="fit_peaks_m" value="-1.850110612709873e-06"/>
+    <result name="fit_peaks_d0" value="5.81756269882903"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0026835335719911616"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.10800374026814147"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.4688968691465979"/>
+    <result name="fit_peaks_d01" value="5.81756269882903"/>
+    <result name="fit_peaks_chi_squared" value="0.000174135964756021"/>
+    <result name="fit_peaks_grain_size1" value="93.40774793330056"/>
+    <result error="None" name="fit_peaks_b" value="0.009414217758179369"/>
+    <result error="None" name="fit_peaks_qp" value="0"/>
+    <result error="None" name="fit_peaks_qalpha" value="1.0"/>
+    <result name="fit_peaks_prefactor_total" value="0.4688968691465979"/>
+    <result name="fit_peaks_grain_size" value="93.40774793330056"/>
+  </protocol>
+  <protocol end_timestamp="1597419108.4960444" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average_q2I_fit" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="3.5587143898010254" save_timestamp="1597419108.4970524" start_timestamp="1597419104.93733">
+    <result name="fit_peaks_grain_size" value="93.40774793330056"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0026835335719911616"/>
+    <result name="fit_peaks_grain_size1" value="93.40774793330056"/>
+    <result error="None" name="fit_peaks_qalpha" value="1.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.4688968691465979"/>
+    <result name="fit_peaks_prefactor_total" value="0.4688968691465979"/>
+    <result error="None" name="fit_peaks_m" value="-1.850110612709873e-06"/>
+    <result name="fit_peaks_d01" value="5.81756269882903"/>
+    <result name="fit_peaks_chi_squared" value="0.000174135964756021"/>
+    <result error="None" name="fit_peaks_qp" value="0"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.10800374026814147"/>
+    <result error="None" name="fit_peaks_b" value="0.009414217758179369"/>
+    <result name="fit_peaks_d0" value="5.81756269882903"/>
+  </protocol>
+  <protocol end_timestamp="1597419147.4088159" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average_q2I_fit" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="3.667834997177124" save_timestamp="1597419147.4094658" start_timestamp="1597419143.7409809">
+    <result name="fit_peaks_prefactor_total" value="0.4688968691465979"/>
+    <result name="fit_peaks_d01" value="5.81756269882903"/>
+    <result name="fit_peaks_grain_size1" value="93.40774793330056"/>
+    <result name="fit_peaks_d0" value="5.81756269882903"/>
+    <result name="fit_peaks_chi_squared" value="0.000174135964756021"/>
+    <result error="None" name="fit_peaks_qalpha" value="1.0"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0026835335719911616"/>
+    <result error="None" name="fit_peaks_b" value="0.009414217758179369"/>
+    <result error="None" name="fit_peaks_qp" value="0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.4688968691465979"/>
+    <result error="None" name="fit_peaks_m" value="-1.850110612709873e-06"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.10800374026814147"/>
+    <result name="fit_peaks_grain_size" value="93.40774793330056"/>
+  </protocol>
+  <protocol end_timestamp="1597419162.0844443" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average_q2I_fit" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="3.603668689727783" save_timestamp="1597419162.0851243" start_timestamp="1597419158.4807756">
+    <result name="fit_peaks_grain_size" value="93.40774793330056"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.4688968691465979"/>
+    <result error="None" name="fit_peaks_b" value="0.009414217758179369"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.10800374026814147"/>
+    <result name="fit_peaks_chi_squared" value="0.000174135964756021"/>
+    <result name="fit_peaks_prefactor_total" value="0.4688968691465979"/>
+    <result error="None" name="fit_peaks_qp" value="0"/>
+    <result error="None" name="fit_peaks_qalpha" value="1.0"/>
+    <result name="fit_peaks_grain_size1" value="93.40774793330056"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0026835335719911616"/>
+    <result name="fit_peaks_d0" value="5.81756269882903"/>
+    <result error="None" name="fit_peaks_m" value="-1.850110612709873e-06"/>
+    <result name="fit_peaks_d01" value="5.81756269882903"/>
+  </protocol>
+  <protocol end_timestamp="1597419178.8550549" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="circular_average_q2I_fit" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="3.6698639392852783" save_timestamp="1597419178.856234" start_timestamp="1597419175.185191">
+    <result name="fit_peaks_prefactor_total" value="0.4688968691465979"/>
+    <result error="None" name="fit_peaks_qp" value="0"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0026835335719911616"/>
+    <result name="fit_peaks_grain_size1" value="93.40774793330056"/>
+    <result error="None" name="fit_peaks_qalpha" value="1.0"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.10800374026814147"/>
+    <result error="None" name="fit_peaks_b" value="0.009414217758179369"/>
+    <result name="fit_peaks_d0" value="5.81756269882903"/>
+    <result error="None" name="fit_peaks_m" value="-1.850110612709873e-06"/>
+    <result name="fit_peaks_chi_squared" value="0.000174135964756021"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.4688968691465979"/>
+    <result name="fit_peaks_grain_size" value="93.40774793330056"/>
+    <result name="fit_peaks_d01" value="5.81756269882903"/>
+  </protocol>
+  <protocol end_timestamp="1597419707.6962411" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.4246299266815186" save_timestamp="1597419707.6970785" start_timestamp="1597419706.2716112"/>
+  <protocol end_timestamp="1597419727.229042" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.3934407234191895" save_timestamp="1597419727.2297564" start_timestamp="1597419725.8356013"/>
+  <protocol end_timestamp="1597424207.025438" infile="./AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.tiff" name="q_image" outfile="./results/AgBH_cali_5.8m_13.5kev_1_3.1s_5.00s_2257932_saxs.xml" output_dir="./results" runtime="1.480292797088623" save_timestamp="1597424207.026177" start_timestamp="1597424205.5451453"/>
 </DataFile>

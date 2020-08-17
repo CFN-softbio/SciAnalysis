@@ -332,7 +332,7 @@ class merge_images_position(ProtocolMultiple):
 
             results['files_saved'].append( 
                 { 'filename': '{}'.format(outfile) ,
-                'description' : 'mask file for the data (PNG file)' ,
+                'description' : 'mask file for the data' ,
                 'type' : 'metadata' , # 'data', 'plot', 'metadata'
                 } , )
             
@@ -341,7 +341,131 @@ class merge_images_position(ProtocolMultiple):
         return results
         
 
+class merge_images_swaxs(merge_images_position):
+    '''Merges images into reciprocal-space, where the different images
+    have different detector positions.
+    This protocol is designed for merging data from SAXS and WAXS.'''
+
+    def __init__(self, name='merge_images', **kwargs):
         
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.npy'
+        self.run_args = {
+                        'file_extension' : '-merged.npy',
+                        'verbosity' : 3,
+                        'save_axes' : True,
+                        'save_mask' : True,
+                        'save_maps' : True,
+                        'method': 'linear', # 'linear', 'nearest',  or 'cubic'
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, datas, output_dir, basename, **run_args):
+        
+        results = {}
+        
+        outfile = self.get_outfile(basename, output_dir, ext=run_args['file_extension'])
+
+        # Prepare a large-area q matrix
+        q_range = run_args['q_range']
+        dq = run_args['dq']
+        qxs = np.arange(q_range[0], q_range[1]+dq, dq)
+        qzs = np.arange(q_range[2], q_range[3]+dq, dq)
+        QXs, QZs = np.meshgrid(qxs, qzs)
+        
+        Intensity_map = np.zeros( (len(qzs), len(qxs)) )
+        count_map = np.zeros( (len(qzs), len(qxs)) )
+        
+        if run_args['verbosity']>=5:
+            print('      Expecting array size num_qx = {}, num_qz = {}'.format(len(qxs), len(qzs)))
+            print('      Coordinate matrices sized {}'.format(QXs.shape))
+            #print('      Coordinate matrices sized {}'.format(QZs.shape))
+            print('      Data matrices sized {}'.format(Intensity_map.shape))
+            #print('      Data matrices sized {}'.format(count_map.shape))
+        
+        for ii, data in enumerate(datas):
+            if run_args['verbosity']>=5:
+                print("[{}] data.name = {}".format(ii, data.name))
+                #print("    q_per_pixel = {}".format(data.calibration.get_q_per_pixel()))
+            
+            # Using run_args['dq']
+            remesh_data, num_per_pixel = data.remesh_q_interpolate_explicit(qx_min=q_range[0], qx_max=q_range[1], qz_min=q_range[2], qz_max=q_range[3],  **run_args)
+
+            if run_args['verbosity']>=5:
+                print('      remesh_data matrix sized {}'.format(remesh_data.shape))
+                print("      remesh_data MAX {}".format(np.max(remesh_data)))
+                print("      remesh_data SUM {}".format(np.sum(remesh_data)))
+                print("      num_per_pixel SUM {}".format(np.sum(num_per_pixel)))
+            
+            Intensity_map += remesh_data
+            count_map += num_per_pixel
+                    
+        #Intensity_map = np.nan_to_num( Intensity_map/count_map )
+        
+        results['files_saved'] = [
+            { 'filename': '{}'.format(outfile) ,
+             'description' : 'merging of multiple images into common q-space (npy format)' ,
+             'type' : 'data' # 'data', 'plot'
+            } ,
+            ]
+        np.save(outfile, Intensity_map)
+        
+        
+        # Save to PNG (Temporary)
+        print("-------")
+        from PIL import Image
+        outfile2 = self.get_outfile(basename, output_dir, ext='.png')
+        img_out = np.nan_to_num((Intensity_map))
+        print(np.min(img_out))
+        print(np.max(img_out))
+        rescaled = (255.0 / img_out.max() * (img_out - img_out.min())).astype(np.uint8)
+        print(np.sum(rescaled))
+        Image.fromarray(rescaled).save(outfile2)
+        
+
+        if run_args['save_axes']:
+            outfile = self.get_outfile(basename, output_dir, ext='-axes.npz')
+            
+            results['files_saved'].append( 
+                { 'filename': '{}'.format(outfile) ,
+                'description' : 'qx and qz axes of output data (npz format)' ,
+                'type' : 'metadata' , # 'data', 'plot', 'metadata'
+                'comment' : "reload using: npzfile = np.load('{}{}')".format(basename, '-axes.npz')
+                } , )
+            np.savez_compressed(outfile, qxs=qxs, qzs=qzs)
+
+
+        if run_args['save_maps']:
+            QYs = datas[0].calibration.compute_qy(QXs, QZs)
+            outfile = self.get_outfile(basename, output_dir, ext='-maps.npz')
+            np.savez_compressed(outfile, QX=QXs, QY=QYs, QZ=QZs)
+            
+
+        if run_args['save_mask']:
+            
+            mask = np.where(count_map==0, np.zeros_like(count_map), np.ones_like(count_map))
+            
+            outfile = self.get_outfile(basename, output_dir, ext='-mask.png')
+            #np.save(outfile, mask)
+            
+            try:
+                import scipy.misc
+                scipy.misc.imsave(outfile, mask)
+            except:
+                import imageio
+                imageio.imwrite(outfile, mask)
+
+            results['files_saved'].append( 
+                { 'filename': '{}'.format(outfile) ,
+                'description' : 'mask file for the data' ,
+                'type' : 'metadata' , # 'data', 'plot', 'metadata'
+                } , )
+            
+        return results        
+
             
     
 class merge_images_gonio_phi(ProtocolMultiple):

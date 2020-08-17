@@ -64,7 +64,8 @@ def print_array(data, name='array', verbosity=3):
 
 # Filename
 ################################################################################
-# TODO: Modernize by using Python3's from pathlib import Path
+# TODO: Modernize by using Python3's new capabilities:
+#    from pathlib import Path
 class Filename(object):
     '''Parses a filename into pieces following the desired pattern.'''
     
@@ -133,6 +134,25 @@ class Filename(object):
         self.full_filepath = os.path.join(self.path, path, self.filename)
         self._update()
         return self.get_filepath()
+
+    def get_best_match(self, filelist): 
+        import difflib
+        # Find a string from the filelist that matches the filebase the most
+        length = -1
+        while length > (-len(self.filebase)):
+            samplename = difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+            # get the best match
+            length = length-5 # TODO: Explain why a -5 step is used
+            if samplename in self.filebase: break # break if the best mathch is actually in the filename
+        
+        # TODO: Replace above code with for loop, along the lines of:
+        #samplename = None
+        # for length in range(-1, -len(self.filebase), -5):
+            #if (samplename is not None) and samplename in self.filebase: break
+            #samplename = difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+            
+            
+        return samplename	  
 
     # End class Filename(object)
     ########################################
@@ -787,6 +807,15 @@ class Protocol(object):
         # TODO: Handle case where results contain arrays.
         dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')
         
+        
+    def label_filename(self, data, datap=None, **run_args):
+        '''Handle the common case where we want to apply the data's
+        filename as the title for a graph.
+        The name of data.name is applied to datap'''
+        if 'label_filename' in run_args and run_args['label_filename']:
+            if datap is None:
+                datap = data
+            datap.plot_args.update( {'title': data.name} )
         
     
     # End class Protocol(object)

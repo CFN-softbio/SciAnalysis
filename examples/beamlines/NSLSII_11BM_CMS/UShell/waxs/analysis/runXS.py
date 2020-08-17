@@ -72,8 +72,8 @@ infiles.sort()
 
 load_args = { 'calibration' : calibration, 
              'mask' : mask,
-             'rot180' : False,
-             'flip' : True, # PSCCD
+             #'rot180' : False,
+             #'flip' : True, # PSCCD
              }
 run_args = { 'verbosity' : 3,
             #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
@@ -82,12 +82,17 @@ run_args = { 'verbosity' : 3,
 process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 
 # Examples:
-#protocols = [ Protocols.circular_average_q2I(plot_range=[0, 0.2, 0, None]) ]
-#protocols = [ Protocols.linecut_angle(q0=0.01687, dq=0.00455*1.5, show_region=False) ]
-#protocols = [ Protocols.q_image(blur=1.0, bins_relative=0.5, plot_range=[-0.1, 3.0, 0, 3.0], _xticks=[0, 1.0, 2.0, 3.0], ztrim=[0.2, 0.01]) ]
-#protocols = [ Protocols.qr_image(blur=1.0, bins_relative=0.5, plot_range=[-0.1, 3.0, 0, 3.0], _xticks=[0, 1.0, 2.0, 3.0], zmin=1010., ztrim=[None, 0.01]) ]
-#protocols = [ Protocols.qr_image(blur=None, bins_relative=0.8, plot_range=[-0.1, 3.0, 0, 3.0], _xticks=[0, 1.0, 2.0, 3.0], ztrim=[0.38, 0.002], dezing_fill=True) ]
-#protocols = [ Protocols.q_phi_image(bins_relative=0.25, plot_range=[0, 3.0, 0, +90]) ]
+# Protocols.circular_average_q2I(plot_range=[0, 0.2, 0, None])
+# Protocols.sector_average(angle=-70, dangle=25, show_region=False) 
+# Protocols.linecut_q(chi0= 90+70, dq= .5, gridlines=True, label_filename=True, save_results = [ 'hdf5' ] )
+# Protocols.linecut_angle(q0=0.01687, dq=0.00455*1.5, show_region=False)
+# Protocols.q_image(blur=1.0, bins_relative=0.5, plot_range=[-0.1, 3.0, 0, 3.0], _xticks=[0, 1.0, 2.0, 3.0], ztrim=[0.2, 0.01])
+# Protocols.qr_image(blur=1.0, bins_relative=0.5, plot_range=[-0.1, 3.0, 0, 3.0], _xticks=[0, 1.0, 2.0, 3.0], zmin=1010., ztrim=[None, 0.01])
+# Protocols.qr_image(blur=None, bins_relative=0.8, plot_range=[-0.1, 3.0, 0, 3.0], _xticks=[0, 1.0, 2.0, 3.0], ztrim=[0.38, 0.002], dezing_fill=True)
+# Protocols.qr_image(blur=None, colorbar=True, save_data=False, transparent=False, label_filename=True)
+# Protocols.q_phi_image(bins_relative=0.25, plot_range=[0, 3.0, 0, +90])
+
+
 
 protocols = [
     #Protocols.HDF5(save_results=['hdf5'])

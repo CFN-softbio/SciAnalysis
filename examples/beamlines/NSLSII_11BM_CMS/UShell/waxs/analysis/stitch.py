@@ -125,7 +125,8 @@ for infile in infiles:
         search_for = '{}{}{}'.format(els[0], '_pos1_', els[2])
         try:
             pos1 = [s for s in allfiles if search_for in s][0]
-            outname = pos1
+            #outname = pos1
+            outname = pos1[1:-6] # Exclude .tiff
         except:
             log_file(log_filename, infile)
             continue
@@ -139,12 +140,12 @@ for infile in infiles:
         print('No pos1 file found for:')
         print('    {}'.format(infile))
         log_file(log_filename, infile)
-        
+
     else:
         print('Will combine:')
         print('    {}'.format(pos1))
         print('    {}'.format(infile))
-        
+
         process.run_multiple_all(basename=outname, infiles=[pos1,infile], protocols=protocols, output_dir=output_dir, force=False)
     
     print('\n')
