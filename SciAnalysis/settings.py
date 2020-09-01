@@ -10,4 +10,5 @@ MATPLOTLIB_BACKEND = None # Leave as default
 
 
 DEFAULT_SAVE_RESULTS = ['xml', 'plots', 'txt']
+#DEFAULT_SAVE_RESULTS = [ 'plots', 'txt']
 #DEFAULT_SAVE_RESULTS = ['xml', 'plots', 'txt', 'npy', 'npz', 'pkl', 'hdf5']

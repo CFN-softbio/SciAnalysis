@@ -27,7 +27,10 @@ import re # Regular expressions
 
 import numpy as np
 import matplotlib as mpl
-from ..settings import *
+#from ..settings import *
+from SciAnalysis.settings import * 
+
+
 if MATPLOTLIB_BACKEND is not None:
     mpl.use(MATPLOTLIB_BACKEND)
 mpl.rcParams['mathtext.fontset'] = 'cm'
@@ -38,8 +41,12 @@ import pylab as plt
 
 import PIL # Python Image Library (for opening PNG, etc.)    
 
-from .. import tools
-from ..Data import *
+#from .. import tools
+#from ..Data import *
+
+from SciAnalysis import tools 
+from SciAnalysis.Data import * 
+
 try:
     from .Eiger import *
 except ImportError:
@@ -1228,6 +1235,7 @@ class Calibration(object):
         self.pixel_size_um = pixel_size_um
         
         self.sample_normal = None
+        self.incident_angle = 0
         self._beam_positions = {}
         
         
@@ -1354,7 +1362,12 @@ class Calibration(object):
         self.clear_maps() # Any change to the detector position will presumptively invalidate cached maps
         
         self.sample_normal = sample_normal
-    
+        
+    def set_incident_angle(self, incident_angle=0):
+        
+        self.clear_maps() # Any change to the detector position will presumptively invalidate cached maps
+        
+        self.incident_angle = incident_angle
     
     # Convenience methods
     ########################################
@@ -1495,8 +1508,36 @@ class Calibration(object):
         return self.qr_map_data
 
 
-
     def _generate_qxyz_maps(self):
+
+        # Conversion factor for pixel coordinates
+        # (where sample-detector distance is set to d = 1)
+        c = (self.pixel_size_um/1e6)/self.distance_m
+        
+        x = np.arange(self.width) - self.x0
+        y = np.arange(self.height) - self.y0
+        X, Y = np.meshgrid(x, y)
+        R = np.sqrt(X**2 + Y**2)
+        
+        #twotheta = np.arctan(self.r_map()*c) # radians
+        theta_f = np.arctan2( X*c, 1 ) # radians
+        #alpha_f_prime = np.arctan2( Y*c, 1 ) # radians
+        alpha_f = np.arctan2( Y*c*np.cos(theta_f), 1 ) # radians
+        
+        cos_inc = np.cos(np.radians(self.incident_angle))
+        sin_inc = np.sin(np.radians(self.incident_angle))
+        self.qx_map_data = self.get_k()*np.sin(theta_f)*np.cos(alpha_f)
+        self.qy_map_data = self.get_k()*( np.cos(theta_f)*np.cos(alpha_f) - cos_inc ) # TODO: Check sign
+        self.qz_map_data = -1.0*self.get_k()*( np.sin(alpha_f) + sin_inc ) 
+
+        if self.sample_normal is not None:
+            s = np.sin(np.radians(self.sample_normal))
+            c = np.cos(np.radians(self.sample_normal))
+            self.qx_map_data, self.qz_map_data = c*self.qx_map_data - s*self.qz_map_data, s*self.qx_map_data + c*self.qz_map_data
+        
+        self.qr_map_data = np.sign(self.qx_map_data)*np.sqrt(np.square(self.qx_map_data) + np.square(self.qy_map_data))
+        
+    def _generate_qxyz_maps_V0(self):
 
         # Conversion factor for pixel coordinates
         # (where sample-detector distance is set to d = 1)

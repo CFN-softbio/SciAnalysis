@@ -169,8 +169,7 @@ class HDF5(Protocol):
     @run_default
     def run(self, data, output_dir, **run_args):
         
-        results = {}
-        
+        results = {}        
         if 'hdf5' in run_args['save_results']:
             self.save_Data2D_HDF5(data, 'raw detector image', output_dir, results=results)
                                   
@@ -788,7 +787,11 @@ class sector_average(Protocol):
         #line.smooth(2.0, bins=10)
         
         if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+            
+            outfile = self.get_outfile(data.name, output_dir)
+            outfile = outfile[:-4] +  '_region.png'            
+            data.plot( save=outfile)
+            #data.plot( show=True,)
         
         
         if 'plots' in run_args['save_results']:
@@ -2281,10 +2284,11 @@ class q_image(Protocol):
         if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
-        
-        
-        return results
-    
+        if 'hdf5' in run_args['save_results']:
+            q_data.name=data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)            
+        return  results
+
     
 class qr_image(Protocol):
     
@@ -2345,9 +2349,11 @@ class qr_image(Protocol):
         if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
-        
-        
-        return results
+        if 'hdf5' in run_args['save_results']:
+            q_data.name=data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)            
+        return  results        
+ 
         
         
 class q_image_special(q_image):
@@ -2589,9 +2595,11 @@ class q_image_special(q_image):
         if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
-        
-        
-        return results
+        if 'hdf5' in run_args['save_results']:
+            q_data.name=data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)            
+        return  results        
+ 
             
     
     
@@ -2648,7 +2656,10 @@ class q_phi_image(Protocol):
         #if 'save_data' in run_args and run_args['save_data']: # Deprecated
         if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
-            q_data.save_data(outfile)         
+            q_data.save_data(outfile)    
+        if 'hdf5' in run_args['save_results']:
+            q_data.name=data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results) 
 
         # TODO: Deprecate in favor of 'save_data' .npz file
         #if 'save_data_pickle' in run_args and run_args['save_data_pickle']:
