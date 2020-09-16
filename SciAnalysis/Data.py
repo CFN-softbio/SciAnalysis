@@ -1655,6 +1655,7 @@ class Data2D(object):
         fig_width = 1.0-right_buf-left_buf
         fig_height = 1.0-top_buf-bottom_buf
         self.ax = self.fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
+        #ax_pos = self.ax.get_position() # Then use ax_pos.x0, ax_pos.width, etc.
         
         zmin, zmax = self._plot_z_range(ztrim=ztrim, **plot_args)
         self.z_display[0] = zmin
@@ -1694,7 +1695,7 @@ class Data2D(object):
             self.ax.set_xticks(plot_args['xticks'])
         if 'yticks' in plot_args and plot_args['yticks'] is not None:
             self.ax.set_yticks(plot_args['yticks'])
-        
+        #self.ax.tick_params(direction='out', length=10, width=1.5, ) # Modify tick length
         
         if 'colorbar' in plot_args and plot_args['colorbar']:
             # Note that this assumes the plot is using vmin=0, vmax=1

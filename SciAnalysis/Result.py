@@ -23,6 +23,15 @@
  
 import numpy as np
 
+try:
+    # 'Fancy' xml library
+    from lxml import etree
+    USE_LXML = True
+except:
+    # 'Regular' xml library
+    import xml.etree.ElementTree as etree # XML read/write
+    USE_LXML = False
+#import xml.dom.minidom as minidom
 
 
 
@@ -34,7 +43,7 @@ class Results(object):
     def __init__(self):
         
         #import xml.etree.ElementTree as etree
-        from lxml import etree
+        #from lxml import etree
         #import xml.dom.minidom as minidom
         
         self.etree = etree
@@ -103,6 +112,46 @@ class Results(object):
         return results
     
     
+    def extract_dict(self, infiles, extractions, verbosity=3):
+        '''Extracts results from the specified infiles, organizing them into
+        a list of dictionaries.'''
+        
+        # TODO: Test this new method.
+        # TODO: kwarg to extract all possible results?
+        
+        results = [ {'filename': infile} for infile in infiles ]
+        for i, infile in enumerate(infiles):
+            
+            if verbosity>=5 or (verbosity>=3 and len(infiles)>250 and i%100==0):
+                print( '    Extracting file {} ({:.1f}% done)'.format(i+1, 100.*i/len(infiles)) )
+            if verbosity>=5:
+                print( '     filename: {}'.format(infile))
+
+            try:
+                for protocol, result_names in extractions:
+                    if verbosity>=5:
+                        print('      Procotol {} (looking for {} results)'.format(protocol, len(result_names)))
+                    
+                    result_names_e, results_e = self.extract_results_from_xml(infile, protocol, verbosity=verbosity)
+
+                    if verbosity>=5:
+                        print('        (found {} results)'.format(len(result_names_e)))
+                    
+                    for result_name in result_names:
+                        if result_name in result_names_e:
+                            idx = result_names_e.index(result_name)
+                            
+                            key = '{}__{}'.format(protocol, result_name)
+                            results[i][key] = results_e[idx]
+                            
+            except Exception as e:
+                if verbosity>=1:
+                    print( '    ERROR: Extraction failed for {}'.format(infile))
+                if verbosity>=5:
+                    print(e)
+        
+        return results
+    
             
     def extract_multi(self, infiles, extractions, verbosity=3):
         
@@ -145,7 +194,10 @@ class Results(object):
         
     def extract_results_from_xml(self, infile, protocol, verbosity=3):
         
-        parser = self.etree.XMLParser(remove_blank_text=True)
+        if USE_LXML:
+            parser = self.etree.XMLParser(remove_blank_text=True)
+        else:
+            parser = self.etree.XMLParser()
         root = self.etree.parse(infile, parser).getroot()
         
         # Get the latest protocol

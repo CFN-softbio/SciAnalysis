@@ -72,6 +72,9 @@ class ProcessorXS(Processor):
         
     
     def handle_background(self, data, **kwargs):
+        
+        verbosity = kwargs['verbosity'] if 'verbosity' in kwargs else 3
+        
         if isinstance(kwargs['background'], (int, float)):
             # Constant background to be subtracted from whole image
             data.data -= kwargs['background']
@@ -138,9 +141,11 @@ class ProcessorXS(Processor):
         # objects for detectors. Then datasets can control which calibration they
         # are using.
         
+        verbosity = kwargs['verbosity'] if 'verbosity' in kwargs else 3
+        
         if 'flag_swaxs' in kwargs and kwargs['flag_swaxs']:
             if 'calibration2' in kwargs and 'mask2' in kwargs:
-                if kwargs['verbosity']>=5:
+                if verbosity>=5:
                     print('    ProcessorXS.load using calibration2 and mask2')
                 data = Data2DScattering(infile, calibration=kwargs['calibration2'], mask=kwargs['mask2'])
                 # WARNING: This init doesn't pass other kwargs. This is probably fine, but means
@@ -148,7 +153,7 @@ class ProcessorXS(Processor):
             else:
                 print('ERROR: calibration2 and/or mask2 not provided.')
         else:
-            if kwargs['verbosity']>=5:
+            if verbosity>=5:
                 print('    ProcessorXS.load using default calibration')
             data = Data2DScattering(infile, **kwargs) # Default load
             
@@ -207,6 +212,7 @@ class thumbnails(Protocol):
         if run_args['preserve_data']:
             # Avoid changing the data (which would disrupt downstream analysis of this data object)
             data = copy.deepcopy(data)
+            # TODO: This can raise errors (mpl or qt nodes may not copy cleanly).
         
         if run_args['crop'] is not None:
             data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'], make_square=run_args['make_square'])
@@ -442,6 +448,7 @@ class fit_peaks(Protocol):
         
         # Calculate some additional things
         for i in range(run_args['num_curves']):
+            # TODO: Add calculation of errors.
             d = 0.1*2.*np.pi/results['{}_x_center{}'.format(fit_name, i+1)]['value']
             results['{}_d0{}'.format(fit_name, i+1)] = d
             xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma{}'.format(fit_name, i+1)]['value']

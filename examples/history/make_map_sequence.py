@@ -80,6 +80,12 @@ def power_N_list(N_max, N_min=3, num=40, exponent=3.0):
     
     return N_list
     
+    
+def status_online(copy_from, copy_to='/home/kyager/software/statpage/current.png'):
+    '''Simple file copy that may be useful as part of a web-update script.'''
+    import shutil
+    shutil.copyfile(copy_from, copy_to)
+
 
 
 # Extract results from xml files
@@ -271,7 +277,7 @@ def plot_results(x_vals, y_vals, z_vals, outfile, plot2d=True, plot3d=False, gri
         ZI_mask = np.ma.masked_where( np.isnan(ZI), ZI)
         
     else:        
-        ZI = scipy.interpolate.griddata(POINTS, VALUES, (XI, YI), method='linear') # method='nearest' 'linear' 'cubic'
+        ZI = scipy.interpolate.griddata(POINTS, VALUES, (XI, YI), rescale=True, method='linear') # method='nearest' 'linear' 'cubic'
         ZI_mask = np.ma.masked_where( np.isnan(ZI), ZI)
 
     if verbosity>=4:
@@ -344,6 +350,11 @@ def plot_grids(results, N_list, grid=[None, None, None, None], n_grid=200, plot2
             
         outfile = os.path.join(output_dir, signal, '{}-{}-N{:04d}.png'.format(pattern, signal, N))
         plot_results(x_vals, y_vals, z_vals, outfile=outfile, plot2d=plot2d, plot3d=plot3d, grid=grid, dgrid=dgrid, cmap=cmap, alpha=0.2, x_label=x_label, y_label=y_label, z_label=z_label, interpolate_cyclic=interpolate_cyclic, verbosity=verbosity)
+
+        #if protocol=='circular_average_q2I_fit' and signal=='fit_peaks_d0': # This can be used as part of a web-status update
+            #status_online(outfile)
+
+
     
         
 
