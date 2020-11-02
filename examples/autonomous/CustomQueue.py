@@ -10,6 +10,12 @@ import numpy as np
 class CustomQueue():
     
     def __init__(self, from_port, to_port, from_ip='localhost', to_ip='*', name='', save_dir='./', verbosity=4, **kwargs):
+
+        # Save these in case we want to check them later
+        self.from_ip = from_ip
+        self.from_port = from_port
+        self.to_ip = to_ip
+        self.to_port = to_port
         
         self.name = name
         self.save_dir = save_dir
@@ -24,6 +30,7 @@ class CustomQueue():
         # To/Tell/Publish/Push/Producer
         # Act as a "server", sending data when requested
         self.msg('Starting push queue (server)', 3, 1)
+        self.msg('IP: {}, port: {}'.format(to_ip, to_port), 3, 2)
         success, attempt, start_time = False, 0, time.time()
         while not success:
             attempt += 1
@@ -40,6 +47,7 @@ class CustomQueue():
         # From/Ask/Subscribe/Pull/Consumer
         # Act as a "client", asking for data 
         self.msg('Starting pull queue (client)', 3, 1)
+        self.msg('IP: {}, port: {}'.format(from_ip, from_port), 3, 2)
         success, attempt, start_time = False, 0, time.time()
         while not success:
             attempt += 1
@@ -54,7 +62,7 @@ class CustomQueue():
                 
         
         self.msg('Started.', 3)
-            
+
 
     def msg(self, txt, threshold=3, indent=0, indent_txt='  '):
         if self.verbosity>=threshold:
@@ -153,12 +161,16 @@ class CustomQueue():
         received = '{}/{}-received.npy'.format(self.save_dir, self.name)
         
         if not os.path.exists(received):
-            self.msg('No saved data from prior work-cycle.', 4, 2)
+            self.msg('No saved received data from prior work-cycle.', 4, 2)
             return False
         
         received = os.path.getmtime(received)
         sent = '{}/{}-sent.npy'.format(self.save_dir, self.name)
-        sent = os.path.getmtime(sent)
+        if os.path.isfile(sent):
+            sent = os.path.getmtime(sent)
+        else:
+            self.msg('No saved sent data from prior work-cycle.', 4, 2)
+            return True
         
         if sent>received:
             # As expected, the file we sent is newer
@@ -177,7 +189,29 @@ class CustomQueue():
         data = np.load('{}/{}-{}.npy'.format(self.save_dir, self.name, stype), allow_pickle=True)
         return data
         
-    
+
+    def print_connections(self):
+        txt = 'Push queue: IP: {}, port: {}\nPull queue: IP: {}, port: {}'.format(self.to_ip, self.to_port, self.from_ip, self.from_port)
+        self.msg(txt, 1, 0)
+
+        
+    def clear(self):
+        '''Remove the saved filed.'''
+        self.msg('Clearing queue saved files.', 2, 1)
+        
+        received = '{}/{}-received.npy'.format(self.save_dir, self.name)
+        if os.path.exists(received):
+            self.msg('Removing {}'.format(received), 3, 2)
+            os.remove(received)
+        else:
+            self.msg('Received data oes not exist ({})'.format(received), 3, 2)
+
+        sent = '{}/{}-sent.npy'.format(self.save_dir, self.name)
+        if os.path.exists(sent):
+            self.msg('Removing {}'.format(sent), 3, 2)
+            os.remove(sent)
+        else:
+            self.msg('Sent data oes not exist ({})'.format(sent), 3, 2)    
         
         
 
@@ -239,12 +273,23 @@ xf11bm_srv1 = '10.11.128.1'
 xf11bm_gpu1 = '10.11.128.3'
 xf11bm_gpu2 = '10.11.128.5'
 
+xf12id_ws1 = '10.12.0.201'
+xf12id_ws2 = '10.12.0.202'
+xf12id_ws3 = '10.12.0.203'
+xf12id_srv1 = '10.12.0.4'
+xf12id_srv2 = '10.12.0.5'
+
 
 # Server connections
+#c = {
+    #'decision' : {'ip': xf11bm_srv1, 'port': 5551} ,
+    #'measure' : {'ip': xf11bm_ws1, 'port': 5552} ,
+    #'analyze' : {'ip': xf11bm_ws2, 'port': 5553} ,
+    #}
 c = {
-    'decision' : {'ip': xf11bm_srv1, 'port': 5551} ,
-    'measure' : {'ip': xf11bm_ws1, 'port': 5552} ,
-    'analyze' : {'ip': xf11bm_ws2, 'port': 5553} ,
+    'decision' : {'ip': xf12id_srv1, 'port': 5551} ,
+    'measure' : {'ip': xf12id_ws1, 'port': 5552} ,
+    'analyze' : {'ip': xf12id_srv1, 'port': 5553} ,
     }
 
 
@@ -300,19 +345,19 @@ class Queue_analyze(CustomQueue): # SciAnalysis
     
 
 
-# Inside beamline runXS.py:
+# Inside beamline user.py:
 ########################################
 #from CustomQueue import *
-#q = Queue_measure()
+#measure_queue = Queue_measure()
 
 #while True: # The loop that waits for new instructions...
     
-    #data = q.get() # Get measurement command
+    #data = measure_queue.get() # Get measurement command
     
     ## Do whatever work needs to be done
     ## time.sleep(1)
     
-    #q.publish(data) # Send new results for analysis
+    #measure_queue.publish(data) # Send new results for analysis
     
 
 
