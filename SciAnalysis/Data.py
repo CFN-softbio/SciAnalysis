@@ -24,7 +24,7 @@
 #import sys
 import numpy as np
 import matplotlib as mpl
-from .settings import *
+from SciAnalysis.settings import *
 if MATPLOTLIB_BACKEND is not None:
     mpl.use(MATPLOTLIB_BACKEND)
 mpl.rcParams['mathtext.fontset'] = 'cm'
@@ -39,7 +39,7 @@ from scipy import stats # For skew
 import PIL # Python Image Library (for opening PNG, etc.)
 from PIL import Image
 
-from . import tools
+from SciAnalysis import tools
  
  
 
@@ -1071,8 +1071,8 @@ class Data2D(object):
         self.y_rlabel = kwargs['y_rlabel'] if 'y_rlabel' in kwargs else self.y_label
         
         
-        self.x_scale = 1.0 # units/pixel
-        self.y_scale = 1.0 # units/pixel
+        self.x_scale, self.y_scale = 1.0, 1.0 # units/pixel
+        self.x_axis, self.y_axis = None, None
         if 'scale' in kwargs:
             self.x_scale = kwargs['scale'] # units/pixel
             self.y_scale = kwargs['scale'] # units/pixel

@@ -27,7 +27,7 @@ import re # Regular expressions
 
 import numpy as np
 import matplotlib as mpl
-from ..settings import *
+from SciAnalysis.settings import *
 if MATPLOTLIB_BACKEND is not None:
     mpl.use(MATPLOTLIB_BACKEND)
 mpl.rcParams['mathtext.fontset'] = 'cm'
@@ -38,8 +38,8 @@ import pylab as plt
 
 import PIL # Python Image Library (for opening PNG, etc.)    
 
-from .. import tools
-from ..Data import *
+from SciAnalysis import tools
+from SciAnalysis.Data import *
 try:
     from .Eiger import *
 except ImportError:
@@ -1089,7 +1089,7 @@ class Data2DScattering(Data2D):
     # Plotting
     ########################################
         
-    def plot(self, save=None, show=False, ztrim=[0.02, 0.01], **kwargs):
+    def plot(self, save=None, show=False, ztrim=[0.01, 0.001], **kwargs):
         
         super(Data2DScattering, self).plot(save=save, show=show, ztrim=ztrim, **kwargs)
         
@@ -1221,12 +1221,13 @@ class Calibration(object):
     (such as beam size and beam divergence).
     '''
     
-    def __init__(self, wavelength_A=None, distance_m=None, pixel_size_um=None):
+    def __init__(self, wavelength_A=None, distance_m=None, pixel_size_um=None, incident_angle=0):
         
         self.wavelength_A = wavelength_A
         self.distance_m = distance_m
         self.pixel_size_um = pixel_size_um
         
+        self.incident_angle = incident_angle
         self.sample_normal = None
         self._beam_positions = {}
         
@@ -1349,11 +1350,21 @@ class Calibration(object):
         
         return self.q_per_pixel
     
-    def set_angles(self, sample_normal=0):
+    
+    def set_incident_angle(self, incident_angle=0, sample_normal=None):
         
-        self.clear_maps() # Any change to the detector position will presumptively invalidate cached maps
+        self.clear_maps() # Presumptively invalidate cached maps
+        self.incident_angle = incident_angle
+        if sample_normal is not None:
+            self.sample_normal = sample_normal
+    
+    
+    def set_angles(self, sample_normal=0, incident_angle=None):
         
+        self.clear_maps() # Presumptively invalidate cached maps
         self.sample_normal = sample_normal
+        if incident_angle is not None:
+            self.incident_angle = incident_angle
     
     
     # Convenience methods
@@ -1497,7 +1508,7 @@ class Calibration(object):
 
 
     def _generate_qxyz_maps(self):
-
+        
         # Conversion factor for pixel coordinates
         # (where sample-detector distance is set to d = 1)
         c = (self.pixel_size_um/1e6)/self.distance_m
@@ -1512,10 +1523,12 @@ class Calibration(object):
         #alpha_f_prime = np.arctan2( Y*c, 1 ) # radians
         alpha_f = np.arctan2( Y*c*np.cos(theta_f), 1 ) # radians
         
-        
+        cos_inc = np.cos(np.radians(self.incident_angle))
+        sin_inc = np.sin(np.radians(self.incident_angle))
         self.qx_map_data = self.get_k()*np.sin(theta_f)*np.cos(alpha_f)
-        self.qy_map_data = self.get_k()*( np.cos(theta_f)*np.cos(alpha_f) - 1 ) # TODO: Check sign
-        self.qz_map_data = -1.0*self.get_k()*np.sin(alpha_f)
+        self.qy_map_data = self.get_k()*( np.cos(theta_f)*np.cos(alpha_f) - cos_inc ) # TODO: Check sign
+        self.qz_map_data = -1.0*self.get_k()*( np.sin(alpha_f) + sin_inc ) 
+        
 
         if self.sample_normal is not None:
             s = np.sin(np.radians(self.sample_normal))
@@ -1523,6 +1536,7 @@ class Calibration(object):
             self.qx_map_data, self.qz_map_data = c*self.qx_map_data - s*self.qz_map_data, s*self.qx_map_data + c*self.qz_map_data
         
         self.qr_map_data = np.sign(self.qx_map_data)*np.sqrt(np.square(self.qx_map_data) + np.square(self.qy_map_data))
+
 
 
 

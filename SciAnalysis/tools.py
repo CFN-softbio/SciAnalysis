@@ -777,8 +777,16 @@ class Protocol(object):
         '''             
         outfile = self.get_outfile_HDF5(data.name, output_dir, extra=extra)
         
-        from .IO_HDF import dicttoh5
-        to_save = { 'data': data.data, 'label': label, 'results':results }
+        from SciAnalysis.IO_HDF import dicttoh5
+        to_save = {
+            'data': data.data, 
+            'label': label, 
+            'x_axis': data.x_axis,
+            'y_axis': data.y_axis,
+            'x_scale': data.x_scale,
+            'y_scale': data.y_scale,
+            'results':results 
+            }
         dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')
 
     def save_DataLine_HDF5(self, line, name, output_dir, results=None, extra=None):
@@ -794,7 +802,7 @@ class Protocol(object):
         '''             
         outfile = self.get_outfile_HDF5(name, output_dir, extra=extra)
         
-        from .IO_HDF import dicttoh5
+        from SciAnalysis.IO_HDF import dicttoh5
         # TODO: Handle case where there is only an x_err or y_err (but not both)
         if line.x_err is not None and line.y_err is not None:
             label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]

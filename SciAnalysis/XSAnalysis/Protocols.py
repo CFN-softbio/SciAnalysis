@@ -794,8 +794,12 @@ class sector_average(Protocol):
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         if 'plots' in run_args['save_results']:
@@ -858,8 +862,12 @@ class sector_average_fit(sector_average, fit_peaks):
                 line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
         
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         #if 'plots' in run_args['save_results']:
@@ -907,8 +915,13 @@ class roi(Protocol):
         
         results.update( data.roi_q(**run_args) )
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         if run_args['verbosity']>=3:
             print('ROI stats:')
@@ -946,8 +959,13 @@ class linecut_angle(Protocol):
         #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
         line = data.linecut_angle(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         if 'smooth' in run_args:
             line.smooth(run_args['smooth'])
@@ -998,8 +1016,13 @@ class linecut_qr(Protocol):
         
         line = data.linecut_qr(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         #line.smooth(2.0, bins=10)
 
@@ -1036,8 +1059,12 @@ class linecut_qz(Protocol):
         
         line = data.linecut_qz(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         #line.smooth(2.0, bins=10)
@@ -1076,8 +1103,12 @@ class linecut_q(Protocol):
         #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
         line = data.linecut_q(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         #line.smooth(2.0, bins=10)
@@ -1123,8 +1154,13 @@ class linecut_qr_fit(linecut_qr, fit_peaks):
         
         line = data.linecut_qr(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         #line.smooth(2.0, bins=10)
         
@@ -1179,8 +1215,13 @@ class _old_linecut_qr_fit(linecut_qr):
         
         line = data.linecut_qr(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         #line.smooth(2.0, bins=10)
         
@@ -1441,8 +1482,12 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
         
         line = data.linecut_qz(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         #line.smooth(2.0, bins=10)
@@ -1461,7 +1506,7 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
 
         
         if 'incident_angle' not in run_args:
-            run_args['incident_angle'] = 0
+            run_args['incident_angle'] = data.calibration.incident_angle
             
             import re
             filename_re = re.compile('^.+_th(-?\d+\.\d+)_.+$')
@@ -1469,6 +1514,8 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
             if m:
                 run_args['incident_angle'] = float(m.groups()[0])
                 
+        if 'verbosity' in run_args and run_args['verbosity']>=4:
+            print('    Using incident_angle = {:.3f} degrees'.format(run_args['incident_angle']))
                 
         #if 'critical_angle_film' not in run_args:
             #run_args['critical_angle_film'] = 0
@@ -1578,23 +1625,18 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
                 if 'critical_angle_film' in self.run_args:
                     s = '$q_T = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_T = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qT'], self.results['fit_peaks_dT'])
                     self.ax.text(q0, y_fit_max, s, size=15, color='b', horizontalalignment='left', verticalalignment='bottom')
-                    self.ax.plot( [q0-self.results['fit_peaks_qT'], q0], [y_fit_max, y_fit_max], '-', color='b' )
+                    self.ax.plot( [self.results['fit_peaks_qT'], q0], [y_fit_max, y_fit_max], '-', color='b' )
 
                     s = '$q_R = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_R = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qR'], self.results['fit_peaks_dR'])
                     self.ax.text(q0, 0, s, size=15, color='r', horizontalalignment='left', verticalalignment='bottom')
-                    self.ax.plot( [q0-self.results['fit_peaks_qR'], q0], [yi, yi], '-', color='r' )
+                    self.ax.plot( [self.results['fit_peaks_qR'], q0], [yi, yi], '-', color='r' )
                 
                 
                 
                 if self.run_args['show_guides']:
                     # Show various guides of scattering features
-                    
-
-                    
                     theta_incident_rad = np.radians(self.run_args['incident_angle'])
                     
-                    
-
                     # Direct
                     qz = 0
                     self.ax.axvline( qz, color='0.25' )
@@ -1710,8 +1752,8 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
         
         #params.add('m', value=0)
         #params.add('b', value=np.min(line.y), min=0, max=np.max(line.y))
-        #params.add('m', value=m, min=abs(m)*-10, max=abs(m)*+10)
-        params.add('m', value=m, min=abs(m)*-5, max=1e-12) # Slope must be negative
+        params.add('m', value=m, min=abs(m)*-10, max=abs(m)*+10)
+        #params.add('m', value=m, min=abs(m)*-5, max=1e-12) # Slope must be negative
         params.add('b', value=b, min=0)
         
         
@@ -1804,8 +1846,13 @@ class linecut_angle_fit(linecut_angle):
         line.smooth(2.0)
         
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         if 'txt' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.dat')
@@ -2288,6 +2335,10 @@ class q_image(Protocol):
         if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:
+            q_data.name = data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)
         
         
         return results
@@ -2352,6 +2403,10 @@ class qr_image(Protocol):
         if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
+        
+        if 'hdf5' in run_args['save_results']:
+            q_data.name = data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)
         
         
         return results
@@ -2597,6 +2652,10 @@ class q_image_special(q_image):
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
         
+        if 'hdf5' in run_args['save_results']:
+            q_data.name = data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)
+        
         
         return results
             
@@ -2656,6 +2715,11 @@ class q_phi_image(Protocol):
         if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)         
+
+        if 'hdf5' in run_args['save_results']:
+            q_data.name = data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)
+
 
         # TODO: Deprecate in favor of 'save_data' .npz file
         #if 'save_data_pickle' in run_args and run_args['save_data_pickle']:
