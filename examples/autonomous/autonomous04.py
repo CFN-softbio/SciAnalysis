@@ -339,9 +339,9 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
                             result['metadata'].update({ 'SciAnalysis': new_result })
 
                         # TOCHANGE                
-                        val = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1']
+                        value = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1']
                         error = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1 error']
-                        var = np.square(error)
+                        variance = np.square(error)
 
 
                 # Package for gpCAM
