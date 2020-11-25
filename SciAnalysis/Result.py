@@ -116,7 +116,6 @@ class Results(object):
         '''Extracts results from the specified infiles, organizing them into
         a list of dictionaries.'''
         
-        # TODO: Test this new method.
         # TODO: kwarg to extract all possible results?
         
         results = [ {'filename': infile} for infile in infiles ]
@@ -159,6 +158,7 @@ class Results(object):
         for i, infile in enumerate(infiles):
             results.append( [infile] )
         
+        ifailed = 0
         for i, infile in enumerate(infiles):
             
             if verbosity>=5 or (verbosity>=3 and len(infiles)>250 and i%100==0):
@@ -184,10 +184,15 @@ class Results(object):
                             results[i].append('-')
                             
             except Exception as e:
+                ifailed += 1
                 if verbosity>=1:
                     print( '    ERROR: Extraction failed for {}'.format(infile))
                 if verbosity>=5:
                     print(e)
+
+        if verbosity>=2 and len(infiles)>0:
+            print( '  Extracted {} results (failed on {}/{} = {:.1f}%'.format(len(results)-ifailed, ifailed, len(infiles), 100.0*ifailed/len(infiles)) )
+
                 
         return results                  
             
@@ -198,7 +203,7 @@ class Results(object):
             parser = self.etree.XMLParser(remove_blank_text=True)
         else:
             parser = self.etree.XMLParser()
-        root = self.etree.parse(infile, parser).getroot()
+        root = self.etree.parse(str(infile), parser).getroot()
         
         # Get the latest protocol
         element = root

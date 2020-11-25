@@ -12,6 +12,9 @@
 # measurements during the experiment.
 
 
+# NOTE: This code is deprecated. Use examples/autonomous/SurrogateModel.py
+
+
 # Imports
 ########################################
 

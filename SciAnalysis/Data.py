@@ -395,7 +395,7 @@ class DataLine(object):
         self._plot(save=save, show=show, plot_range=plot_range, plot_buffers=plot_buffers, **kwargs)
         
         
-    def _plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.2,0.05,0.2,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, transparent=False, **kwargs):
+    def _plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.2,0.05,0.2,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, transparent=False, figsize=(10,7), **kwargs):
         
         # DataLine._plot()
         
@@ -403,9 +403,9 @@ class DataLine(object):
         plot_args.update(kwargs)
         self.process_plot_args(**plot_args)
         
-        
-        
-        self.fig = plt.figure( figsize=(10,7), facecolor='white' )
+        if not isinstance(figsize, (list,tuple,np.ndarray)):
+            figsize = (figsize, figsize)
+        self.fig = plt.figure( figsize=figsize, facecolor='white' )
         left_buf, right_buf, bottom_buf, top_buf = plot_buffers
         fig_width = 1.0-right_buf-left_buf
         fig_height = 1.0-top_buf-bottom_buf
@@ -694,7 +694,7 @@ class DataLineAngle (DataLine):
     # Plotting
     ########################################
 
-    def plot_polar(self, save=None, show=False, size=5, plot_buffers=[0.1,0.1,0.1,0.1], **kwargs):
+    def plot_polar(self, save=None, show=False, plot_buffers=[0.1,0.1,0.1,0.1], **kwargs):
         '''Plots the scattering data.
         
         Parameters
@@ -707,10 +707,10 @@ class DataLineAngle (DataLine):
             Set the range of the plotting (None scales automatically instead).
         '''  
         
-        self._plot_polar(save=save, show=show, size=size, plot_buffers=plot_buffers, **kwargs)
+        self._plot_polar(save=save, show=show, plot_buffers=plot_buffers, **kwargs)
         
         
-    def _plot_polar(self, save=None, show=False, size=5, plot_buffers=[0.2,0.2,0.2,0.2], assumed_symmetry=2, symmetry_copy=False, **kwargs):
+    def _plot_polar(self, save=None, show=False, figsize=5, plot_buffers=[0.2,0.2,0.2,0.2], assumed_symmetry=2, symmetry_copy=False, **kwargs):
         
         # TODO: Recast as part of plot_args
         #plt.rcParams['font.family'] = 'sans-serif'
@@ -718,8 +718,9 @@ class DataLineAngle (DataLine):
         plt.rcParams['xtick.labelsize'] = 15
         plt.rcParams['ytick.labelsize'] = 15
         
-        
-        self.fig = plt.figure( figsize=(size,size), facecolor='white' )
+        if not isinstance(figsize, (list,tuple,np.ndarray)):
+            figsize = (figsize, figsize)
+        self.fig = plt.figure( figsize=figsize, facecolor='white' )
         left_buf, right_buf, bottom_buf, top_buf = plot_buffers
         fig_width = 1.0-right_buf-left_buf
         fig_height = 1.0-top_buf-bottom_buf
@@ -936,7 +937,7 @@ class DataLinesStacked(DataLines):
         self._plot(save=save, show=show, plot_range=plot_range, plot_buffers=plot_buffers, **kwargs)
     
     
-    def _plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.25,0.05,0.12,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, **kwargs):
+    def _plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.25,0.05,0.12,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, figsize=(10,12), **kwargs):
         
         num_lines = len(self.lines)
         
@@ -944,7 +945,10 @@ class DataLinesStacked(DataLines):
         plot_args.update(kwargs)
         self.process_plot_args(**plot_args)
         
-        self.fig = plt.figure( figsize=(10,12), facecolor='white' )
+        
+        if not isinstance(figsize, (list,tuple,np.ndarray)):
+            figsize = (figsize, figsize)
+        self.fig = plt.figure( figsize=figsize, facecolor='white' )
         left_buf, right_buf, bottom_buf, top_buf = plot_buffers
         fig_width = 1.0-right_buf-left_buf
         fig_height = 1.0-top_buf-bottom_buf
@@ -1624,7 +1628,7 @@ class Data2D(object):
         img.save(save)
         
     
-    def plot(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.15,0.05,0.15,0.05], **kwargs):
+    def plot(self, save=None, show=False, ztrim=[0.01, 0.01], plot_buffers=[0.15,0.05,0.15,0.05], **kwargs):
         '''Plots the data.
         
         Parameters
@@ -1638,10 +1642,10 @@ class Data2D(object):
             the z-scale to 'trim' (relative units; i.e. 0.05 indicates 5%).
         '''  
         
-        self._plot(save=save, show=show, ztrim=ztrim, size=size, plot_buffers=plot_buffers, **kwargs)
+        self._plot(save=save, show=show, ztrim=ztrim, plot_buffers=plot_buffers, **kwargs)
         
         
-    def _plot(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.1,0.1,0.1,0.1], **kwargs):
+    def _plot(self, save=None, show=False, ztrim=[0.01, 0.01], figsize=10.0, plot_buffers=[0.1,0.1,0.1,0.1], **kwargs):
         
         # Data2D._plot()
         
@@ -1649,8 +1653,9 @@ class Data2D(object):
         plot_args.update(kwargs)
         self.process_plot_args(**plot_args)
         
-        
-        self.fig = plt.figure( figsize=(size,size), facecolor='white' )
+        if not isinstance(figsize, (list,tuple,np.ndarray)):
+            figsize = (figsize, figsize)
+        self.fig = plt.figure( figsize=figsize, facecolor='white' )
         left_buf, right_buf, bottom_buf, top_buf = plot_buffers
         fig_width = 1.0-right_buf-left_buf
         fig_height = 1.0-top_buf-bottom_buf
@@ -1834,17 +1839,19 @@ class Data2D(object):
                 plt.rcParams[param] = value
 
 
-    def plot3D(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.15,0.05,0.15,0.05], elev=30, azim=30, **kwargs):
-        self._plot3D(save=save, show=show, ztrim=ztrim, size=size, plot_buffers=plot_buffers, elev=elev, azim=azim, **kwargs)
+    def plot3D(self, save=None, show=False, ztrim=[0.01, 0.01], plot_buffers=[0.15,0.05,0.15,0.05], elev=30, azim=30, **kwargs):
+        self._plot3D(save=save, show=show, ztrim=ztrim, plot_buffers=plot_buffers, elev=elev, azim=azim, **kwargs)
         
-    def _plot3D(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.1,0.1,0.1,0.1], elev=30, azim=30, **kwargs):
+    def _plot3D(self, save=None, show=False, ztrim=[0.01, 0.01], figsize=10.0, plot_buffers=[0.1,0.1,0.1,0.1], elev=30, azim=30, **kwargs):
         # Data2D._plot3D()
         
         plot_args = self.plot_args.copy()
         plot_args.update(kwargs)
         self.process_plot_args(**plot_args)
         
-        self.fig = plt.figure( figsize=(size,size), facecolor='white' )
+        if not isinstance(figsize, (list,tuple,np.ndarray)):
+            figsize = (figsize, figsize)
+        self.fig = plt.figure( figsize=figsize, facecolor='white' )
         left_buf, right_buf, bottom_buf, top_buf = plot_buffers
         fig_width = 1.0-right_buf-left_buf
         fig_height = 1.0-top_buf-bottom_buf
@@ -2102,7 +2109,7 @@ class Data2DFourier(Data2D):
         
         
         
-    def plot(self, save=None, show=False, ztrim=[0.05, 0.001], size=10.0, plot_buffers=[0.18,0.04,0.18,0.04], blur=None, **kwargs):
+    def plot(self, save=None, show=False, ztrim=[0.05, 0.001], figsize=10.0, plot_buffers=[0.18,0.04,0.18,0.04], blur=None, **kwargs):
         '''Plots the scattering data.
         
         Parameters
@@ -2120,11 +2127,11 @@ class Data2DFourier(Data2D):
         self.data = np.abs(self.data)
         if blur is not None:
             self.blur(blur)
-        self._plot(save=save, show=show, ztrim=ztrim, size=size, plot_buffers=plot_buffers, **kwargs)
+        self._plot(save=save, show=show, ztrim=ztrim, figsize=figsize, plot_buffers=plot_buffers, **kwargs)
         self.data = Fourier_data
         
         
-    def plot_components(self, save=None, show=False, ztrim=[0.05, 0.001], size=10.0, plot_buffers=[0.18,0.04,0.18,0.04], blur=None, **kwargs):
+    def plot_components(self, save=None, show=False, ztrim=[0.05, 0.001], figsize=10.0, plot_buffers=[0.18,0.04,0.18,0.04], blur=None, **kwargs):
         
         Fourier_data = self.data
         
@@ -2135,7 +2142,7 @@ class Data2DFourier(Data2D):
         self.data = np.abs(Fourier_data)
         if blur is not None:
             self.blur(blur)
-        self._plot(save=save_current, show=show, ztrim=ztrim, size=size, plot_buffers=plot_buffers, **kwargs)
+        self._plot(save=save_current, show=show, ztrim=ztrim, figsize=figsize, plot_buffers=plot_buffers, **kwargs)
         self.z_display[0] = None
         self.z_display[1] = None
 
@@ -2148,7 +2155,7 @@ class Data2DFourier(Data2D):
         if blur is not None:
             self.blur(blur)
         #zmax = np.max(np.abs(self.data))*(0.05)
-        self._plot(save=save_current, show=show, ztrim=ztrim, size=size, plot_buffers=plot_buffers, cmap='gnuplot2', **kwargs)
+        self._plot(save=save_current, show=show, ztrim=ztrim, figsize=figsize, plot_buffers=plot_buffers, cmap='gnuplot2', **kwargs)
         self.z_display[0] = None
         self.z_display[1] = None
         
@@ -2159,7 +2166,7 @@ class Data2DFourier(Data2D):
         self.data = np.imag(Fourier_data)
         if blur is not None:
             self.blur(blur)
-        self._plot(save=save_current, show=show, ztrim=[ztrim[1],ztrim[1]], size=size, plot_buffers=plot_buffers, cmap='seismic', **kwargs)
+        self._plot(save=save_current, show=show, ztrim=[ztrim[1],ztrim[1]], figsize=figsize, plot_buffers=plot_buffers, cmap='seismic', **kwargs)
         self.z_display[0] = None
         self.z_display[1] = None
         
@@ -2173,7 +2180,7 @@ class Data2DFourier(Data2D):
             self.blur(blur)
         cmap = 'hsv'
         cmap = mpl.colors.LinearSegmentedColormap.from_list('cmap_current', ['red', 'blue', 'red'])
-        self._plot(save=save_current, show=show, zmin=-np.pi, zmax=+np.pi, cmap=cmap, size=size, plot_buffers=plot_buffers, **kwargs)
+        self._plot(save=save_current, show=show, zmin=-np.pi, zmax=+np.pi, cmap=cmap, figsize=figsize, plot_buffers=plot_buffers, **kwargs)
         self.z_display[0] = None
         self.z_display[1] = None
         

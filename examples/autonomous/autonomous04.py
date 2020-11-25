@@ -23,25 +23,9 @@ import time
 from SciAnalysis.Result import * # The Results() class allows one to extract data from XML files.
 
 
-# DEPRECATED: Use Results().extract_dict instead
-def extractions_keys(extractions):
-    keys = []
-    for protocol, signals in extractions:
-        for signal in signals:
-            keys.append('{}__{}'.format(protocol, signal))
-    return keys
-def extractions_dictionary(extractions, results):
-    keys = extractions_keys(extractions)
+def autonomous_result(xml_file, clean=True, verbosity=3):
     
-    results_dict = {'infile' : results[0]}
-    for key, result in zip(keys, results[1:]):
-        results_dict[key] = result
-    
-    return results_dict
-
-def autonomous_result(xml_file, method='dict', clean=True, verbosity=3):
-    
-    time.sleep(1) # Kludge to avoid corrupting XML file?
+    time.sleep(0.5) # Kludge to avoid corrupting XML file?
     
     extractions = [ 
         [ 'metadata_extract', 
@@ -73,41 +57,7 @@ def autonomous_result(xml_file, method='dict', clean=True, verbosity=3):
         ]
 
 
-    infiles = [xml_file]
-    if method=='dict':
-        results_dict = Results().extract_dict(infiles, extractions, verbosity=verbosity)[0]
-        
-    else:
-        extracted_results = Results().extract_multi(infiles, extractions, verbosity=verbosity)
-        
-        results = extracted_results[0]
-        for i, result in enumerate(results):
-            if i>0: # Skip results[0], since this is just infile (string)
-                results[i] = np.nan_to_num(float(result))
-        
-        if method=='map_to_dict':
-            # DEPRECATED: Use Results().extract_dict instead
-            results_dict = extractions_dictionary(extractions, results)
-            
-        else:
-            # DEPRECATED: This code relies on manually assigning keys and results
-            results_dict = {
-                    #'x_position' : results[1],
-                    #'y_position' : results[2],
-                    'prefactor' : results[3],
-                    'prefactor variance' : results[7],
-                    'q' : results[4],
-                    'q variance' : results[8],
-                    'sigma' : results[5],
-                    'sigma variance' : results[9],
-                    'chi_squared' : results[6],
-                    'chi_squared variance' : 0,
-                    #'eta' : results[10],
-                    #'orientation_factor' : results[11],
-                    #'orientation_angle' : results[12],
-                    #'eta_prefactor' : results[13],
-                }
-
+    results_dict = Results().extract_dict([xml_file], extractions, verbosity=verbosity)[0]
 
     if clean:
         for key, result in results_dict.items():
@@ -371,8 +321,10 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
                 
 
                     # TOCHANGE                
-                    #val, var = new_result['prefactor'], np.square(new_result['prefactor variance'])
-                    val, var = new_result['chi_squared']*1e9, 0
+                    #val = new_result['circular_average_q2I_fit__fit_peaks_prefactor1']
+                    #var = np.square(new_result['circular_average_q2I_fit__fit_peaks_prefactor1_error'])
+                    val = new_result['circular_average_q2I_fit__fit_peaks_chi_squared']*1e9
+                    var = 0
 
                 
                 result['measurement values'] = {
