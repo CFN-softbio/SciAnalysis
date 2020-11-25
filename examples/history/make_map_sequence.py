@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+# DEPRECATED: This code is deprecated. Use examples/autonomous/SurrogateModel.py
+
 
 # This generates a map (2D false-color plot or 3D height plot) for a set of
 # experiments (that are presumptively defined in some (x,y) space). The code
@@ -12,7 +14,7 @@
 # measurements during the experiment.
 
 
-# NOTE: This code is deprecated. Use examples/autonomous/SurrogateModel.py
+
 
 
 # Imports

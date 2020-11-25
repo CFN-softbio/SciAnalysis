@@ -20,9 +20,6 @@ from SciAnalysis.XSAnalysis import Protocols
 # Experimental parameters
 ########################################
 
-
-mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
-
 # WAXS detector on SMI
 from SciAnalysis.XSAnalysis.DataGonio import *
 #calibration = CalibrationGonio(wavelength_A=0.770088) # 16.1 keV
@@ -33,15 +30,19 @@ calibration.set_pixel_size(pixel_size_um=172.0)
 
 #calibration.set_beam_position(97.0, 1414.0)
 #calibration.set_distance(0.275)
-calibration.set_beam_position(96.0, 1388.0)
+
+calibration.set_beam_position(96.0, 1388.0) # det_phi_g=0.0
+#calibration.set_beam_position(106-7.0, 1475.0-88.0) # det_phi_g=-3.5
 calibration.set_distance(0.273900)
 
 
 calibration.set_angles(det_phi_g=0., det_theta_g=0.)
 print('ratio Dw = {:.3f}'.format(calibration.get_ratioDw()))
 
-mask = Mask(mask_dir+'Pilatus300kWv_main_gaps-mask.png')
-#mask.load('./Pilatus300kWh_current-mask.png')
+mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
+mask = Mask(mask_dir+'Dectris/Pilatus300kWv_main_gaps-mask.png')
+#mask.load(mask_dir+'NSLSII_12ID/SMI/Pilatus300kWv_SMI_badpixels-mask.png')
+#mask.load('./Pilatus300kWv_current-mask.png')
 
 
 
