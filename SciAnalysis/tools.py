@@ -28,6 +28,11 @@ import os
 import time
 import numpy as np
 
+
+from pathlib import Path
+import sqlite3, pickle # Used for storing/retrieving from database
+
+
 from SciAnalysis.settings import * #from .settings import *
 
 try:
@@ -170,7 +175,20 @@ class Processor(object):
         
         self.load_args = load_args
         self.run_args = run_args
-           
+        
+        self.db_connection = None
+        self.db_cursor = None
+
+
+    def __del__(self):
+        '''Destructor for the Processor class, called when this object
+        is no longer needed.'''
+        
+        # Close our connection to the results database
+        if self.db_connection is not None:
+            if self.db_connection:
+                self.db_connection.close()
+    
     
     def set_files(self, infiles):
         
@@ -333,10 +351,14 @@ class Processor(object):
     
     def store_results(self, results, output_dir, name, protocol, **md):
         
-        if ('save_results' not in md) or ('xml' in md['save_results']):
-            # Default behavior is to save to xml file
-
-            output_dir = self.access_dir(output_dir, 'results')
+        if 'save_results' not in md:
+            md['save_results'] = ['xml', 'sql']
+        
+        output_dir = self.access_dir(output_dir, 'results')
+        
+        if 'xml' in md['save_results']:
+            # Save the results to an XML file with the name of the input file
+            
             if 'full_name' in md and md['full_name']:
                 outfile = os.path.join( output_dir, Filename(name).get_filename()+'.xml' )
             else:
@@ -370,27 +392,116 @@ class Processor(object):
             attributes = dict([k, str(v)] for k, v in attributes.items())
             prot = etree.SubElement(root, 'protocol', **attributes)
 
-            for name, content in results.items():
+            for result_name, content in results.items():
                 import numpy as np
 
                 if isinstance(content, dict):
                     content = dict([k, str(v)] for k, v in content.items())
-                    etree.SubElement(prot, 'result', name=name, **content)
+                    etree.SubElement(prot, 'result', name=result_name, **content)
                     
                 elif isinstance(content, list) or isinstance(content, np.ndarray):
                     
-                    res = etree.SubElement(prot, 'result', name=name, type='list')
+                    res = etree.SubElement(prot, 'result', name=result_name, type='list')
                     for i, element in enumerate(content):
                         etree.SubElement(res, 'element', index=str(i), value=str(element))
                         
                 else:
-                    etree.SubElement(prot, 'result', name=name, value=str(content))
+                    etree.SubElement(prot, 'result', name=result_name, value=str(content))
 
             tree = etree.ElementTree(root)
             if USE_LXML:
                 tree.write(outfile, pretty_print=True)
             else:
                 tree.write(outfile)
+                
+                
+        if 'sql' in md['save_results']:
+            # Save the results to an SQLite database
+            
+            #outfile = os.path.join( output_dir, 'results.db' )
+            #if not os.path.isfile(outfile):
+            outfile = Path(output_dir, 'results.db')
+            if not outfile.is_file():
+                # Create database
+                self.db_connection = sqlite3.connect(str(outfile))
+                self.db_cursor = self.db_connection.cursor()
+                
+                # Create db structure
+                sql = '''-- analyses table (for each run of a Protocol)
+                CREATE TABLE IF NOT EXISTS analyses (
+                        analysis_id integer PRIMARY KEY,
+                        protocol text NOT NULL,
+                        infile text NOT NULL,
+                        filename text NOT NULL,
+                        infile_resolved text NOT NULL,
+                        start_timestamp timestamp NOT NULL,
+                        end_timestamp timestamp NOT NULL,
+                        runtime real NOT NULL,
+                        save_timestamp timestamp NOT NULL
+                );
+                '''
+                self.db_cursor.execute(sql)
+                sql = '''-- results table (for each result/value)
+                CREATE TABLE IF NOT EXISTS results (
+                        result_id integer PRIMARY KEY,
+                        analysis_id integer NOT NULL,
+                        protocol text NOT NULL,
+                        result_name text NOT NULL,
+                        value real,
+                        units text,
+                        error real,
+                        value_text text,
+                        value_blob blob
+                );
+                '''
+                self.db_cursor.execute(sql)
+                
+                
+            if self.db_connection is None:
+                # Connect to database
+                self.db_connection = sqlite3.connect(str(outfile))
+                self.db_cursor = self.db_connection.cursor()
+            
+            # Store data in SQLite database
+            
+            # First store the analysis run
+            sql = '''-- Add a new analysis run
+            INSERT INTO analyses (protocol, infile, filename, infile_resolved, start_timestamp, end_timestamp, runtime, save_timestamp)
+            VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP);
+            '''
+            
+            insert_tuple = (protocol.name, name, str(Path(name).stem), str(Path(name).resolve()), protocol.start_timestamp, protocol.end_timestamp, protocol.end_timestamp-protocol.start_timestamp )
+            self.db_cursor.execute(sql, insert_tuple)
+            
+            
+            analysis_id = self.db_cursor.lastrowid
+            
+            # Then store each result value
+            for result_name, content in results.items():
+                insert_tuple = [analysis_id, protocol.name, result_name, None, None, None, None, None]
+                if isinstance(content, (int,float)):
+                    insert_tuple[3] = content
+                elif isinstance(content, str):
+                    insert_tuple[6] = content
+                elif isinstance(content, dict):
+                    if 'value' in content:
+                        insert_tuple[3] = content['value']
+                    if 'units' in content:
+                        insert_tuple[4] = content['units']
+                    if 'error' in content:
+                        insert_tuple[5] = content['error']
+                    insert_tuple[7] = pickle.dumps(content)
+                else:
+                    insert_tuple[7] = pickle.dumps(content)
+                
+                sql = '''-- Add a result
+                INSERT INTO results (analysis_id, protocol, result_name, value, units, error, value_text, value_blob) 
+                VALUES(?,?,?,?,?,?,?,?);
+                '''
+                self.db_cursor.execute(sql, insert_tuple)
+                
+                
+                
 
 
 
@@ -742,6 +853,10 @@ class Protocol(object):
 
     @run_default
     def run(self, data, output_dir, **run_args):
+        '''This class should be over-ridden in the derived class
+        used to define a given Protocol. This function will be called
+        when the Protocol is run, so the main logic of the analysis
+        should be within this function.'''
         
         outfile = self.get_outfile(data.name, output_dir)
         

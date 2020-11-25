@@ -24,6 +24,8 @@ from SciAnalysis.Result import * # The Results() class allows one to extract dat
 
 
 def autonomous_result(xml_file, clean=True, verbosity=3):
+    # DEPRECATED: Use SQL database instead:
+    #new_result = ResultsDB().extract_single(infile)
     
     time.sleep(0.5) # Kludge to avoid corrupting XML file?
     
@@ -303,33 +305,49 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
 
 
                 if simulate:
-                    val, var = np.random.random()*10, 1.0
+                    value, variance = np.random.random()*10, 1.0
     
                 else:
                     process.run([infile], protocols, output_dir=output_dir, force=True)
-                
-                    # Get the result of this analysis
-                    xml_file = '{}{}{}'.format( './results/', infile[len(source_dir):-5], '.xml' ) # TOCHANGE
-                    new_result = autonomous_result(xml_file)
-                    #result.update(new_result)
-                    if 'metadata' not in result:
-                        result['metadata'] = None
-                    if result['metadata'] is None:
-                        result['metadata'] = { 'SciAnalysis': new_result }
+                    
+                    if False:
+                        # Get the result of this analysis using XML files
+                        xml_file = '{}{}{}'.format( './results/', infile[len(source_dir):-5], '.xml' ) # TOCHANGE
+                        new_result = autonomous_result(xml_file)
+                        #result.update(new_result)
+                        if 'metadata' not in result:
+                            result['metadata'] = None
+                        if result['metadata'] is None:
+                            result['metadata'] = { 'SciAnalysis': new_result }
+                        else:
+                            result['metadata'].update({ 'SciAnalysis': new_result })
+
+                        # TOCHANGE                
+                        #value = new_result['circular_average_q2I_fit__fit_peaks_prefactor1']
+                        #variance = np.square(new_result['circular_average_q2I_fit__fit_peaks_prefactor1_error'])
+                        value = new_result['circular_average_q2I_fit__fit_peaks_chi_squared']*1e9
+                        variance = 0
+                        
                     else:
-                        result['metadata'].update({ 'SciAnalysis': new_result })
-                
+                        # Get the result of this analysis from the SQL database
+                        new_result = ResultsDB().extract_single(infile, verbosity=verbosity)
+                        if 'metadata' not in result:
+                            result['metadata'] = None
+                        if result['metadata'] is None:
+                            result['metadata'] = { 'SciAnalysis': new_result }
+                        else:
+                            result['metadata'].update({ 'SciAnalysis': new_result })
 
-                    # TOCHANGE                
-                    #val = new_result['circular_average_q2I_fit__fit_peaks_prefactor1']
-                    #var = np.square(new_result['circular_average_q2I_fit__fit_peaks_prefactor1_error'])
-                    val = new_result['circular_average_q2I_fit__fit_peaks_chi_squared']*1e9
-                    var = 0
+                        # TOCHANGE                
+                        val = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1']
+                        error = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1 error']
+                        var = np.square(error)
 
-                
+
+                # Package for gpCAM
                 result['measurement values'] = {
-                    'values' : np.asarray([val]) ,
-                    'variances' : np.asarray([var]) ,
+                    'values' : np.asarray([value]) ,
+                    'variances' : np.asarray([variance]) ,
                     'value positions' : np.asarray([[0.]]) # Positions/indices for multi-task GP
                     }
                 result['analyzed'] = True

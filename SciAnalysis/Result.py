@@ -23,6 +23,11 @@
  
 import numpy as np
 
+
+
+
+# ResultsXML
+################################################################################
 try:
     # 'Fancy' xml library
     from lxml import etree
@@ -32,12 +37,7 @@ except:
     import xml.etree.ElementTree as etree # XML read/write
     USE_LXML = False
 #import xml.dom.minidom as minidom
-
-
-
-# Results
-################################################################################
-class Results(object):
+class ResultsXML(object):
     '''Simple object to help extract result values from a bunch of xml files.'''
     
     def __init__(self):
@@ -265,8 +265,105 @@ class Results(object):
         return result_names, results
                 
     
-    # End class Results(object)
+    # End class ResultsXML(object)
     ########################################
     
     
     
+# ResultsDB
+################################################################################
+from pathlib import Path
+import pickle
+class ResultsDB():
+    
+    def __init__(self, source_dir='./', results_dir='results', db_file='results.db'):
+        import sqlite3
+        
+        infile = Path(source_dir, results_dir, db_file)
+        
+        self.db_connection = sqlite3.connect(str(infile))
+        self.db_connection.row_factory = sqlite3.Row
+        self.db_cursor = self.db_connection.cursor()
+
+
+    def __del__(self):
+        '''Destructor for the class, called when this object
+        is no longer needed.'''
+        
+        # Close our connection to the results database
+        if self.db_connection is not None:
+            if self.db_connection:
+                self.db_connection.close()
+
+
+    def extract_single(self, infile, verbosity=3):
+        
+        infile = Path(infile).stem # Just the important filename part
+        
+        sql = '''-- Retrieve the most recent analyses for a given filename
+        SELECT analysis_id, protocol, MAX(save_timestamp) 
+        FROM analyses 
+        WHERE filename=?
+        GROUP BY protocol
+        '''
+        self.db_cursor.execute(sql, ( str(infile), ))
+        analysis_rows = self.db_cursor.fetchall()
+        
+        results = {}
+        for analysis_row in analysis_rows:
+            analysis_row = dict(analysis_row)
+            
+            sql = '''-- Retrieve the results associated with a protocol
+            SELECT *
+            FROM results 
+            WHERE analysis_id=?
+            '''
+            self.db_cursor.execute(sql, ( analysis_row['analysis_id'], ))
+            result_rows = self.db_cursor.fetchall()
+            
+            entries = {}
+            for result_row in result_rows:
+                result_row = dict(result_row)
+                #if result_row['value_blob'] is not None: result_row['value_blob'] = pickle.loads(result_row['value_blob'])
+                
+                if result_row['value'] is not None:
+                    value = result_row['value']
+                    if result_row['units'] is not None:
+                        key = '{} units'.format(result_row['result_name'])
+                        entries[key] = result_row['units']
+                    if result_row['error'] is not None:
+                        key = '{} error'.format(result_row['result_name'])
+                        entries[key] = result_row['error']
+                elif result_row['value_text'] is not None:
+                    value = result_row['value_text']
+                elif result_row['value_blob'] is not None:
+                    value = pickle.loads(result_row['value_blob'])
+                else:
+                    value = None
+
+                entries[ result_row['result_name'] ] = value
+            
+            results[ analysis_row['protocol'] ] = entries
+            
+        
+        return results
+
+
+    def extract(self, infiles, verbosity=3):
+        
+        results = {}
+        for infile in infiles:
+            result = self.extract_single(infile, verbosity=verbosity)
+            results[infile] = result
+            
+        return results
+        
+        
+
+    # End class ResultsDB()
+    ########################################
+
+
+# TODO: Switch default to DB/SQL
+Results = ResultsXML
+#Results = ResultsDB
