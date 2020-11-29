@@ -2984,6 +2984,7 @@ class databroker_extract(Protocol):
             'timestamp': True, # Restrict db searching based on file timestamp
             'timestamp_window': 1800, # We provide a finite window since the db entry is at the start of the measure, while the file timestamp is at the end
             'recent_days': None, # Restrict db searching to recent history
+            'section': 'start', # Top-level results from a particular document section
             }
         self.run_args.update(kwargs)
 
@@ -3032,12 +3033,15 @@ class databroker_extract(Protocol):
         if run_args['verbosity']>=4:
             print('        databroker lookup took {:.2f}s'.format(time.time()-start_time))
         results['uid'] = header['start']['uid']
+        if run_args['section'] is not None and run_args['section'] in header:
+            # Put the results of this section into the top-level
+            results.update(header[run_args['section']])
 
         # Add all db metadata to the results
         for section_name in header.keys():
             results[section_name] = header[section_name]
 
-        if True or run_args['verbosity']>=10:
+        if run_args['verbosity']>=10:
             print_n(results)
 
         return results
