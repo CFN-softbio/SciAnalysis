@@ -140,6 +140,7 @@ protocols = [
     #Protocols.circular_average_q2I_fit(qn_power=3.5, trim_range=[0.005, 0.03], fit_range=[0.007, 0.019], q0=0.0120, sigma=0.0008) ,
     Protocols.circular_average_q2I_fit(qn_power=3.0, trim_range=[0.005, 0.035], fit_range=[0.008, 0.03], q0=0.0180, sigma=0.001) ,
     
+    #Protocols.databroker_extract(constraints={'measure_type':'measure'}, timestamp=True, sectino='start'),
     Protocols.metadata_extract(patterns=patterns) ,
     ]
     
@@ -328,15 +329,32 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
                         value = new_result['circular_average_q2I_fit__fit_peaks_chi_squared']*1e9
                         variance = 0
                         
-                    else:
+                    if False:
+                        # Get information about this measurement from Bluesky/databroker
+                        
+                        # If Protocols.databroker_extract was run, then you can:
+                        #results_dict = ResultsDB().extract_single(infile, verbosity=verbosity)
+                        #value = new_results['databroker_extract']['sample_phi']
+                        #value = new_results['databroker_extract']['start']['motor_SAXSx']
+                        
+                        # If process.connect_databroker('cms') was activated, then you can:
+                        h = process.get_db(uid=result['uid']) # uid matching is most robust
+                        #filename = Path(data.infile).stem[:-5] # remove trailing "_saxs"
+                        #scan_id = int(filename.split('_')[-1])
+                        #h.get_db(filename=filename, scan_id=scan_id, recent_days=0.5)
+                        
+                        value = h['start']['motor_SAXSx']
+                        
+                        
+                    if True:
                         # Get the result of this analysis from the SQL database
-                        new_result = ResultsDB().extract_single(infile, verbosity=verbosity)
+                        results_dict = ResultsDB().extract_single(infile, verbosity=verbosity)
                         if 'metadata' not in result:
                             result['metadata'] = None
                         if result['metadata'] is None:
-                            result['metadata'] = { 'SciAnalysis': new_result }
+                            result['metadata'] = { 'SciAnalysis': results_dict }
                         else:
-                            result['metadata'].update({ 'SciAnalysis': new_result })
+                            result['metadata'].update({ 'SciAnalysis': results_dict })
 
                         # TOCHANGE                
                         value = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1']

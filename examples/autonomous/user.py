@@ -110,6 +110,7 @@ class SampleTSAXS(SampleTSAXS_Generic):
                     header = db[-1] # The most recent measurement
                     command['filename'] = '{}'.format(header.start['filename'][:-1]) # TOCHANGE
                     #command['filename'] = '{}'.format(header.start['filename']) # TOCHANGE
+                    command['uid'] = '{}'.format(header.start['uid'])
                     command['cost'] = cost_time
                     command['x_position'] = self.xpos(verbosity=0)
                     command['y_position'] = self.ypos(verbosity=0)

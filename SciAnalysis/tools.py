@@ -1016,6 +1016,7 @@ class ProtocolMultiple(Protocol):
 
 # get_result
 ################################################################################
+# TODO: Rationalize when to use get_result and when to use Results()
 def get_result_xml(infile, protocol):
     '''Extracts a list of results for the given protocol, from the specified
     xml file. The most recent run of the protocol is used.'''
@@ -1087,6 +1088,7 @@ def get_result_xml(infile, protocol):
     ########################################
 
 # TODO: Add get_result_db() for extracting previous results from SQLite results.db
+
 
 
 

@@ -171,6 +171,20 @@ class ProcessorXS(Processor):
         from databroker import Broker
         self.db = Broker.named(beamline)
 
+
+    def get_db(self, recent_days=None, verbosity=3, **constraints):
+        
+        if recent_days is not None:
+            constraints['since'] = time.time() - recent_days*24*60*60
+        
+        headers = self.db(**constraints)
+        headers = [h for h in headers]
+        
+        if verbosity>=1 and len(headers)!=1:
+            print('  WARNING: get_db got {} matches for constraints: {}'.format(len(headers), constraints))
+        
+        
+        return headers[0]
             
         
 class HDF5(Protocol):
@@ -2982,9 +2996,9 @@ class databroker_extract(Protocol):
         self.run_args = {
             'constraints': None, # Set of md constraints to help find the files of interest
             'timestamp': True, # Restrict db searching based on file timestamp
-            'timestamp_window': 1800, # We provide a finite window since the db entry is at the start of the measure, while the file timestamp is at the end
+            'timestamp_window': 3600, # We provide a finite window since the db entry is at the start of the measure, while the file timestamp is at the end
             'recent_days': None, # Restrict db searching to recent history
-            'section': 'start', # Top-level results from a particular document section
+            'section': 'start', # Put results from a particular document section into the top-level
             }
         self.run_args.update(kwargs)
 
