@@ -124,3 +124,10 @@ class SampleTSAXS(SampleTSAXS_Generic):
 
 
 
+try:
+    measure_queue
+except NameError:
+    # Only generate the measure_queue object if it
+    # is not already defined.
+    from CustomQueue import *
+    measure_queue = Queue_measure()
