@@ -111,7 +111,7 @@ run_args = { 'verbosity' : 3,
             }
 
 process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
-
+#process.connect_databroker('cms') # Access databroker metadata
 
 
 patterns = [

@@ -80,6 +80,7 @@ run_args = { 'verbosity' : 3,
             }
 
 process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
+#process.connect_databroker('cms') # Access databroker metadata
 
 # Examples:
 # Protocols.circular_average_q2I(plot_range=[0, 0.2, 0, None])

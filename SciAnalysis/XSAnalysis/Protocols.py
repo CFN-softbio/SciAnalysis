@@ -158,6 +158,19 @@ class ProcessorXS(Processor):
             data = Data2DScattering(infile, **kwargs) # Default load
             
         return data
+
+
+    def connect_databroker(self, beamline):
+        '''Establish a connection to a Bluesky databroker database.
+        This allows protocols to access databroker to get metadata
+        that might be useful to their analysis.'''
+
+        #from databroker import list_configs
+        #print( list_configs() ) # List of available beamlines
+
+        from databroker import Broker
+        self.db = Broker.named(beamline)
+
             
         
 class HDF5(Protocol):
@@ -2959,10 +2972,88 @@ class metadata_extract(Protocol):
 
 
 
+class databroker_extract(Protocol):
 
+    def __init__(self, name='databroker_extract', **kwargs):
+
+        self.name = self.__class__.__name__ if name is None else name
+
+        self.default_ext = '.npy'
+        self.run_args = {
+            'constraints': None, # Set of md constraints to help find the files of interest
+            'timestamp': True, # Restrict db searching based on file timestamp
+            'timestamp_window': 1800, # We provide a finite window since the db entry is at the start of the measure, while the file timestamp is at the end
+            'recent_days': None, # Restrict db searching to recent history
+            }
+        self.run_args.update(kwargs)
+
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+
+        results = {}
+
+
+        db = self._processor.db # databroker
+
+        results['filename_resolved'] = Path(data.infile).resolve()
+        results['filename'] = Path(data.infile).stem
+
+        # This makes assumptions about what the filename looks like:
+        filename = results['filename'][:-5] # The [:-5] removes the trailing "_saxs"
+        scan_id = int(filename.split('_')[-1])
+
+
+        # We will do a search like:
+        start_time = time.time()
+        #headers = db(filename=filename, scan_id=scan_id)
+
+        # There are various ways to define the search
+        constraints = run_args['constraints'] if run_args['constraints'] is not None else {}
+        constraints['filename'] = filename
+        constraints['scan_id'] = scan_id
+        #constraints['measure_type'] = 'measure'
+        if run_args['timestamp']:
+            constraints['since'] = timestamp(results['filename_resolved'])-run_args['timestamp_window']
+            constraints['until'] = timestamp(results['filename_resolved'])+run_args['timestamp_window']
+        if run_args['recent_days'] is not None:
+            constraints['since'] = time.time() - run_args['recent_days']*24*60*60
+
+
+        # Search for this filename in databroker
+        headers = db(**constraints)
+
+
+        headers = [h for h in headers]
+        if run_args['verbosity']>=1 and len(headers)!=1:
+            print('  WARNING: databroker_extract got {} matches for filename: {}'.format(len(headers), filename))
+        header = headers[0]
+
+        if run_args['verbosity']>=4:
+            print('        databroker lookup took {:.2f}s'.format(time.time()-start_time))
+        results['uid'] = header['start']['uid']
+
+        # Add all db metadata to the results
+        for section_name in header.keys():
+            results[section_name] = header[section_name]
+
+        if True or run_args['verbosity']>=10:
+            print_n(results)
+
+        return results
+
+
+
+
+
+
+
+
+
+
+# DEPRECATED
 # Protocols that operate on multiple files
 # These methods are being moved to a separate file (Multiple.py)
-    
 class _deprecated_sum_images(Protocol):
     
     def __init__(self, name='sum_images', **kwargs):
@@ -3061,8 +3152,6 @@ class _deprecated_sum_images(Protocol):
             data.resize(run_args['resize'])        
             
         return data
-    
-    
     
 class _deprecated_merge_images_tiling(Protocol):
     
@@ -3200,7 +3289,6 @@ class _deprecated_merge_images_tiling(Protocol):
             
         
         return results
-            
     
 class _deprecated_merge_images_gonio_phi(Protocol):
     
@@ -3332,7 +3420,4 @@ class _deprecated_merge_images_gonio_phi(Protocol):
             
         
         return results
-        
-        
-        
-        
+# DEPRECATED

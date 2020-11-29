@@ -45,6 +45,11 @@ except:
     USE_LXML = False
 import xml.dom.minidom as minidom
 
+
+
+# Helpers
+########################################
+
 def make_dir(directory):
     if not os.path.isdir(directory):
         #os.mkdir( directory )
@@ -55,6 +60,10 @@ def timestamp(filepath):
     filetimestamp = statinfo.st_mtime
     return filetimestamp
 
+
+# Printout helpers
+########################################
+
 def print_array(data, name='array', verbosity=3):
     '''Helper code for inspecting arrays (e.g. for debugging).'''
     span = np.max(data)-np.min(data)
@@ -64,6 +73,38 @@ def print_array(data, name='array', verbosity=3):
         print('    values: {:.4g} ± {:.4g} (span {:.3g}, from {:.3g} to {:.3g})'.format(np.average(data), np.std(data), span, np.min(data), np.max(data)))
     if verbosity>=4:
         print(data)
+
+def print_d(d, i=4):
+    '''Simple helper to print a dictionary.'''
+    for k, v in d.items():
+        if isinstance(v,dict):
+            print('{}{} : <dict>'.format(' '*i,k))
+            print_d(v, i=i+4)
+        elif isinstance(v,(np.ndarray)):
+            print('{}{} : Ar{}: {}'.format(' '*i,k,v.shape,v))
+        elif isinstance(v,(list,tuple)):
+            print('{}{} : L{}: {}'.format(' '*i,k,len(v),v))
+        else:
+            print('{}{} : {}'.format(' '*i,k,v))
+
+def print_results(results):
+    '''Simple helper to print out a list of dictionaries.'''
+    for i, result in enumerate(results):
+        print(i)
+        print_d(result)
+
+def print_n(d):
+    '''Simple helper to print nested arrays/dicts'''
+    if isinstance(d, (list,tuple,np.ndarray)):
+        print_results(d)
+    elif isinstance(d, dict):
+        print_d(d)
+    else:
+        print(d)
+
+def val_stats(values, name='z'):
+    span = np.max(values)-np.min(values)
+    print("  {} = {:.2g} ± {:.2g} (span {:.2g}, from {:.3g} to {:.3g})".format(name, np.average(values), np.std(values), span, np.min(values), np.max(values)))
 
 
 
@@ -230,6 +271,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -292,6 +335,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -299,6 +344,7 @@ class Processor(object):
         n_jobs = r_args['num_jobs'] if 'num_jobs' in r_args else 5
         with Parallel(n_jobs=n_jobs) as parallel:
             ret = parallel( delayed(self.run_parallel_file)(infile, protocols, output_dir, force, ignore_errors, l_args, r_args, verbosity) for infile in infiles )
+
             
     def run_parallel_file(self, infile, protocols, output_dir, force, ignore_errors, l_args, r_args, verbosity):
             
@@ -503,8 +549,6 @@ class Processor(object):
                 
                 
 
-
-
     def rundirs(self, indir, pattern='*', protocols=None, output_dir=None, force=False, check_timestamp=False, ignore_errors=False, sort=True, load_args={}, run_args={}, verbosity=3, **kwargs):
         
         import glob
@@ -547,6 +591,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -596,6 +642,8 @@ class Processor(object):
 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
 
         if output_dir is None:
             output_dir = self.output_dir
@@ -634,6 +682,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -695,6 +745,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -1031,8 +1083,12 @@ def get_result_xml(infile, protocol):
     
     return results
 
-    # End def get_result()
+    # End def get_result_xml()
     ########################################
+
+# TODO: Add get_result_db() for extracting previous results from SQLite results.db
+
+
 
 
 # Notes

@@ -64,7 +64,7 @@ run_args = { 'verbosity' : 3,
             }
 
 process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
-
+#process.connect_databroker('cms') # Access databroker metadata
 
 # Examples:
 #protocols = [ Protocols.q_image(q_max=0.14, blur=2.0, bins_relative=0.25, xticks=[-.1, 0, .1], ztrim=[0.01, 0.001])]
