@@ -339,9 +339,9 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
                         
                         # If process.connect_databroker('cms') was activated, then you can:
                         h = process.get_db(uid=result['uid']) # uid matching is most robust
-                        #filename = Path(data.infile).stem[:-5] # remove trailing "_saxs"
+                        #filename = tools.Path(infile).stem[:-5] # remove trailing "_saxs"
                         #scan_id = int(filename.split('_')[-1])
-                        #h.get_db(filename=filename, scan_id=scan_id, recent_days=0.5)
+                        #h = process.get_db(filename=filename, scan_id=scan_id, recent_days=7)
                         
                         value = h['start']['motor_SAXSx']
                         
