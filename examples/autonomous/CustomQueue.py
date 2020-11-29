@@ -347,8 +347,11 @@ class Queue_analyze(CustomQueue): # SciAnalysis
 
 # Inside beamline user.py:
 ########################################
-#from CustomQueue import *
-#measure_queue = Queue_measure()
+#try:
+    #measure_queue
+#except NameError:
+    #from CustomQueue import *
+    #measure_queue = Queue_measure()
 
 #while True: # The loop that waits for new instructions...
     
