@@ -296,9 +296,12 @@ class ResultsDB():
                 self.db_connection.close()
 
 
-    def extract_single(self, infile, verbosity=3):
+    def extract_single(self, infile, remove_ext=True, verbosity=3):
         
-        infile = Path(infile).stem # Just the important filename part
+        if remove_ext:
+            infile = Path(infile).stem # Just the important filename part
+        else:
+            infile = Path(infile).name
         
         sql = '''-- Retrieve the most recent analyses for a given filename
         SELECT analysis_id, protocol, MAX(save_timestamp) 
@@ -349,15 +352,39 @@ class ResultsDB():
         return results
 
 
-    def extract(self, infiles, verbosity=3):
+    def extract(self, infiles, remove_ext=True, verbosity=3):
         
         results = {}
         for infile in infiles:
-            result = self.extract_single(infile, verbosity=verbosity)
+            result = self.extract_single(infile, remove_ext=remove_ext, verbosity=verbosity)
             results[infile] = result
             
         return results
         
+
+    def extract_pattern(self, pattern='', any_before=True, any_after=True, verbosity=3):
+        
+        if any_before:
+            pattern = '%{}'.format(pattern)
+        if any_after:
+            pattern = '{}%'.format(pattern)
+        
+        sql = '''-- Retrieve list of files
+        SELECT DISTINCT filename 
+        FROM analyses
+        WHERE filename like ?
+        ORDER BY filename
+        '''
+        self.db_cursor.execute(sql, ( pattern, ))
+        result_rows = self.db_cursor.fetchall()
+        
+        #for result_row in result_rows:
+            #result_row = dict(result_row)
+            #print(result_row)
+        
+        infiles = [result_row['filename'] for result_row in result_rows]
+        
+        return self.extract(infiles, remove_ext=False, verbosity=verbosity)
         
 
     # End class ResultsDB()

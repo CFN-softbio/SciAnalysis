@@ -191,7 +191,7 @@ class Base():
                 self.msg(txt=mark*nmark, threshold=threshold, indent=indent, indent_txt=indent_txt, verbosity=verbosity, **kwargs)
 
     def print_data(self):
-        print_d(self.data)
+        tools.print_d(self.data)
         
     def timing_start(self):
         self.start_time = time.time()
@@ -337,6 +337,23 @@ class SurrogateModel(Base):
         for signal in signals:
             self.zscales.append(signal)
         
+
+    def get_assoc_type(self, name):
+        '''Determine the association type for a given signal name.
+        Signal names are of the form: protocol__signal'''
+        found = False
+        for assoc_type in self.associations.keys(): # Consider 'parameters', 'metadata', ...
+            if name in self.associations[assoc_type]:
+                # The column 'name' is of type 'assoc_type'; e.g. 'x_position' is 'parameters'
+                found = True
+                break
+    
+        if not found:
+            # Default assumption is that it is a signal
+            assoc_type = 'signals'
+            
+        return assoc_type    
+
     
     
     # Load data
@@ -350,11 +367,67 @@ class SurrogateModel(Base):
         
         
     def load_data(self, infile=None):
+        '''Load data from npy file.
+        Data should be formatted exactly as SurrogateModel expects it
+        (e.g. from model.save_data()).'''
         if infile is None:
             infile = Path(self.output_dir, '{}-{}.npy'.format(self.name, self.sample))
         self.data = np.load(infile, allow_pickle=True).item()
 
 
+    def load_sql(self, extractions):
+        '''Extract results from the SQLite database saved by SciAnalysis.'''
+        
+        self.msg("Extracting data from SQLite file", 3, 0)
+        
+        from SciAnalysis.Result import ResultsDB
+        results = ResultsDB(source_dir=self.source_dir).extract_pattern(self.sample_pattern)
+        
+        n = 0
+        for protocol, signals in extractions:
+            for signal in signals:
+                n += 1
+                
+                name = '{}__{}'.format(protocol, signal)
+                assoc_type = self.get_assoc_type(name)
+                if name not in self.data[assoc_type]:
+                    # Create an empty array for this signal
+                    self.data[assoc_type][name] = np.asarray([])
+
+
+        # Reorganize the results
+        self.msg("Reorganizing {} results, assuming {} columns".format(len(results), n), 5, 1)
+        
+        skips = 0
+        for filename, result in results.items():
+            # Check that each target key exists
+            nc = 0
+            for protocol, signals in extractions:
+                if protocol in result:
+                    for signal in signals:
+                        if signal in result[protocol]:
+                            nc += 1
+                        
+            self.msg("n = {}; nc = {}; filename: {}".format(n, nc, filename), 7, 2)
+            if nc!=n:
+                self.msg("WARNING: nc = {} (expected n = {}) for filename: {}".format(nc, n, filename), 2, 3)
+                skips += 1
+                
+            else:
+                # We have all the requested signals; add this result to the data
+                for protocol, signals in extractions:
+                    for signal in signals:
+                        value = result[protocol][signal]
+                        name = '{}__{}'.format(protocol, signal)
+                        assoc_type = self.get_assoc_type(name)
+                        self.data[assoc_type][name] = np.append(self.data[assoc_type][name], value)
+                    
+            if self.verbosity>=11:
+                tools.print_n(result)
+
+        self.msg("Reorganized {} results, skippings {}/{} = {:.1f}%".format(len(results), skips, len(results), 100.*skips/len(results)), 5, 2)
+        
+    
     def load_xml(self, extractions, save_cache=True, use_cached=False, results_dir='results'):
         '''Extract results from XML files, as saved by SciAnalysis.'''
         
@@ -370,15 +443,13 @@ class SurrogateModel(Base):
             infiles = list( results_dir.glob('{}*.xml'.format(self.sample_pattern)) )
             self.msg("Found {} XML files".format(len(infiles)), 4, 1)
                 
-            #results = self.extract_results_from_xml(infiles, extractions, outfile=outfile)
-
             from SciAnalysis.Result import Results # Results() object
             self.msg("Extracting results for {} infiles".format(len(infiles)), 3, 1)
         
             results = Results().extract_dict(infiles, extractions, verbosity=self.verbosity)
             
             if self.verbosity>=6:
-                print_results(results)
+                tools.print_results(results)
             
             if save_cache:
                 self.msg("Extracted results saved to: {}".format(outfile), 4, 1)
@@ -395,16 +466,7 @@ class SurrogateModel(Base):
                 self.msg("ERROR: Skipping result {}, which has {} keys (expecting {})".format(i, len(result.keys()), n), 2, 1)
             else:
                 for name, value in result.items():
-                    found = False
-                    for assoc_type in self.associations.keys(): # Consider 'parameters', 'metadata', ...
-                        if name in self.associations[assoc_type]:
-                            # The column 'name' is of type 'assoc_type'; e.g. 'x_position' is 'parameters'
-                            found = True
-                            break
-                
-                    if not found:
-                        # Default assumption is that it is a signal
-                        assoc_type = 'signals'
+                    assoc_type = self.get_assoc_type(name)
                 
                     # Put this value where it belongs
                     self.msg('Putting {} into {}'.format(name, assoc_type), 10, 2)
@@ -416,9 +478,9 @@ class SurrogateModel(Base):
         self.msg("Reorganized {} results, skippings {}/{} = {:.1f}%".format(len(results), skips, len(results), 100.*skips/len(results)), 5, 2)
             
             
-
     def load_xml_extraction(self, extractions, use_cached=False, results_dir='results'):
         '''Extract results from XML files, as saved by SciAnalysis.'''
+        # DEPRECATED: Use model.load_xml() instead (which internally uses Results().extract_dict)
         
         outfile = Path(self.output_dir, '{}-extracted.txt'.format(self.sample_pattern))
         if use_cached and outfile.is_file():
@@ -685,7 +747,7 @@ class SurrogateModel(Base):
     def interpolate(self, interp_mode='griddata', **kwargs):
         self.msg('Interpolating using method: {}'.format(interp_mode), 3, 0)
         if self.verbosity>=4:
-            val_stats(self.z_vals, name='z_vals')
+            tools.val_stats(self.z_vals, name='z_vals')
         
         getattr(self, 'interpolate_{}'.format(interp_mode))(**kwargs)
     
@@ -719,8 +781,8 @@ class SurrogateModel(Base):
         ZI_mask = np.ma.masked_where( np.isnan(ZI), ZI)
 
         if self.verbosity>=4:
-            #val_stats(ZI, name='ZI')
-            val_stats(ZI_mask, name='ZI_mask')
+            #tools.val_stats(ZI, name='ZI')
+            tools.val_stats(ZI_mask, name='ZI_mask')
             
         self.grid = grid
         self.xi, self.yi = xi, yi
@@ -1292,7 +1354,10 @@ class Tasker(Base):
     def load_data(self, model, extractions, **kwargs):
         
         # Extract and save data
-        model.load_xml(extractions, use_cached=True)
+        
+        #model.load_xml(extractions, use_cached=False)
+        model.load_sql(extractions)
+        
         model.sort_data()
         model.save_data()
         
@@ -1404,7 +1469,9 @@ class Tasker(Base):
 ########################################
 # TOCHANGE: Update information below for the current experiment
 
-model = SurrogateModel(sample='AE_PLA_acc25_run1_SM', sample_pattern='AE_PLA_acc25_run1_', source_dir='../', verbosity=4)
+
+verbosity = 5
+model = SurrogateModel(sample='AE_PLA_acc25_run1_SM', sample_pattern='AE_PLA_acc25_run1_', source_dir='../', verbosity=verbosity)
 
 # Signals to extract from SciAnalysis output
 extractions = [ 
@@ -1469,7 +1536,7 @@ hps_guess = None
 
 if __name__ == '__main__':
     
-    task = Tasker(distributed=False, verbosity=4)
+    task = Tasker(distributed=False, verbosity=verbosity)
     
     #task.load_data(model, extractions)
     task.prepare_data(model)
@@ -1487,7 +1554,7 @@ if __name__ == '__main__':
         'plot_buffers': plot_buffers ,
         }
     
-    #task.plot_signals(model, signals, **kwargs)
+    task.plot_signals(model, signals, **kwargs)
     
     kwargs['signal'] = 'd0'
     #task.plot_sequence(model, force=False, **kwargs)
