@@ -706,7 +706,7 @@ class SurrogateModel(Base):
         y_vals = self.select_single('y_position')
         y_corrected = y_vals - self.transform_phase(v_print)
         self.data['parameters']['y_corrected'] = y_corrected
-        self.label_associations.append(['y_corrected', '$y_{\mathrm{corrected}} \, (\mathrm{mm/s})$', None, None, None])
+        self.label_associations.append(['y_corrected', '$y_{\mathrm{corrected}} \, (\mathrm{mm})$', None, None, None])
 
     def transform_phase(self, v_print):
         # Fit the guide_points to a spline

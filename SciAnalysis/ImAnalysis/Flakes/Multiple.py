@@ -10,9 +10,9 @@ import skimage
 
 
 
-class average_image(ProtocolMultiple):
+class mean_image(ProtocolMultiple):
     
-    def __init__(self, name='average_image', **kwargs):
+    def __init__(self, name='mean_image', **kwargs):
         
         self.name = self.__class__.__name__ if name is None else name
         
@@ -21,6 +21,7 @@ class average_image(ProtocolMultiple):
                         'file_extension' : '.tif',
                         'force' : False,
                         'verbosity' : 3,
+                        'outname' : None,
                         }
         self.run_args.update(kwargs)
         
@@ -52,10 +53,93 @@ class average_image(ProtocolMultiple):
         average = average/len(datas)
         average = average.astype(np.uint8)
         
-        outfile = self.get_outfile(basename, output_dir, ext=run_args['file_extension'])
+        if run_args['outname'] is None:
+            run_args['outname'] = basename
+        outfile = self.get_outfile(run_args['outname'], output_dir, ext=run_args['file_extension'])
         plt.imsave(outfile, average)
         
         return results
+        
+
+
+class average_image(ProtocolMultiple):
+    
+    def __init__(self, name='average_image', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.tiff'
+        self.run_args = {
+                        'file_extension' : '.tif',
+                        'force' : False,
+                        'verbosity' : 3,
+                        'average_type' : 'median',
+                        'outname' : None,
+                        'average_type_in_filename' : True,
+                        'proportiontocut' : 0.1,
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, datas, output_dir, basename, **run_args):
+        
+        results = {}
+
+        l = len(datas)
+        try:
+            h, w, c = datas[0].data_rgb.shape
+        except:
+            data_rgb = plt.imread(datas[0].infile)
+            h, w, c = data_rgb.shape
+        
+        full_dataset = np.zeros( (l, h, w, c) )
+
+        for i, data in enumerate(datas):
+            
+            if run_args['verbosity']>=5:
+                print('  Loading image {} ({}); {:.1f}%'.format(i, data.name, 100.*i/len(datas)))
+            
+            try:
+                data_rgb = data.data_rgb
+            except:
+                data_rgb = plt.imread(data.infile) # Deferred load
+                
+            full_dataset[i,:,:] = data_rgb
+                
+
+        if run_args['verbosity']>=4:
+            print('Computing average of type "{}"'.format(run_args['average_type']))
+            
+                
+        if run_args['average_type']=='mean':
+            average = np.mean(full_dataset, axis=0).astype(np.uint8)
+        elif run_args['average_type']=='median':
+            average = np.median(full_dataset, axis=0).astype(np.uint8)
+        elif run_args['average_type']=='mode':
+            from scipy.stats import mode
+            modes, counts = mode(full_dataset, axis=0)
+            average = modes[0].astype(np.uint8)
+        elif run_args['average_type']=='trim_mean':
+            from scipy.stats import trim_mean
+            average = trim_mean(full_dataset, run_args['proportiontocut'], axis=0).astype(np.uint8)
+        else:
+            print('ERROR: average_type "{}" not recognized.'.format(run_args['average_type']))
+
+        if run_args['verbosity']>=5:
+            avg = np.mean(average, axis=(0,1))
+            print('  Image average rgb = {}'.format(avg))
+
+        if run_args['outname'] is None:
+            run_args['outname'] = basename
+        if run_args['average_type_in_filename']:
+            run_args['outname'] = '{}_{}'.format(run_args['outname'], run_args['average_type'])
+        outfile = self.get_outfile(run_args['outname'], output_dir, ext=run_args['file_extension'])
+        plt.imsave(outfile, average)
+        
+        return results
+
+
         
 
 
