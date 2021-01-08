@@ -10,6 +10,31 @@ import skimage
 
 
 
+def re_name_convention(name_convention=None, **kwargs):
+    # Naming convention for raw data files, returned as
+    # a string suitable for use in RE (regular expressions).
+    
+    if 'filename_re' in kwargs and kwargs['filename_re'] is not None:
+        return kwargs['filename_re']
+    
+    if name_convention is None or name_convention=='indexed':
+        filename_re = '^.+_x(\d+)_y(\d+).*$' # Default (Indexed)
+        
+    elif name_convention=='ixiy':
+        filename_re = '^.+_ix(-?\d+)_iy(-?\d+).*$'
+        
+    elif name_convention=='xy':
+        filename_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+).*$'
+        
+    else:
+        # If none of the above conditions are met, we simply return the 
+        # name_convention, which allows for a custom definition.
+        filename_re = name_convention
+            
+    return filename_re
+
+
+
 class mean_image(ProtocolMultiple):
     
     def __init__(self, name='mean_image', **kwargs):
@@ -156,10 +181,11 @@ class tile_img(ProtocolMultiple):
                         'verbosity' : 3,
                         'image_contrast' : (0, 1),
                         'file_extension' : '.png',
-                        'filename_re' : 'tile_x(\d\d\d)_y(\d\d\d)',
+                        'filename_re' : None,
+                        'name_convention' : None,
                         'dpi' : 200,
                         'spacing_x' : +1.0,
-                        'spacing_y' : -1.0,
+                        'spacing_y' : +1.0,
                         'overlap' : 0.0,
                         }
         self.run_args.update(kwargs)
@@ -170,6 +196,7 @@ class tile_img(ProtocolMultiple):
         # Single image size
         try:
             h, w = datas[0].data.shape
+            #h, w, c = datas[0].data_rgb.shape
         except:
             img = plt.imread(datas[0].infile) # Deferred load
             h, w, c = img.shape
@@ -178,7 +205,8 @@ class tile_img(ProtocolMultiple):
         
         # Determine total image size
         import re
-        filename_re = re.compile(run_args['filename_re'])
+        filename_re = re_name_convention(**run_args)
+        filename_re = re.compile(filename_re)
         
         nrows = 0
         ncols = 0
@@ -308,7 +336,8 @@ class tile_svg(tile_img):
                         'subdir' : None,
                         'subdir_ext' : '.jpg',
                         'file_extension' : '.svg',
-                        'filename_re' : 'tile_x(\d\d\d)_y(\d\d\d)',
+                        'filename_re' : None,
+                        'name_convention' : None,
                         'spacing_x' : +1.0,
                         'spacing_y' : +1.0,
                         'overlap' : 0.0,
@@ -963,17 +992,8 @@ class ImageGrid(object):
 
 
         # Naming convention for raw data files
-        name_convention = '^.+_x(\d+)_y(\d+).+$' # Default (Indexed)
-        if 'name_convention' in kwargs and kwargs['name_convention'] is not None:
-            if kwargs['name_convention']=='indexed':
-                name_convention = '^.+_x(\d+)_y(\d+).+$'
-            elif kwargs['name_convention']=='ixiy':
-                name_convention = '^.+_ix(-?\d+)_iy(-?\d+).+$'
-            elif kwargs['name_convention']=='xy':
-                name_convention = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+).+$'
-            else:
-                name_convention = kwargs['name_convention']
-        self.re_files = re.compile(name_convention)
+        filename_re = re_name_convention(**kwargs)
+        self.re_files = re.compile(filename_re)
         
         self.plot_args = { 'color' : 'k',
                         'marker' : 'o',
