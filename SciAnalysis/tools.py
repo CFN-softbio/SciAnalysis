@@ -25,9 +25,11 @@
 
 
 import os
-import time
+import time, difflib
+import numpy as np
 
-from .settings import *
+from SciAnalysis.settings import * #from .settings import *
+
 try:
     # 'Fancy' xml library
     from lxml import etree
@@ -47,10 +49,22 @@ def timestamp(filepath):
     statinfo = os.stat(filepath)
     filetimestamp = statinfo.st_mtime
     return filetimestamp
- 
+
+def print_array(data, name='array', verbosity=3):
+    '''Helper code for inspecting arrays (e.g. for debugging).'''
+    span = np.max(data)-np.min(data)
+    if verbosity>=3:
+        print('print_array for: {} (shape: {})'.format(name, data.shape))
+    if verbosity>=1:
+        print('    values: {:.4g} ± {:.4g} (span {:.3g}, from {:.3g} to {:.3g})'.format(np.average(data), np.std(data), span, np.min(data), np.max(data)))
+    if verbosity>=4:
+        print(data)
+
+
 
 # Filename
 ################################################################################
+# TODO: Modernize by using Python3's from pathlib import Path
 class Filename(object):
     '''Parses a filename into pieces following the desired pattern.'''
     
@@ -119,6 +133,16 @@ class Filename(object):
         self.full_filepath = os.path.join(self.path, path, self.filename)
         self._update()
         return self.get_filepath()
+
+    def get_best_match(self, filelist): 
+        # Find a string from the filelist that matches the filebase the most
+        length = -1; 
+        while True and length>(-len(self.filebase)):
+            samplename= difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+            # get the best match
+            length = length-5
+            if samplename in self.filebase: break # break if the best mathch is actually in the filename
+        return samplename	  
 
     # End class Filename(object)
     ########################################
@@ -207,6 +231,9 @@ class Processor(object):
                         md['infile'] = data.infile
                         if 'full_name' in l_args:
                             md['full_name'] = l_args['full_name']
+                        if 'save_results' in r_args:
+                            md['save_results'] = r_args['save_results']
+                            
                         self.store_results(results, output_dir, infile, protocol, **md)
                         
 
@@ -269,6 +296,8 @@ class Processor(object):
                     md['infile'] = data.infile
                     if 'full_name' in l_args:
                         md['full_name'] = l_args['full_name']
+                    if 'save_results' in r_args:
+                        md['save_results'] = r_args['save_results']
                     self.store_results(results, output_dir, infile, protocol, **md)
                     
 
@@ -293,62 +322,65 @@ class Processor(object):
         
     
     def store_results(self, results, output_dir, name, protocol, **md):
+        
+        if ('save_results' not in md) or ('xml' in md['save_results']):
+            # Default behavior is to save to xml file
 
-        output_dir = self.access_dir(output_dir, 'results')
-        if 'full_name' in md and md['full_name']:
-            outfile = os.path.join( output_dir, Filename(name).get_filename()+'.xml' )
-        else:
-            outfile = os.path.join( output_dir, Filename(name).get_filebase()+'.xml' )
-
-        if os.path.isfile(outfile):
-            # Result XML file already exists
-            if USE_LXML:
-                parser = etree.XMLParser(remove_blank_text=True)
+            output_dir = self.access_dir(output_dir, 'results')
+            if 'full_name' in md and md['full_name']:
+                outfile = os.path.join( output_dir, Filename(name).get_filename()+'.xml' )
             else:
-                parser = etree.XMLParser()
-            root = etree.parse(outfile, parser).getroot()
+                outfile = os.path.join( output_dir, Filename(name).get_filebase()+'.xml' )
 
-        else:
-            # Create new XML file        
-            # TODO: Add characteristics of outfile
-            root = etree.Element('DataFile', name=name)
+            if os.path.isfile(outfile):
+                # Result XML file already exists
+                if USE_LXML:
+                    parser = etree.XMLParser(remove_blank_text=True)
+                else:
+                    parser = etree.XMLParser()
+                root = etree.parse(outfile, parser).getroot()
+
+            else:
+                # Create new XML file        
+                # TODO: Add characteristics of outfile
+                root = etree.Element('DataFile', name=name)
 
 
-        attributes = {}
-        attributes['name'] = protocol.name
-        attributes['start_timestamp'] = protocol.start_timestamp
-        attributes['end_timestamp'] = protocol.end_timestamp
-        attributes['runtime'] = protocol.end_timestamp - protocol.start_timestamp
-        attributes['save_timestamp'] = time.time()
-        attributes['output_dir'] = output_dir
-        attributes['outfile'] = outfile
-        
-        attributes.update(md)
-        
-        attributes = dict([k, str(v)] for k, v in attributes.items())
-        prot = etree.SubElement(root, 'protocol', **attributes)
+            attributes = {}
+            attributes['name'] = protocol.name
+            attributes['start_timestamp'] = protocol.start_timestamp
+            attributes['end_timestamp'] = protocol.end_timestamp
+            attributes['runtime'] = protocol.end_timestamp - protocol.start_timestamp
+            attributes['save_timestamp'] = time.time()
+            attributes['output_dir'] = output_dir
+            attributes['outfile'] = outfile
+            
+            attributes.update(md)
+            
+            attributes = dict([k, str(v)] for k, v in attributes.items())
+            prot = etree.SubElement(root, 'protocol', **attributes)
 
-        for name, content in results.items():
-            import numpy as np
+            for name, content in results.items():
+                import numpy as np
 
-            if isinstance(content, dict):
-                content = dict([k, str(v)] for k, v in content.items())
-                etree.SubElement(prot, 'result', name=name, **content)
-                
-            elif isinstance(content, list) or isinstance(content, np.ndarray):
-                
-                res = etree.SubElement(prot, 'result', name=name, type='list')
-                for i, element in enumerate(content):
-                    etree.SubElement(res, 'element', index=str(i), value=str(element))
+                if isinstance(content, dict):
+                    content = dict([k, str(v)] for k, v in content.items())
+                    etree.SubElement(prot, 'result', name=name, **content)
                     
-            else:
-                etree.SubElement(prot, 'result', name=name, value=str(content))
+                elif isinstance(content, list) or isinstance(content, np.ndarray):
+                    
+                    res = etree.SubElement(prot, 'result', name=name, type='list')
+                    for i, element in enumerate(content):
+                        etree.SubElement(res, 'element', index=str(i), value=str(element))
+                        
+                else:
+                    etree.SubElement(prot, 'result', name=name, value=str(content))
 
-        tree = etree.ElementTree(root)
-        if USE_LXML:
-            tree.write(outfile, pretty_print=True)
-        else:
-            tree.write(outfile)
+            tree = etree.ElementTree(root)
+            if USE_LXML:
+                tree.write(outfile, pretty_print=True)
+            else:
+                tree.write(outfile)
 
 
 
@@ -617,6 +649,69 @@ class Processor(object):
 
 
 
+    def run_swaxs(self, basename, infiles=None, protocols=None, output_dir=None, minimum_number=None, force=False, ignore_errors=False, sort=False, load_args={}, run_args={}, verbosity=3, **kwargs):
+        '''Process the specified file sets using the specified protocols. The protocols must be able to operate on sets of datas.'''
+        # This version runs on all the supplied infiles (i.e. they are all assumed to be part of the group/set).
+        
+        l_args = self.load_args.copy()
+        l_args.update(load_args)
+        
+        r_args = self.run_args.copy()
+        r_args.update(run_args)
+        
+        if infiles is None:
+            infiles = self.infiles
+        if sort:
+            infiles.sort()
+                
+        if protocols is None:
+            protocols = self.protocols
+            
+        if output_dir is None:
+            output_dir = self.output_dir
+            
+            
+        basename = Filename(basename).get_filename()
+        setfiles = infiles
+        try:
+        
+            # Load all the files into data-objects
+            datas = []
+            for setfile in setfiles:
+	      
+                datas.append( self.load(setfile, **l_args) )
+                
+                
+            for protocol in protocols:
+                
+                #outfile = protocol.get_outfile(basename, output_dir)
+                output_dir_current = self.access_dir(output_dir, protocol.name)
+
+                if not force and protocol.output_exists(basename, output_dir_current):
+                    # Data already exists
+                    if verbosity>=2:
+                        print('Skipping {} for {}'.format(protocol.name, basename))
+                else:
+                    if verbosity>=2:
+                        print('Running {} for {}'.format(protocol.name, basename))
+                        
+                    results = protocol.run(datas, output_dir_current, basename=basename, **r_args)
+
+                    md = {}
+                    self.store_results(results, output_dir, infiles[0], protocol, **md)
+                    
+                
+        except Exception as exception:
+            if SUPPRESS_EXCEPTIONS or ignore_errors:
+                # Ignore errors, so that execution doesn't get stuck on a single bad file
+                if verbosity>=1:
+                    print('  ERROR ({}) with file {}.'.format(exception.__class__.__name__, infile))
+            else:
+                raise                        
+                            
+                    
+
+            
                 
 
     # class Processor(object)
@@ -632,7 +727,9 @@ def run_default(inner_function):
         
         run_args = self.run_args.copy()
         run_args.update(kwargs)
-
+        
+        if 'save_results' not in run_args: run_args['save_results'] = DEFAULT_SAVE_RESULTS
+        self.extra = run_args['extra'] if 'extra' in run_args else ''
         self.ir = 1
         self.start_timestamp = time.time()
 
@@ -656,16 +753,22 @@ class Protocol(object):
         self.run_args.update(kwargs)
 
     
-    def get_outfile(self, name, output_dir, ext=None, ir=False):
+    def get_outfile(self, name, output_dir, extra=None, ext=None, ir=False):
         
         if ext is None:
             ext = self.default_ext
             
+        if extra is None:
+            if hasattr(self, 'extra'):
+                extra = self.extra
+            else:
+                extra = ''
+            
         if ir:
-            name = '{:02d}_{}{}'.format(self.ir, name, ext)
+            name = '{:02d}_{}{}{}'.format(self.ir, name, extra, ext)
             self.ir += 1
         else:
-            name = name + ext
+            name = '{}{}{}'.format(name, extra, ext)
             
         return os.path.join(output_dir, name)
 
@@ -697,7 +800,68 @@ class Protocol(object):
         
         results = {}
         
-        return results        
+        return results
+
+
+    def get_outfile_HDF5(self, name, output_dir, extra=None, ext='.h5', save_dir='HDF5'):
+        ''' Determine path and filename for the HDF5 file.
+        We implicitly assume that we are given an 'output_dir' that is a protocol
+        path (such as './circular_average') and so we replace the trailing directory
+        with the standard path for HDF5 file saving.'''
+        
+        head, tail = os.path.split(output_dir)
+        output_dir = '/'.join([head, save_dir])
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)        
+        outfile = self.get_outfile(name, output_dir, extra=extra, ext=ext, ir=False)
+        
+        return outfile    
+    
+    def save_Data2D_HDF5(self, data, label, output_dir, results=None, extra=None):
+        '''Save analysis results to the HDF5 file 
+        Input:
+            data: Data2D object, from which data.data will be saved
+            label:  a string describing the data
+            results: optional  dictionary containing additional results
+            output_dir: output directory for protocol (will be used to guess HDF5 path)
+            extra: optional addition to filename
+        Output:
+            None    
+        '''             
+        outfile = self.get_outfile_HDF5(data.name, output_dir, extra=extra)
+        
+        from .IO_HDF import dicttoh5
+        to_save = { 'data': data.data, 'label': label, 'results':results }
+        dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')
+
+    def save_DataLine_HDF5(self, line, name, output_dir, results=None, extra=None):
+        '''Save analysis results to the HDF5 file 
+        Input:
+            data: DataLine object, from which data (x and y values) will be saved
+            label:  a string describing the data
+            results: optional  dictionary containing additional results
+            output_dir: output directory for protocol (will be used to guess HDF5 path)
+            extra: optional addition to filename
+        Output:
+            None    
+        '''   
+              
+        outfile = self.get_outfile_HDF5(name, output_dir, extra=extra)
+        #print( 'In tools, the out put dir is: %s'%outfile )
+        
+        from .IO_HDF import dicttoh5
+        # TODO: Handle case where there is only an x_err or y_err (but not both)
+        if line.x_err is not None and line.y_err is not None:
+            label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
+            data = np.vstack( [line.x, line.y,  line.x_err, line.y_err  ] ).T    
+        else:
+            label =  [ line.x_label, line.y_label ]
+            data = np.vstack( [line.x, line.y] ).T    
+            
+        to_save = { 'data': data, 'label': label, 'results':results }
+        # TODO: Handle case where results contain arrays.
+        #print( outfile, self.name )
+        dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')       
         
     
     # End class Protocol(object)

@@ -37,6 +37,7 @@ from scipy import stats # For skew
 #import scipy.special
 
 import PIL # Python Image Library (for opening PNG, etc.)
+from PIL import Image
 
 from . import tools
  
@@ -84,6 +85,8 @@ class DataLine(object):
                                         },
                             }        
         if plot_args: self.plot_args.update(plot_args)
+        
+        self._kwargs = kwargs # Save incase later methods depend on these settings
     
         
     # Data loading
@@ -224,7 +227,7 @@ class DataLine(object):
         xcur = self.x[idx]
         ycur = self.y[idx]
         
-        return xcur, ycur           
+        return xcur, ycur
 
 
     def target_y(self, target):
@@ -243,7 +246,13 @@ class DataLine(object):
         xcur = x_sorted[idx]
         ycur = y_sorted[idx]
         
-        return xcur, ycur           
+        return xcur, ycur
+
+    
+    def target_y_max(self):
+        '''Find the (x,y) of the maximum y value.'''
+        return self.target_y(np.max(self.y))
+
     
     
     # Data modification
@@ -297,6 +306,11 @@ class DataLine(object):
         
         self.x = x_sorted[idx_start:idx_end]
         self.y = y_sorted[idx_start:idx_end]
+        
+        if self.x_err is not None:
+            self.x_err = self.x_err[indices][idx_start:idx_end]
+        if self.y_err is not None:
+            self.y_err = self.y_err[indices][idx_start:idx_end]
     
     
     def kill_x(self, x_center, x_spread):
@@ -366,7 +380,7 @@ class DataLine(object):
     ########################################
     
     def plot(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.2,0.05,0.2,0.05], **kwargs):
-        '''Plots the scattering data.
+        '''Plots the data.
         
         Parameters
         ----------
@@ -420,8 +434,20 @@ class DataLine(object):
         if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
-            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+            plt.figtext(0, 1, plot_args['title'], size=size-10, weight='bold', verticalalignment='top', horizontalalignment='left')
         
+        
+        if 'reflines' in plot_args:
+            range_y = [np.min(self.y), np.max(self.y)]
+            for ii, qs in enumerate(plot_args['reflines']):
+                if ii<1:
+                    for q in qs:
+                        plt.plot([q, q],range_y,'r:')
+                        plt.text(q, range_y[0], str(q), color='r', rotation=90)            
+                else:
+                    for q in qs:
+                        plt.plot([q, q],range_y,'g:')
+                        plt.text(q, range_y[0], str(q), color='g', rotation=90)            
         
         # Axis scaling
         xi, xf, yi, yf = self.ax.axis()
@@ -580,7 +606,9 @@ class DataLineAngle (DataLine):
                                         'ytick.labelsize': 30,
                                         },
                             }          
-        if plot_args: self.plot_args.update(plot_args)    
+        if plot_args: self.plot_args.update(plot_args)
+        
+        self._kwargs = kwargs # Save incase later methods depend on these settings
         
         
 
@@ -718,7 +746,7 @@ class DataLineAngle (DataLine):
         spacing = xh[1]-xh[0]
         yh = (yh/np.max(yh))*np.max(self.y)
         
-        bins = len(yh)/assumed_symmetry
+        bins = int( len(yh)/assumed_symmetry )
         color_list = cmap_cyclic_spectrum( np.linspace(0, 1.0, bins, endpoint=True) )
         color_list = np.concatenate( (color_list[int(bins/2):], color_list[0:int(bins/2)]) ) # Shift
         color_list = np.concatenate( [color_list for i in range(assumed_symmetry)] )
@@ -783,6 +811,33 @@ class DataHistogram(DataLine):
         
         if dashes is not None:
             l.set_dashes(dashes)     
+            
+            
+    def _plot_stats(self, **plot_args):
+        
+        xi, xf, yi, yf = self.ax.axis()
+        
+        if hasattr(self, 'mean'):
+            self.ax.axvline(self.mean, color='b', linewidth=3.0, zorder=4)
+            self.ax.text(self.mean, yf, 'mean', color='b', rotation=90, verticalalignment='top', horizontalalignment='right', zorder=4)
+        
+            if hasattr(self, 'std'):
+                self.ax.axvspan( self.mean-self.std, self.mean+self.std, color='b', alpha=0.05, zorder=-10)
+                self.ax.axvspan( self.mean-2*self.std, self.mean+2*self.std, color='b', alpha=0.05, zorder=-10)
+
+                # Determine the units for the values
+                els = self.x_rlabel.split('\,')
+                units = els[1].replace('(','').replace(')','') if len(els)>1 else '$'
+                #s = r'{} = {:.1f} \pm {:.1f} \, {}'.format( els[0], self.mean, self.std, units)
+                s = r'$\langle {} \rangle = {:.1f} \pm {:.1f} \, {}'.format( els[0][1:], self.mean, self.std, units)
+                self.ax.text(xf, yf, s, size=30, verticalalignment='top', horizontalalignment='right')
+        
+        if hasattr(self, 'median'):
+            self.ax.axvline(self.median, color='purple', linewidth=2.0)
+            self.ax.text(self.median, yf, 'median', color='purple', rotation=90, verticalalignment='top', horizontalalignment='right')
+
+        
+            
 
     # End class DataHistogram(DataLine)
     ########################################
@@ -818,6 +873,8 @@ class DataLines(DataLine):
                                         },
                             }        
         if plot_args: self.plot_args.update(plot_args)
+        
+        self._kwargs = kwargs # Save incase later methods depend on these settings
         
     
     
@@ -1032,6 +1089,9 @@ class Data2D(object):
         
         self.regions = None # Optional overlay highlighting some region of interest
         
+        self._kwargs = kwargs # Save incase later methods depend on these settings
+        
+        
     # Data loading
     ########################################
 
@@ -1115,6 +1175,12 @@ class Data2D(object):
         
         self.x_scale = scale
         self.y_scale = scale
+    
+    
+    def get_scale(self):
+        '''Return the scale (average of x and y) for the image. This is in units/pixel,
+        e.g. nm/pixel.'''
+        return (self.x_scale + self.y_scale)*0.5
     
     
     def xy_axes(self):
@@ -1214,22 +1280,30 @@ class Data2D(object):
         # This is so that 0 degrees is vertical.
         M = np.degrees(np.arctan2(X, Y))
         
-        return M        
+        return M
+    
+    
+    def image_area(self):
+        '''Returns the area of the image (in the units given by x_scale and y_scale).'''
+        h, w = self.data.shape
+        area = ( h*self.y_scale )*( w*self.x_scale )
+        return area
         
     
     
     # Data transformation
     ########################################
     
-    def fft(self):
+    def fft(self, update_origin=True):
         '''Return the Fourier Transform of this 2D array (as a Data2D object).'''
         
         data_fft = Data2DFourier()
         data_fft.data = np.fft.fftn( self.data )
-        
-        data_fft.recenter()
         height, width = data_fft.data.shape
-        data_fft.origin = [int(width/2), int(height/2)]
+        
+        if update_origin:
+            data_fft.recenter(update_origin=update_origin)
+            data_fft.origin = [int(width/2), int(height/2)]
         
         height, width = self.data.shape
         data_fft.x_scale = 2*np.pi/(self.x_scale*width)
@@ -1341,14 +1415,18 @@ class Data2D(object):
         self.data = realspace
 
     
-    def recenter(self):
+    def recenter(self, update_origin=False):
         '''Shifts the data so that the corners are now combined into the new 
         center. The old center is then at the corners.'''
         
         dim_y, dim_x = self.data.shape
         
-        self.data = np.concatenate( (self.data[int(dim_y/2):,:], self.data[0:int(dim_y/2),:]), axis=0 )
-        self.data = np.concatenate( (self.data[:,int(dim_x/2):], self.data[:,0:int(dim_x/2)]), axis=1 )    
+        self.data = np.concatenate( (self.data[dim_y//2:,:], self.data[0:dim_y//2,:]), axis=0 )
+        self.data = np.concatenate( (self.data[:,dim_x//2:], self.data[:,0:dim_x//2]), axis=1 )    
+        
+        if update_origin:
+            height, width = self.data.shape
+            self.origin = [width//2, height//2]
         
         
     def transpose(self):
@@ -1369,7 +1447,10 @@ class Data2D(object):
         results[prepend+'N'] = len(self.data.ravel())
         results[prepend+'total'] = np.sum(self.data.ravel())
         
-        results[prepend+'skew'] = stats.skew(self.data.ravel())
+        if np.iscomplexobj(self.data):
+            results[prepend+'skew'] = stats.skew(np.absolute(self.data.ravel()))
+        else:
+            results[prepend+'skew'] = stats.skew(self.data.ravel())
         
         results[prepend+'spread'] = results[prepend+'max'] - results[prepend+'min']
         results[prepend+'std_rel'] = results[prepend+'std'] / results[prepend+'average']
@@ -1467,10 +1548,10 @@ class Data2D(object):
             
             
         if 'show_region' in kwargs and kwargs['show_region']:
-            #region = np.ma.masked_where(np.abs(self.d_map()-d_center)>d_spread, self.angle_map())
-            #self.regions = [region]
-            data[pixel_list] *= 10
-            self.data = np.reshape( data, (dim_y, dim_x) )
+            region = np.ma.masked_where(np.abs(self.d_map()-d_center)>d_spread, self.angle_map())
+            self.regions = [region]
+            #data[pixel_list] *= 10
+            #self.data = np.reshape( data, (dim_y, dim_x) )
             
             
         # Generate map
@@ -1523,47 +1604,16 @@ class Data2D(object):
         self.z_display = z_display
         
         
-    def plot_image(self, save, ztrim=[0.01, 0.01], **kwargs):
+    def plot_image(self, save, ztrim=[0.01, 0.01], **plot_args):
         '''Generates a false-color image of the 2D data.'''
-        
-        if 'cmap' in kwargs:
-            cmap = kwargs['cmap']
-            
-        else:
-            # http://matplotlib.org/examples/color/colormaps_reference.html
-            #cmap = mpl.cm.RdBu
-            #cmap = mpl.cm.RdBu_r
-            #cmap = mpl.cm.hot
-            #cmap = mpl.cm.gist_heat
-            #cmap = mpl.cm.gist_earth
-            #cmap = mpl.cm.Greys
-            cmap = mpl.cm.jet        
+
+        # http://matplotlib.org/examples/color/colormaps_reference.html
+        cmap = plot_args['cmap'] if 'cmap' in plot_args else mpl.cm.jet
         
         #img = Image.open(filename).convert("I")
         #img = Image.open(infile).convert("L") # black-and-white
-        
-        
-        values = np.sort( self.data.flatten() )
-        if 'zmin' in kwargs and kwargs['zmin'] is not None:
-            zmin = kwargs['zmin']
-        elif self.z_display[0] is not None:
-            zmin = self.z_display[0]
-        else:
-            zmin = values[ +int( len(values)*ztrim[0] ) ]
-            
-        if 'zmax' in kwargs and kwargs['zmax'] is not None:
-            zmax = kwargs['zmax']
-        elif self.z_display[1] is not None:
-            zmax = self.z_display[1]
-        else:
-            idx = -int( len(values)*ztrim[1] )
-            if idx>=0:
-                idx = -1
-            zmax = values[idx]
-            
-        if zmax==zmin:
-            zmax = max(values)
-            
+
+        zmin, zmax = self._plot_z_range(ztrim=ztrim, **plot_args)
         self.z_display[0] = zmin
         self.z_display[1] = zmax
         self._plot_z_transform()
@@ -1629,9 +1679,9 @@ class Data2D(object):
             # TODO: Handle 'origin' correctly. (E.g. allow it to be set externally.)
             self.im = plt.imshow(self.Z, vmin=0, vmax=1, cmap=cmap, interpolation='nearest', extent=extent, origin='lower')
         
-        
         if self.regions is not None:
             for region in self.regions:
+                # TODO: Handle the case where the image has coordinates assigned to it.
                 plt.imshow(region, cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75)
                 #plt.imshow(np.flipud(region), cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75, origin='lower')
 
@@ -1647,6 +1697,7 @@ class Data2D(object):
         
         
         if 'colorbar' in plot_args and plot_args['colorbar']:
+            # Note that this assumes the plot is using vmin=0, vmax=1
             if 'colorbar_labels' in plot_args:
                 colorbar_labels = plot_args['colorbar_labels']
             else:
@@ -1654,10 +1705,9 @@ class Data2D(object):
             
             tick_positions = self._plot_z_transform(data=colorbar_labels, set_Z=False)
             #cbar = plt.colorbar(ticks=tick_positions, fraction=0.045, pad=0.02)
-            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.03, aspect=30)
+            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.02, aspect=65)
             colorbar_labels = ["{:.0f}".format(c) for c in colorbar_labels]
-            cbar.ax.set_yticklabels(colorbar_labels, size=18)
-        
+            cbar.ax.set_yticklabels(colorbar_labels, size=13)
         
         if 'plot_range' in plot_args:
             plot_range = plot_args['plot_range']
@@ -1672,7 +1722,7 @@ class Data2D(object):
         if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
-            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+            plt.figtext(0, 1, plot_args['title'], size=size-10, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         self._plot_extra(**plot_args)
         
@@ -1861,7 +1911,7 @@ class Data2D(object):
         if 'title' in plot_args and plot_args['title'] is not None:
             size = plot_args['rcParams']['axes.labelsize']
             #size = plot_args['rcParams']['xtick.labelsize']
-            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+            plt.figtext(0, 1, plot_args['title'], size=size-10, weight='bold', verticalalignment='top', horizontalalignment='left')
         
         self._plot_extra3D(**plot_args)
         
@@ -1890,33 +1940,40 @@ class Data2D(object):
     def _plot_interact(self):
         
         self.fig.canvas.set_window_title('SciAnalysis')
+        if self.fig.canvas.toolbar is None:
+            print('IT IS NONE')
+        
+        #print(self.fig.canvas.sswtewrqtqwer)
+        
         #plt.get_current_fig_manager().toolbar.pan()
         self.fig.canvas.toolbar.pan()
         self.fig.canvas.mpl_connect('scroll_event', self._scroll_event )
         #self.fig.canvas.mpl_connect('motion_notify_event', self._move_event )
         self.fig.canvas.mpl_connect('key_press_event', self._key_press_event)
         
+        #self.ax.format_coord = self._format_coord_simple
         self.ax.format_coord = self._format_coord
         
         
     def _format_coord_simple(self, x, y):
-        
         col = int(x+0.5)
         row = int(y+0.5)
         
         numrows, numcols = self.data.shape
-        row = numrows-row-1
+        row = numrows-row-1 # Assume the origin inverts the relationship between y and col.
         if col>=0 and col<numcols and row>=0 and row<numrows:
             z = self.data[row,col]
             #z = self.Z[row,col]
             #return 'x=%1.1f, y=%1.1f, z=%1.1f'%(x, y, z)
-            #return 'r%dc%d x=%1.1f, y=%1.1f, z=%g'%(row, col, x, y, z)
-            return 'x=%1.1f, y=%1.1f, z=%g'%(x, y, z)
+            return 'r%dc%d x=%1.1f, y=%1.1f, z=%g'%(row, col, x, y, z)
+            #return 'x=%1.1f, y=%1.1f, z=%g'%(x, y, z)
         else:
             return 'x=%1.1f, y=%1.1f'%(x, y)        
         
         
     def _format_coord(self, x, y):
+        # TODO/BUG: This function assumes the image has physical axes applied to it, which may or may not be the case.
+        # TODO/BUG: This function assumes the origin inverts the relationship between y and col.
         
         xp = self.origin[0] + x/self.x_scale
         yp = self.origin[1] + y/self.y_scale
@@ -1925,11 +1982,12 @@ class Data2D(object):
         row = int(yp+0.5)
         
         numrows, numcols = self.data.shape
-        row = numrows-row-1
+        row = numrows-row-1 # Assume the origin inverts the relationship between y and col.
         if col>=0 and col<numcols and row>=0 and row<numrows:
             z = self.data[row,col]
             #z = self.Z[row,col]
             #return 'x=%1.1f, y=%1.1f, z=%1.1f'%(x, y, z)
+            #return 'r%dc%d x=%1.1f, y=%1.1f, z=%g'%(row, col, x, y, z)
             return 'x=%g, y=%g, z=%g'%(x, y, z)
         else:
             return 'x=%g, y=%g'%(x, y)           
