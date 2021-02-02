@@ -1,0 +1,592 @@
+<DataFile name="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff">
+  <protocol end_timestamp="1604608788.4125788" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="q_image" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.7741425037384033" save_timestamp="1604608788.4127822" start_timestamp="1604608786.6384363"/>
+  <protocol end_timestamp="1604608948.553852" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="15.239300727844238" save_timestamp="1604608948.55427" start_timestamp="1604608933.3145514">
+    <result error="13.084727910664984" name="fit_peaks_m" value="-9.553922409649186"/>
+    <result error="1.7059066511258183" name="fit_peaks_b" value="11.102258141471578"/>
+    <result error="13.374865543590932" name="fit_peaks_prefactor1" value="912.6268660463343"/>
+    <result error="6.499367932780778e-05" name="fit_peaks_x_center1" value="0.02784334455268761"/>
+    <result error="6.567761671141475e-05" name="fit_peaks_sigma1" value="0.0038546395908404395"/>
+    <result name="fit_peaks_prefactor_total" value="912.6268660463343"/>
+    <result name="fit_peaks_chi_squared" value="3463.8613677878343"/>
+    <result name="fit_peaks_d0" value="22.566201755288393"/>
+    <result name="fit_peaks_grain_size" value="65.02886237632589"/>
+  </protocol>
+  <protocol end_timestamp="1604608968.7648952" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="18.170676946640015" save_timestamp="1604608968.7652955" start_timestamp="1604608950.5942183">
+    <result error="14.020826588624734" name="fit_peaks_m" value="-8.941779039663322"/>
+    <result error="1.8314972223500954" name="fit_peaks_b" value="11.402564658743666"/>
+    <result error="13.883348692275526" name="fit_peaks_prefactor1" value="971.328476938111"/>
+    <result error="6.756161135107263e-05" name="fit_peaks_x_center1" value="0.028029740263756348"/>
+    <result error="6.832103189015214e-05" name="fit_peaks_sigma1" value="0.004109427136657576"/>
+    <result name="fit_peaks_prefactor_total" value="971.328476938111"/>
+    <result name="fit_peaks_chi_squared" value="3977.0054670398845"/>
+    <result name="fit_peaks_d0" value="22.416138173438636"/>
+    <result name="fit_peaks_grain_size" value="60.99702443367278"/>
+  </protocol>
+  <protocol end_timestamp="1604609043.1672976" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="72.3875823020935" save_timestamp="1604609043.1676989" start_timestamp="1604608970.7797153">
+    <result error="15.092100417782957" name="fit_peaks_m" value="-10.46269322454777"/>
+    <result error="1.9684879390047825" name="fit_peaks_b" value="12.48872483860464"/>
+    <result error="15.31172344607882" name="fit_peaks_prefactor1" value="1055.361240422324"/>
+    <result error="6.531684262016355e-05" name="fit_peaks_x_center1" value="0.02790837742580929"/>
+    <result error="6.601444144374413e-05" name="fit_peaks_sigma1" value="0.003913151530207963"/>
+    <result name="fit_peaks_prefactor_total" value="1055.361240422324"/>
+    <result name="fit_peaks_chi_squared" value="4608.161911792466"/>
+    <result name="fit_peaks_d0" value="22.513617367697563"/>
+    <result name="fit_peaks_grain_size" value="64.05650931942795"/>
+  </protocol>
+  <protocol end_timestamp="1604609051.9359047" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="6.789795398712158" save_timestamp="1604609051.936366" start_timestamp="1604609045.1461093">
+    <result error="14.625826727449725" name="fit_peaks_m" value="-10.110443412531247"/>
+    <result error="1.9077068292547925" name="fit_peaks_b" value="12.126883133309708"/>
+    <result error="14.828058590426204" name="fit_peaks_prefactor1" value="1023.4321322904257"/>
+    <result error="6.53171429923796e-05" name="fit_peaks_x_center1" value="0.027906017184371384"/>
+    <result error="6.601602536781425e-05" name="fit_peaks_sigma1" value="0.003918619497422814"/>
+    <result name="fit_peaks_prefactor_total" value="1023.4321322904257"/>
+    <result name="fit_peaks_chi_squared" value="4327.608025718074"/>
+    <result name="fit_peaks_d0" value="22.515521529523213"/>
+    <result name="fit_peaks_grain_size" value="63.96712608303901"/>
+  </protocol>
+  <protocol end_timestamp="1604609108.7498593" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4079675674438477" save_timestamp="1604609108.750358" start_timestamp="1604609107.3418918">
+    <result error="None" name="fit_peaks_m" value="-668.8553057233385"/>
+    <result error="None" name="fit_peaks_b" value="69.50429063400081"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.5897091901479203"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.0890539393761096"/>
+    <result error="None" name="fit_peaks_sigma1" value="4.630752263562164e-06"/>
+    <result name="fit_peaks_prefactor_total" value="0.5897091901479203"/>
+    <result name="fit_peaks_chi_squared" value="4.2693780399100945"/>
+    <result name="fit_peaks_d0" value="7.055482723389965"/>
+    <result name="fit_peaks_grain_size" value="54130.04479541732"/>
+  </protocol>
+  <protocol end_timestamp="1604609178.4412289" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.3353323936462402" save_timestamp="1604609178.4417565" start_timestamp="1604609177.1058965">
+    <result error="None" name="fit_peaks_m" value="-45803.40946433725"/>
+    <result error="None" name="fit_peaks_b" value="2009.6478972849736"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.0"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.030130171096240443"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0023356157962424427"/>
+    <result name="fit_peaks_prefactor_total" value="0.0"/>
+    <result name="fit_peaks_chi_squared" value="4287.377769104558"/>
+    <result name="fit_peaks_d0" value="20.853467068308763"/>
+    <result name="fit_peaks_grain_size" value="107.32194390291778"/>
+  </protocol>
+  <protocol end_timestamp="1604609278.4394913" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4379768371582031" save_timestamp="1604609278.4399674" start_timestamp="1604609277.0015144">
+    <result error="None" name="fit_peaks_m" value="-45803.40946433725"/>
+    <result error="None" name="fit_peaks_b" value="2009.6478972849736"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.0"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.030130171096240443"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0023356157962424427"/>
+    <result name="fit_peaks_prefactor_total" value="0.0"/>
+    <result name="fit_peaks_chi_squared" value="4287.377769104558"/>
+    <result name="fit_peaks_d0" value="20.853467068308763"/>
+    <result name="fit_peaks_grain_size" value="107.32194390291778"/>
+  </protocol>
+  <protocol end_timestamp="1604609325.1308837" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4221303462982178" save_timestamp="1604609325.131382" start_timestamp="1604609323.7087533">
+    <result error="4703539.068800304" name="fit_peaks_m" value="-7322.819586787198"/>
+    <result error="148669.4136004325" name="fit_peaks_b" value="775.1981492116621"/>
+    <result error="28926.48486602843" name="fit_peaks_prefactor1" value="837.4721819639808"/>
+    <result error="0.02909907488902255" name="fit_peaks_x_center1" value="0.025464849281718365"/>
+    <result error="0.028747629299591917" name="fit_peaks_sigma1" value="0.002335487251283973"/>
+    <result name="fit_peaks_prefactor_total" value="837.4721819639808"/>
+    <result name="fit_peaks_chi_squared" value="24527.460851518288"/>
+    <result name="fit_peaks_d0" value="24.673954428979826"/>
+    <result name="fit_peaks_grain_size" value="107.32785089076981"/>
+  </protocol>
+  <protocol end_timestamp="1604609344.5655425" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.3479788303375244" save_timestamp="1604609344.5660427" start_timestamp="1604609343.2175636">
+    <result error="None" name="fit_peaks_m" value="0.0"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="750.1764474977911"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025692461949686173"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0023356496723096667"/>
+    <result name="fit_peaks_prefactor_total" value="750.1764474977911"/>
+    <result name="fit_peaks_chi_squared" value="245347.84401308402"/>
+    <result name="fit_peaks_d0" value="24.455364843914204"/>
+    <result name="fit_peaks_grain_size" value="107.32038731443221"/>
+  </protocol>
+  <protocol end_timestamp="1604609372.0778193" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.3703861236572266" save_timestamp="1604609372.0783737" start_timestamp="1604609370.7074332">
+    <result error="None" name="fit_peaks_m" value="0.0"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="782.4468126965797"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025692461949686173"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.002802777457238552"/>
+    <result name="fit_peaks_prefactor_total" value="782.4468126965797"/>
+    <result name="fit_peaks_chi_squared" value="249211.77277848538"/>
+    <result name="fit_peaks_d0" value="24.455364843914204"/>
+    <result name="fit_peaks_grain_size" value="89.43372468467999"/>
+  </protocol>
+  <protocol end_timestamp="1604609401.5993176" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.3629865646362305" save_timestamp="1604609401.5998323" start_timestamp="1604609400.236331">
+    <result error="None" name="fit_peaks_m" value="0.0"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="875.3378879520943"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025692461949686173"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0018685155433112097"/>
+    <result name="fit_peaks_prefactor_total" value="875.3378879520943"/>
+    <result name="fit_peaks_chi_squared" value="341905.25059778464"/>
+    <result name="fit_peaks_d0" value="24.455364843914204"/>
+    <result name="fit_peaks_grain_size" value="134.15078529071195"/>
+  </protocol>
+  <protocol end_timestamp="1604609480.438883" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4078483581542969" save_timestamp="1604609480.4395206" start_timestamp="1604609479.0310347">
+    <result error="None" name="fit_peaks_m" value="-26501.349521347787"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="2141.8491785542715"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.026394456692477454"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0018685154618495138"/>
+    <result name="fit_peaks_prefactor_total" value="2141.8491785542715"/>
+    <result name="fit_peaks_chi_squared" value="53369.74736162545"/>
+    <result name="fit_peaks_d0" value="23.804942758948034"/>
+    <result name="fit_peaks_grain_size" value="134.1507911392857"/>
+  </protocol>
+  <protocol end_timestamp="1604609491.8925123" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.385627031326294" save_timestamp="1604609491.8934724" start_timestamp="1604609490.5068853">
+    <result error="None" name="fit_peaks_m" value="10904.823318082374"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="1328.917060824065"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025926902018716644"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0007819054098964743"/>
+    <result name="fit_peaks_prefactor_total" value="1328.917060824065"/>
+    <result name="fit_peaks_chi_squared" value="10868.820333870208"/>
+    <result name="fit_peaks_d0" value="24.23423092602329"/>
+    <result name="fit_peaks_grain_size" value="320.5794771215207"/>
+  </protocol>
+  <protocol end_timestamp="1604609525.4661787" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.39766526222229" save_timestamp="1604609525.4668276" start_timestamp="1604609524.0685134">
+    <result error="None" name="fit_peaks_m" value="10904.823318082374"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="1328.917060824065"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025926902018716644"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0007819054098964743"/>
+    <result name="fit_peaks_prefactor_total" value="1328.917060824065"/>
+    <result name="fit_peaks_chi_squared" value="10868.820333870208"/>
+    <result name="fit_peaks_d0" value="24.23423092602329"/>
+    <result name="fit_peaks_grain_size" value="320.5794771215207"/>
+  </protocol>
+  <protocol end_timestamp="1604609554.0322173" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4374656677246094" save_timestamp="1604609554.0328398" start_timestamp="1604609552.5947516">
+    <result error="None" name="fit_peaks_m" value="10904.823318082374"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="1328.917060824065"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025926902018716644"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0007819054098964743"/>
+    <result name="fit_peaks_prefactor_total" value="1328.917060824065"/>
+    <result name="fit_peaks_chi_squared" value="10868.820333870208"/>
+    <result name="fit_peaks_d0" value="24.23423092602329"/>
+    <result name="fit_peaks_grain_size" value="320.5794771215207"/>
+    <result name="fit_peaks_qT" value="0.011828628149366057"/>
+    <result name="fit_peaks_dT" value="53.11846164947139"/>
+    <result name="fit_peaks_qR" value="0.0059848641949831445"/>
+    <result name="fit_peaks_dR" value="104.98459284082855"/>
+  </protocol>
+  <protocol end_timestamp="1604609586.645252" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4505512714385986" save_timestamp="1604609586.6458762" start_timestamp="1604609585.1947007">
+    <result error="None" name="fit_peaks_m" value="10904.823318082374"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="1328.917060824065"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025926902018716644"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0007819054098964743"/>
+    <result name="fit_peaks_prefactor_total" value="1328.917060824065"/>
+    <result name="fit_peaks_chi_squared" value="10868.820333870208"/>
+    <result name="fit_peaks_d0" value="24.23423092602329"/>
+    <result name="fit_peaks_grain_size" value="320.5794771215207"/>
+    <result name="fit_peaks_qT" value="0.011828628149366057"/>
+    <result name="fit_peaks_dT" value="53.11846164947139"/>
+    <result name="fit_peaks_qR" value="0.0059848641949831445"/>
+    <result name="fit_peaks_dR" value="104.98459284082855"/>
+  </protocol>
+  <protocol end_timestamp="1604609667.4564676" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4086544513702393" save_timestamp="1604609667.4571645" start_timestamp="1604609666.0478132">
+    <result error="None" name="fit_peaks_m" value="10904.823318082374"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="1328.917060824065"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025926902018716644"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0007819054098964743"/>
+    <result name="fit_peaks_prefactor_total" value="1328.917060824065"/>
+    <result name="fit_peaks_chi_squared" value="10868.820333870208"/>
+    <result name="fit_peaks_d0" value="24.23423092602329"/>
+    <result name="fit_peaks_grain_size" value="320.5794771215207"/>
+    <result name="fit_peaks_qT" value="nan"/>
+    <result name="fit_peaks_dT" value="nan"/>
+    <result name="fit_peaks_qR" value="nan"/>
+    <result name="fit_peaks_dR" value="nan"/>
+  </protocol>
+  <protocol end_timestamp="1604609683.0079234" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4617836475372314" save_timestamp="1604609683.0086234" start_timestamp="1604609681.5461397">
+    <result error="None" name="fit_peaks_m" value="10904.823318082374"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="1328.917060824065"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025926902018716644"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0007819054098964743"/>
+    <result name="fit_peaks_prefactor_total" value="1328.917060824065"/>
+    <result name="fit_peaks_chi_squared" value="10868.820333870208"/>
+    <result name="fit_peaks_d0" value="24.23423092602329"/>
+    <result name="fit_peaks_grain_size" value="320.5794771215207"/>
+    <result name="fit_peaks_qT" value="nan"/>
+    <result name="fit_peaks_dT" value="nan"/>
+    <result name="fit_peaks_qR" value="nan"/>
+    <result name="fit_peaks_dR" value="nan"/>
+  </protocol>
+  <protocol end_timestamp="1604609691.5240686" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4761228561401367" save_timestamp="1604609691.5247815" start_timestamp="1604609690.0479457">
+    <result error="None" name="fit_peaks_m" value="10904.823318082374"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="1328.917060824065"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.025926902018716644"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0007819054098964743"/>
+    <result name="fit_peaks_prefactor_total" value="1328.917060824065"/>
+    <result name="fit_peaks_chi_squared" value="10868.820333870208"/>
+    <result name="fit_peaks_d0" value="24.23423092602329"/>
+    <result name="fit_peaks_grain_size" value="320.5794771215207"/>
+    <result name="fit_peaks_qT" value="0.011828628149366057"/>
+    <result name="fit_peaks_dT" value="53.11846164947139"/>
+    <result name="fit_peaks_qR" value="0.0059848641949831445"/>
+    <result name="fit_peaks_dR" value="104.98459284082855"/>
+  </protocol>
+  <protocol end_timestamp="1604610090.987491" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4512343406677246" save_timestamp="1604610090.9881678" start_timestamp="1604610089.5362566">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604610103.460959" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4140725135803223" save_timestamp="1604610103.4617188" start_timestamp="1604610102.0468864">
+    <result error="None" name="fit_peaks_m" value="-73207.24674854253"/>
+    <result error="None" name="fit_peaks_b" value="2895.030845538485"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.0"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02872879310381052"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0012845950482154814"/>
+    <result name="fit_peaks_prefactor_total" value="0.0"/>
+    <result name="fit_peaks_chi_squared" value="7379.615411536438"/>
+    <result name="fit_peaks_d0" value="21.870690092951378"/>
+    <result name="fit_peaks_grain_size" value="195.129840965301"/>
+    <result name="fit_peaks_qT" value="0.017927946704578163"/>
+    <result name="fit_peaks_dT" value="35.04687631392324"/>
+    <result name="fit_peaks_qR" value="0.00011445782569206528"/>
+    <result name="fit_peaks_dR" value="5489.520064869766"/>
+  </protocol>
+  <protocol end_timestamp="1604610121.0199893" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4758312702178955" save_timestamp="1604610121.0206943" start_timestamp="1604610119.544158">
+    <result error="1473939.5681454055" name="fit_peaks_m" value="-27896.275445658073"/>
+    <result error="43260.1549451063" name="fit_peaks_b" value="1371.0690606535306"/>
+    <result error="5408.713387683644" name="fit_peaks_prefactor1" value="9.692729008196393"/>
+    <result error="0.2688238312567635" name="fit_peaks_x_center1" value="0.032994046067371996"/>
+    <result error="0.4038059914683583" name="fit_peaks_sigma1" value="0.0013139499981564514"/>
+    <result name="fit_peaks_prefactor_total" value="9.692729008196393"/>
+    <result name="fit_peaks_chi_squared" value="4375.666225240919"/>
+    <result name="fit_peaks_d0" value="19.04339132687659"/>
+    <result name="fit_peaks_grain_size" value="190.7704462230638"/>
+    <result name="fit_peaks_qT" value="0.02382033154555084"/>
+    <result name="fit_peaks_dT" value="26.37740492891317"/>
+    <result name="fit_peaks_qR" value="0.006006849376077181"/>
+    <result name="fit_peaks_dR" value="104.60034726695392"/>
+  </protocol>
+  <protocol end_timestamp="1604610130.526511" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.442809820175171" save_timestamp="1604610130.527252" start_timestamp="1604610129.0837011">
+    <result error="None" name="fit_peaks_m" value="-128252.14906462282"/>
+    <result error="None" name="fit_peaks_b" value="4581.432667979894"/>
+    <result error="None" name="fit_peaks_prefactor1" value="3.4509432348765284e-13"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02966304551146079"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0014013735284553082"/>
+    <result name="fit_peaks_prefactor_total" value="3.4509432348765284e-13"/>
+    <result name="fit_peaks_chi_squared" value="6641.455734135138"/>
+    <result name="fit_peaks_d0" value="21.181861804284317"/>
+    <result name="fit_peaks_grain_size" value="178.86938947633624"/>
+    <result name="fit_peaks_qT" value="0.01935479052744657"/>
+    <result name="fit_peaks_dT" value="32.46320490149222"/>
+    <result name="fit_peaks_qR" value="0.0015413029701276443"/>
+    <result name="fit_peaks_dR" value="407.6541360754816"/>
+  </protocol>
+  <protocol end_timestamp="1604610137.9869897" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="2.4390416145324707" save_timestamp="1604610137.9877279" start_timestamp="1604610135.5479481">
+    <result error="None" name="fit_peaks_m" value="-982131.2714798553"/>
+    <result error="None" name="fit_peaks_b" value="3274.717351877048"/>
+    <result error="None" name="fit_peaks_prefactor1" value="1261.7490370247633"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.031092564950324086"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0004675609254904764"/>
+    <result name="fit_peaks_prefactor_total" value="1261.7490370247633"/>
+    <result name="fit_peaks_chi_squared" value="1653128106.9952536"/>
+    <result name="fit_peaks_d0" value="20.207999298925948"/>
+    <result name="fit_peaks_grain_size" value="536.1073045189825"/>
+    <result name="fit_peaks_qT" value="0.02135852563712642"/>
+    <result name="fit_peaks_dT" value="29.417692091339163"/>
+    <result name="fit_peaks_qR" value="0.003545040262719566"/>
+    <result name="fit_peaks_dR" value="177.2387572929697"/>
+  </protocol>
+  <protocol end_timestamp="1604610150.4738073" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4193265438079834" save_timestamp="1604610150.4745817" start_timestamp="1604610149.0544808">
+    <result error="None" name="fit_peaks_m" value="-83718.86391216412"/>
+    <result error="None" name="fit_peaks_b" value="3152.047026989707"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.0"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.030130171096240443"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0008174680926368409"/>
+    <result name="fit_peaks_prefactor_total" value="0.0"/>
+    <result name="fit_peaks_chi_squared" value="5575.408842409146"/>
+    <result name="fit_peaks_d0" value="20.853467068308763"/>
+    <result name="fit_peaks_grain_size" value="306.63316369273474"/>
+    <result name="fit_peaks_qT" value="0.02002906696885652"/>
+    <result name="fit_peaks_dT" value="31.370334509088217"/>
+    <result name="fit_peaks_qR" value="0.0022155801034629374"/>
+    <result name="fit_peaks_dR" value="283.59097905595956"/>
+  </protocol>
+  <protocol end_timestamp="1604610168.9434042" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.3889367580413818" save_timestamp="1604610168.945065" start_timestamp="1604610167.5544674">
+    <result error="None" name="fit_peaks_m" value="-79683.65290339605"/>
+    <result error="None" name="fit_peaks_b" value="3097.7292965710294"/>
+    <result error="None" name="fit_peaks_prefactor1" value="0.0"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.029896608356118248"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0007006874220616185"/>
+    <result name="fit_peaks_prefactor_total" value="0.0"/>
+    <result name="fit_peaks_chi_squared" value="22763.484453950256"/>
+    <result name="fit_peaks_d0" value="21.01638163211163"/>
+    <result name="fit_peaks_grain_size" value="357.73844309289854"/>
+    <result name="fit_peaks_qT" value="0.019694668828823127"/>
+    <result name="fit_peaks_dT" value="31.902975174602332"/>
+    <result name="fit_peaks_qR" value="0.0018811816148717306"/>
+    <result name="fit_peaks_dR" value="334.00205793569853"/>
+  </protocol>
+  <protocol end_timestamp="1604610238.7879133" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4883780479431152" save_timestamp="1604610238.789396" start_timestamp="1604610237.2995353">
+    <result error="18609.513425034354" name="fit_peaks_m" value="-50710.90556106914"/>
+    <result error="567.2372634517322" name="fit_peaks_b" value="2087.4864924652156"/>
+    <result error="17.090380214800692" name="fit_peaks_prefactor1" value="110.62368405823413"/>
+    <result error="3.8718725614075374e-05" name="fit_peaks_x_center1" value="0.03126733035046938"/>
+    <result error="5.479862007432323e-05" name="fit_peaks_sigma1" value="0.0002561252057450111"/>
+    <result name="fit_peaks_prefactor_total" value="110.62368405823413"/>
+    <result name="fit_peaks_chi_squared" value="128.266106146903"/>
+    <result name="fit_peaks_d0" value="20.09504884731953"/>
+    <result name="fit_peaks_grain_size" value="978.6730155432294"/>
+    <result name="fit_peaks_qT" value="0.021592835524473615"/>
+    <result name="fit_peaks_dT" value="29.098472500557595"/>
+    <result name="fit_peaks_qR" value="0.003779350430276309"/>
+    <result name="fit_peaks_dR" value="166.25040263123262"/>
+  </protocol>
+  <protocol end_timestamp="1604610249.27069" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4567880630493164" save_timestamp="1604610249.2714875" start_timestamp="1604610247.813902">
+    <result error="14956.51400272291" name="fit_peaks_m" value="-70216.38242480124"/>
+    <result error="468.2354588099699" name="fit_peaks_b" value="2678.5681997170022"/>
+    <result error="16.85999504708889" name="fit_peaks_prefactor1" value="127.30040586274926"/>
+    <result error="4.099294657486457e-05" name="fit_peaks_x_center1" value="0.031299697619121956"/>
+    <result error="5.947608107065197e-05" name="fit_peaks_sigma1" value="0.0003021270110266736"/>
+    <result name="fit_peaks_prefactor_total" value="127.30040586274926"/>
+    <result name="fit_peaks_chi_squared" value="174.23010983897157"/>
+    <result name="fit_peaks_d0" value="20.07426839593809"/>
+    <result name="fit_peaks_grain_size" value="829.6604352299041"/>
+    <result name="fit_peaks_qT" value="0.021636020661503153"/>
+    <result name="fit_peaks_dT" value="29.040392433897154"/>
+    <result name="fit_peaks_qR" value="0.0038225356195207526"/>
+    <result name="fit_peaks_dR" value="164.3721846591278"/>
+  </protocol>
+  <protocol end_timestamp="1604610720.1111836" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4571099281311035" save_timestamp="1604610720.1120718" start_timestamp="1604610718.6540737">
+    <result error="14956.51400272291" name="fit_peaks_m" value="-70216.38242480124"/>
+    <result error="468.2354588099699" name="fit_peaks_b" value="2678.5681997170022"/>
+    <result error="16.85999504708889" name="fit_peaks_prefactor1" value="127.30040586274926"/>
+    <result error="4.099294657486457e-05" name="fit_peaks_x_center1" value="0.031299697619121956"/>
+    <result error="5.947608107065197e-05" name="fit_peaks_sigma1" value="0.0003021270110266736"/>
+    <result name="fit_peaks_prefactor_total" value="127.30040586274926"/>
+    <result name="fit_peaks_chi_squared" value="174.23010983897157"/>
+    <result name="fit_peaks_d0" value="20.07426839593809"/>
+    <result name="fit_peaks_grain_size" value="829.6604352299041"/>
+    <result name="fit_peaks_qT" value="0.021636020661503153"/>
+    <result name="fit_peaks_dT" value="29.040392433897154"/>
+    <result name="fit_peaks_qR" value="0.0038225356195207526"/>
+    <result name="fit_peaks_dR" value="164.3721846591278"/>
+  </protocol>
+  <protocol end_timestamp="1604610742.7515209" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.534447193145752" save_timestamp="1604610742.753157" start_timestamp="1604610741.2170737">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604611160.4778533" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.590935230255127" save_timestamp="1604611160.478782" start_timestamp="1604611158.886918">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604611229.3374023" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4849021434783936" save_timestamp="1604611229.3385239" start_timestamp="1604611227.8525002">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604611620.528044" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="9.22081208229065" save_timestamp="1604611620.5296974" start_timestamp="1604611611.307232">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604611690.6024995" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="5.722054958343506" save_timestamp="1604611690.6034293" start_timestamp="1604611684.8804445">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604611697.99905" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="4.357600450515747" save_timestamp="1604611698.0000038" start_timestamp="1604611693.6414495">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604611757.614024" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="2.2639358043670654" save_timestamp="1604611757.6149778" start_timestamp="1604611755.3500881">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604611802.100494" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="2.2721962928771973" save_timestamp="1604611802.1014347" start_timestamp="1604611799.8282976">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604611867.6962202" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="2.2813804149627686" save_timestamp="1604611867.6977406" start_timestamp="1604611865.4148397">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604611897.0917091" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="2.2140402793884277" save_timestamp="1604611897.0927098" start_timestamp="1604611894.8776689">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604612017.7451804" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="2.026811361312866" save_timestamp="1604612017.7462642" start_timestamp="1604612015.718369">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604612040.0396166" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="2.177595615386963" save_timestamp="1604612040.040739" start_timestamp="1604612037.862021">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604612578.069079" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="2.2160251140594482" save_timestamp="1604612578.0701513" start_timestamp="1604612575.8530538">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+  <protocol end_timestamp="1604612599.6640322" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="linecut_qz_fit" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.4738285541534424" save_timestamp="1604612599.6654694" start_timestamp="1604612598.1902037">
+    <result error="None" name="fit_peaks_m" value="30047.601829262916"/>
+    <result error="None" name="fit_peaks_b" value="0.0"/>
+    <result error="None" name="fit_peaks_prefactor1" value="843.0820445084016"/>
+    <result error="None" name="fit_peaks_x_center1" value="0.02592452190054038"/>
+    <result error="None" name="fit_peaks_sigma1" value="0.0005605236112670042"/>
+    <result name="fit_peaks_prefactor_total" value="843.0820445084016"/>
+    <result name="fit_peaks_chi_squared" value="35278.17102534231"/>
+    <result name="fit_peaks_d0" value="24.23645585937929"/>
+    <result name="fit_peaks_grain_size" value="447.19405645821655"/>
+    <result name="fit_peaks_qT" value="0.011819166050546349"/>
+    <result name="fit_peaks_dT" value="53.16098682689327"/>
+    <result name="fit_peaks_qR" value="0.005994326296429124"/>
+    <result name="fit_peaks_dR" value="104.8188736559526"/>
+  </protocol>
+</DataFile>

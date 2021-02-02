@@ -14,7 +14,7 @@
 #  Data analysis protocols.
 ################################################################################
 # Known Bugs:
-#  N/A
+#  Using both 'flag_swaxs' and 'background' at the same time likely won't work.
 ################################################################################
 # TODO:
 #  Search for "TODO" below.
@@ -36,73 +36,16 @@ class ProcessorXS(Processor):
         #calibration = kwargs['calibration'] if 'calibration' in kwargs else None
         #mask = kwargs['mask'] if 'mask' in kwargs else None
         #data = Data2DScattering(infile, calibration=calibration, mask=mask)
-        verbosity = self.run_args['verbosity']
-
-        if 'flag_swaxs' in kwargs and kwargs['flag_swaxs'] and ('waxs' in infile): # kwargs['calibration2'] and kwargs['mask2'] and 
-            if verbosity>4: print('# Using calirabtion2!')
-            data = Data2DScattering(infile, calibration=kwargs['calibration2'], mask=kwargs['mask2'])
-        else:
-            if verbosity>4: print('# Using calirabtion')
-            data = Data2DScattering(infile, **kwargs)
-	
+        
+        #data = Data2DScattering(infile, **kwargs)
+        data = self.handle_calibration(infile, **kwargs)
         data.infile = infile
+
         data.threshold_pixels(4294967295-1) # Eiger inter-module gaps
         
         if 'background' in kwargs:
-            data.name = data.name+'_rmbkg'	  
-            if isinstance(kwargs['background'], (int, float)):
-                # Constant background to be subtracted from whole image
-                data.data -= kwargs['background']
-            
-            elif isinstance(kwargs['background'], (str)):
-                # Subtract whole image as background
-                infiles_background = glob.glob(kwargs['background'])
-                if verbosity>4: print('# {} Background Files: {}'.format(len(infiles_background), infiles_background))
-                average_background_data = np.zeros(data.data.shape)
-                for ii, infile_background in enumerate(infiles_background):
-                    data_background = Data2DScattering(infile_background, **kwargs)
-                    average_background_data += data_background.data
-                average_background_data /= len(infiles_background)
-                
-                if isinstance(kwargs['transmission_int'], (str)):
-                    # Read from file
-                    try:
-                        df = pd.read_csv(kwargs['transmission_int'])
-                    except:
-                        print('# Error reading {}'.format(kwargs['transmission_int']))
-                    if verbosity>4: print(df)
-                    # Find the best matched name from CSV
-                    print(infile)
-                    samplename = Filename(infile).get_best_match(df['a_filename'])
-                    emptyname = Filename(infile_background).get_best_match(df['a_filename'])
-                    df0 = df[df['a_filename'].str.contains(emptyname)]
-                    df1 = df[df['a_filename'].str.contains(samplename)]
-                    print("# Found {} and {}".format(df0['a_filename'].values, df1['a_filename'].values))
-                    # User the latest if more than one
-                    factor = df1.c_I0.to_numpy()[-1] / df0.c_I0.to_numpy()[-1]
-                
-                elif isinstance(kwargs['transmission_int'], (int, float)):
-                    # Specify value
-                    factor = kwargs['transmission_int']		  
-                else:
-                    print('# WARNING: transmission_int invalid, use factor=1')
-                    factor = 1.0             
-                
-                if verbosity>2: print("# factor = {:.3f}".format(factor))
-                average_background_data[average_background_data>=0] *= factor
-                if verbosity>4:
-                    print("# Before: data MAX {:.3f}, MEAN {:.3f}".format(np.max(data.data), np.mean(data.data)))
-                
-                data.data -= average_background_data
-                if verbosity>4:
-                    print("# After: data MAX {:.3f}, MEAN {:.3f}".format(np.max(data.data),np.mean(data.data)))
-
-            elif isinstance(kwargs['background'], (list, np.ndarray)):
-                # TODO: Subtract whole image as background
-                pass
-            else:
-                print("ProcessorXS.load: Specified background type not recognized.")
-          
+            data.name = data.name+'_rmbkg'
+            self.handle_background(data, **kwargs)
         
         if 'dezing' in kwargs and kwargs['dezing']:
             data.dezinger()
@@ -129,7 +72,122 @@ class ProcessorXS(Processor):
 
         return data
         
+    
+    def handle_background(self, data, **kwargs):
         
+        verbosity = kwargs['verbosity'] if 'verbosity' in kwargs else 3
+        
+        if isinstance(kwargs['background'], (int, float)):
+            # Constant background to be subtracted from whole image
+            data.data -= kwargs['background']
+            
+        elif isinstance(kwargs['background'], str):
+            # Subtract whole image as background
+            infiles_background = glob.glob(kwargs['background'])
+            if verbosity>=5:
+                print('# {} Background Files: {}'.format(len(infiles_background), infiles_background))
+            average_background_data = np.zeros(data.data.shape)
+            for ii, infile_background in enumerate(infiles_background):
+                data_background = Data2DScattering(infile_background, **kwargs)
+                average_background_data += data_background.data
+            average_background_data /= len(infiles_background)
+
+            if isinstance(kwargs['transmission_int'], (str)):
+                # Read from file
+                import pandas as pd
+                df = pd.read_csv(kwargs['transmission_int'])
+                if verbosity>=6:
+                    print(df)
+                
+                # Find the best matched name from CSV
+                samplename = Filename(infile).get_best_match(df['a_filename'])
+                emptyname = Filename(infile_background).get_best_match(df['a_filename'])
+                df0 = df[df['a_filename'].str.contains(emptyname)]
+                df1 = df[df['a_filename'].str.contains(samplename)]
+                print("# Found {} and {}".format(df0['a_filename'].values, df1['a_filename'].values))
+                # User the latest if more than one
+                factor = df1.c_I0.to_numpy()[-1] / df0.c_I0.to_numpy()[-1]
+
+            elif isinstance(kwargs['transmission_int'], (int, float)):
+                # Specify value
+                factor = kwargs['transmission_int']		  
+            else:
+                print('# WARNING: transmission_int invalid, use factor=1')
+                factor = 1.0             
+
+            if verbosity>=3: print("# factor = {:.3f}".format(factor))
+            average_background_data[average_background_data>=0] *= factor
+            if verbosity>=5:
+                print("# Before: data MAX {:.3f}, MEAN {:.3f}".format(np.max(data.data), np.mean(data.data)))
+
+            data.data -= average_background_data
+            
+            if verbosity>=5:
+                print("# After: data MAX {:.3f}, MEAN {:.3f}".format(np.max(data.data),np.mean(data.data)))
+
+            
+        elif isinstance(kwargs['background'], (list, np.ndarray)):
+            # Subtract supplied array as background
+            data.data -= kwargs['background']
+            
+        else:
+            print("ProcessorXS.load: Specified background type not recognized.")
+        
+        
+    def handle_calibration(self, infile, **kwargs):
+        # This is currently an ad-hoc definition tuned to a particular set of
+        # assumptions about kwargs names.
+        # TODO: This should probably be replaced with a general way to handle
+        # multiple detectors (each with their own calibration). For instance, the
+        # calibration object can internally have references to multipe calibration
+        # objects for detectors. Then datasets can control which calibration they
+        # are using.
+        
+        verbosity = kwargs['verbosity'] if 'verbosity' in kwargs else 3
+        
+        if 'flag_swaxs' in kwargs and kwargs['flag_swaxs']:
+            if 'calibration2' in kwargs and 'mask2' in kwargs:
+                if verbosity>=5:
+                    print('    ProcessorXS.load using calibration2 and mask2')
+                data = Data2DScattering(infile, calibration=kwargs['calibration2'], mask=kwargs['mask2'])
+                # WARNING: This init doesn't pass other kwargs. This is probably fine, but means
+                # if future kwargs behavior is added in the future, they won't be recongized here.
+            else:
+                print('ERROR: calibration2 and/or mask2 not provided.')
+        else:
+            if verbosity>=5:
+                print('    ProcessorXS.load using default calibration')
+            data = Data2DScattering(infile, **kwargs) # Default load
+            
+        return data
+
+
+    def connect_databroker(self, beamline):
+        '''Establish a connection to a Bluesky databroker database.
+        This allows protocols to access databroker to get metadata
+        that might be useful to their analysis.'''
+
+        #from databroker import list_configs
+        #print( list_configs() ) # List of available beamlines
+
+        from databroker import Broker
+        self.db = Broker.named(beamline)
+
+
+    def get_db(self, recent_days=None, verbosity=3, **constraints):
+        
+        if recent_days is not None:
+            constraints['since'] = time.time() - recent_days*24*60*60
+        
+        headers = self.db(**constraints)
+        headers = [h for h in headers]
+        
+        if verbosity>=1 and len(headers)!=1:
+            print('  WARNING: get_db got {} matches for constraints: {}'.format(len(headers), constraints))
+        
+        
+        return headers[0]
+            
         
 class HDF5(Protocol):
 
@@ -183,6 +241,7 @@ class thumbnails(Protocol):
         if run_args['preserve_data']:
             # Avoid changing the data (which would disrupt downstream analysis of this data object)
             data = copy.deepcopy(data)
+            # TODO: This can raise errors (mpl or qt nodes may not copy cleanly).
         
         if run_args['crop'] is not None:
             data.crop(run_args['crop'], shift_crop_up=run_args['shift_crop_up'], make_square=run_args['make_square'])
@@ -277,11 +336,19 @@ class circular_average(Protocol):
             line.x = two_theta_s_rad/np.pi*180		
             line.x_rlabel = '2theta (deg)'	
 
+        if 'twotheta' in run_args and run_args['twotheta']:
+            line.x = data.calibration.q_to_angle(line.x)
+            line.x_label = '2theta (deg)'
+            line.x_rlabel = '$2 \theta \, (^{\circ})$'
+        
+        # TODO: Add options for a second x-axis scaled as twotheta or d=2*pi/q
+
         if 'txt' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.dat')
             line.save_data(outfile)
 
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, **run_args)
 
@@ -348,6 +415,7 @@ class circular_average_sum(circular_average):
         lines.results = results
 
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, lines, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
             lines.plot(save=outfile, **run_args)
 
@@ -402,6 +470,7 @@ class circular_average_q2I(Protocol):
             
         
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
             outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
             line.plot(save=outfile, **run_args)
         
@@ -446,6 +515,7 @@ class fit_peaks(Protocol):
         
         # Calculate some additional things
         for i in range(run_args['num_curves']):
+            # TODO: Add calculation of errors.
             d = 0.1*2.*np.pi/results['{}_x_center{}'.format(fit_name, i+1)]['value']
             results['{}_d0{}'.format(fit_name, i+1)] = d
             xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma{}'.format(fit_name, i+1)]['value']
@@ -754,6 +824,7 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
         
         
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, lines, **run_args)
             outfile = self.get_outfile(data.name, output_dir, ext='_q2I{}'.format(self.default_ext))
             lines.plot(save=outfile, **run_args)
         
@@ -808,11 +879,16 @@ class sector_average(Protocol):
                             'title': data.name,
                             }
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
 
@@ -871,11 +947,16 @@ class sector_average_fit(sector_average, fit_peaks):
                 line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
         
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         #if 'plots' in run_args['save_results']:
+            #self.label_filename(data, line, **run_args)
             #outfile = self.get_outfile(data.name, output_dir)
             #line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
 
@@ -890,6 +971,7 @@ class sector_average_fit(sector_average, fit_peaks):
         # Do fit
         lines = self._fit(line, results, **run_args)
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, lines, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
             lines.plot(save=outfile, **run_args)        
         
@@ -917,8 +999,13 @@ class roi(Protocol):
         
         results.update( data.roi_q(**run_args) )
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         if run_args['verbosity']>=3:
             print('ROI stats:')
@@ -956,8 +1043,13 @@ class linecut_angle(Protocol):
         #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
         line = data.linecut_angle(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         if 'smooth' in run_args:
             line.smooth(run_args['smooth'])
@@ -968,14 +1060,18 @@ class linecut_angle(Protocol):
             P_h = 1 - np.square(np.sin(two_theta_rad))*np.square(np.sin(np.radians(chi_deg)))
             line.y *= P_h
 
-        outfile = self.get_outfile(data.name, output_dir)
-        line.plot(save=outfile, **run_args)
-            
-        #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
-        #line.plot_polar(save=outfile, **run_args)
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
+            
+            #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+            #line.plot_polar(save=outfile, **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
         
         return results
                                 
@@ -1004,19 +1100,24 @@ class linecut_qr(Protocol):
         
         line = data.linecut_qr(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         #line.smooth(2.0, bins=10)
-        
-        outfile = self.get_outfile(data.name, output_dir)
-        line.plot(save=outfile, **run_args)
 
-        #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
-        #line.plot_polar(save=outfile, **run_args)
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
 
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
         
         return results
                                 
@@ -1042,20 +1143,24 @@ class linecut_qz(Protocol):
         
         line = data.linecut_qz(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         #line.smooth(2.0, bins=10)
         
-        outfile = self.get_outfile(data.name, output_dir)
-        line.plot(save=outfile, **run_args)
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
 
-        #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
-        #line.plot_polar(save=outfile, **run_args)
-
-        outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-        line.save_data(outfile)
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
         
         return results                
 
@@ -1082,18 +1187,20 @@ class linecut_q(Protocol):
         #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
         line = data.linecut_q(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         #line.smooth(2.0, bins=10)
 
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, **run_args)
-
-            #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
-            #line.plot_polar(save=outfile, **run_args)
 
         if 'txt' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.dat')
@@ -1144,8 +1251,13 @@ class linecut_qr_fit(linecut_qr, fit_peaks):
         
         line = data.linecut_qr(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         #line.smooth(2.0, bins=10)
         
@@ -1160,6 +1272,7 @@ class linecut_qr_fit(linecut_qr, fit_peaks):
         #lines = DataLines([line])
 
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, lines, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
             lines.plot(save=outfile, **run_args)        
         
@@ -1199,8 +1312,13 @@ class _old_linecut_qr_fit(linecut_qr):
         
         line = data.linecut_qr(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         #line.smooth(2.0, bins=10)
         
@@ -1461,8 +1579,12 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
         
         line = data.linecut_qz(**run_args)
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
         
         
         #line.smooth(2.0, bins=10)
@@ -1471,6 +1593,7 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
         
         
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, **run_args)
 
@@ -1480,7 +1603,7 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
 
         
         if 'incident_angle' not in run_args:
-            run_args['incident_angle'] = 0
+            run_args['incident_angle'] = data.calibration.incident_angle
             
             import re
             filename_re = re.compile('^.+_th(-?\d+\.\d+)_.+$')
@@ -1488,6 +1611,8 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
             if m:
                 run_args['incident_angle'] = float(m.groups()[0])
                 
+        if 'verbosity' in run_args and run_args['verbosity']>=4:
+            print('    Using incident_angle = {:.3f} degrees'.format(run_args['incident_angle']))
                 
         #if 'critical_angle_film' not in run_args:
             #run_args['critical_angle_film'] = 0
@@ -1597,23 +1722,18 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
                 if 'critical_angle_film' in self.run_args:
                     s = '$q_T = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_T = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qT'], self.results['fit_peaks_dT'])
                     self.ax.text(q0, y_fit_max, s, size=15, color='b', horizontalalignment='left', verticalalignment='bottom')
-                    self.ax.plot( [q0-self.results['fit_peaks_qT'], q0], [y_fit_max, y_fit_max], '-', color='b' )
+                    self.ax.plot( [self.results['fit_peaks_qT'], q0], [y_fit_max, y_fit_max], '-', color='b' )
 
                     s = '$q_R = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$ \n $d_R = \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_qR'], self.results['fit_peaks_dR'])
                     self.ax.text(q0, 0, s, size=15, color='r', horizontalalignment='left', verticalalignment='bottom')
-                    self.ax.plot( [q0-self.results['fit_peaks_qR'], q0], [yi, yi], '-', color='r' )
+                    self.ax.plot( [self.results['fit_peaks_qR'], q0], [yi, yi], '-', color='r' )
                 
                 
                 
                 if self.run_args['show_guides']:
                     # Show various guides of scattering features
-                    
-
-                    
                     theta_incident_rad = np.radians(self.run_args['incident_angle'])
                     
-                    
-
                     # Direct
                     qz = 0
                     self.ax.axvline( qz, color='0.25' )
@@ -1680,6 +1800,7 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
         
         
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, lines, **run_args)
             outfile = self.get_outfile(data.name+'-fit', output_dir, ext='.png')
             #lines.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
             lines.plot(save=outfile, **run_args)
@@ -1728,8 +1849,8 @@ class linecut_qz_fit(linecut_qz): # TODO: Use class fit_peaks
         
         #params.add('m', value=0)
         #params.add('b', value=np.min(line.y), min=0, max=np.max(line.y))
-        #params.add('m', value=m, min=abs(m)*-10, max=abs(m)*+10)
-        params.add('m', value=m, min=abs(m)*-5, max=1e-12) # Slope must be negative
+        params.add('m', value=m, min=abs(m)*-10, max=abs(m)*+10)
+        #params.add('m', value=m, min=abs(m)*-5, max=1e-12) # Slope must be negative
         params.add('b', value=b, min=0)
         
         
@@ -1822,8 +1943,13 @@ class linecut_angle_fit(linecut_angle):
         line.smooth(2.0)
         
         
-        if 'show_region' in run_args and run_args['show_region']:
-            data.plot(show=True)
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
         
         if 'txt' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.dat')
@@ -1906,6 +2032,7 @@ class linecut_angle_fit(linecut_angle):
             
         # Output
         if 'plots' in run_args['save_results']:
+            self.label_filename(data, lines, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
             lines.lines.reverse()
             lines.plot(save=outfile, **run_args)
@@ -2093,10 +2220,10 @@ class calibration_check(Protocol):
                 
                 
                 
-# Work in progress
-################################################################################                    
                 
 class fit_calibration(Protocol):
+    # Work in progress
+    ################################################################################                    
 
     def __init__(self, name=None, **kwargs):
         
@@ -2321,11 +2448,17 @@ class q_image(Protocol):
             
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
+        self.label_filename(data, q_data, **run_args)
         q_data.plot(outfile, **run_args)
         
-        if 'save_data' in run_args and run_args['save_data']:
+        #if 'save_data' in run_args and run_args['save_data']: # Deprecated
+        if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:
+            q_data.name = data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)
         
         
         return results
@@ -2339,11 +2472,11 @@ class qr_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        'save_data' : True,
-                        }
+            'blur' : None,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            #'save_data' : False, # Deprecated
+            }
         self.run_args.update(kwargs)
         
 
@@ -2387,12 +2520,17 @@ class qr_image(Protocol):
 
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
+        self.label_filename(data, q_data, **run_args)
         q_data.plot(outfile, **run_args)
         
-        if 'save_data' in run_args and run_args['save_data']:
-            print('data is saving')
+        #if 'save_data' in run_args and run_args['save_data']: # Deprecated
+        if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
+        
+        if 'hdf5' in run_args['save_results']:
+            q_data.name = data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)
         
         
         return results
@@ -2629,12 +2767,18 @@ class q_image_special(q_image):
 
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.30,0.08,0.25,0.05]
+        self.label_filename(data, q_data, **run_args)
         q_data.plot(outfile, **run_args)
         
         
-        if 'save_data' in run_args and run_args['save_data']:
+        #if 'save_data' in run_args and run_args['save_data']: # Deprecated
+        if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)
+        
+        if 'hdf5' in run_args['save_results']:
+            q_data.name = data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)
         
         
         return results
@@ -2649,15 +2793,16 @@ class q_phi_image(Protocol):
         
         self.default_ext = '.png'
         self.run_args = {
-                        'blur' : None,
-                        'bins_relative' : 0.5,
-                        'bins_phi' : 360.0/1.0,
-                        'ztrim' : [0.05, 0.005],
-                        'method' : 'nearest',
-                        'yticks' : [-180, -90, 0, 90, 180],
-                        'save_data' : True,
-                        'save_data_pickle' : True,
-                        }
+            'blur' : None,
+            'bins_relative' : 0.5,
+            'bins_phi' : 360.0/1.0,
+            'ztrim' : [0.05, 0.005],
+            'method' : 'nearest',
+            'yticks' : [-180, -90, 0, 90, 180],
+            #'save_data' : False, # Deprecated
+            'save_data_pickle' : True,
+            }
+
         self.run_args.update(kwargs)
         
 
@@ -2688,6 +2833,7 @@ class q_phi_image(Protocol):
 
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.20,0.05,0.20,0.05]
+        self.label_filename(data, q_data, **run_args)
         q_data.plot(outfile, **run_args)
 
         q_data.x_label = 'q'
@@ -2696,12 +2842,19 @@ class q_phi_image(Protocol):
         q_data.y_rlabel = '$phi \, (\mathrm{\deg})$'
 
         
-        if run_args['save_data']:
+        #if 'save_data' in run_args and run_args['save_data']: # Deprecated
+        if 'npz' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.npz')
             q_data.save_data(outfile)         
 
+        if 'hdf5' in run_args['save_results']:
+            q_data.name = data.name
+            self.save_Data2D_HDF5(q_data, 'q_image', output_dir, results=results)
+
+
         # TODO: Deprecate in favor of 'save_data' .npz file
-        if 'save_data_pickle' in run_args and run_args['save_data_pickle']:
+        #if 'save_data_pickle' in run_args and run_args['save_data_pickle']:
+        if 'pkl' in run_args['save_results']:
             # Save Data2DQPhi() object
             import pickle
             outfile = self.get_outfile(data.name, output_dir, ext='.pkl')
@@ -2940,10 +3093,92 @@ class metadata_extract(Protocol):
 
 
 
+class databroker_extract(Protocol):
 
+    def __init__(self, name='databroker_extract', **kwargs):
+
+        self.name = self.__class__.__name__ if name is None else name
+
+        self.default_ext = '.npy'
+        self.run_args = {
+            'constraints': None, # Set of md constraints to help find the files of interest
+            'timestamp': True, # Restrict db searching based on file timestamp
+            'timestamp_window': 3600, # We provide a finite window since the db entry is at the start of the measure, while the file timestamp is at the end
+            'recent_days': None, # Restrict db searching to recent history
+            'section': 'start', # Put results from a particular document section into the top-level
+            }
+        self.run_args.update(kwargs)
+
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+
+        results = {}
+
+
+        db = self._processor.db # databroker
+
+        results['filename_resolved'] = Path(data.infile).resolve()
+        results['filename'] = Path(data.infile).stem
+
+        # This makes assumptions about what the filename looks like:
+        filename = results['filename'][:-5] # The [:-5] removes the trailing "_saxs"
+        scan_id = int(filename.split('_')[-1])
+
+
+        # We will do a search like:
+        start_time = time.time()
+        #headers = db(filename=filename, scan_id=scan_id)
+
+        # There are various ways to define the search
+        constraints = run_args['constraints'] if run_args['constraints'] is not None else {}
+        constraints['filename'] = filename
+        constraints['scan_id'] = scan_id
+        #constraints['measure_type'] = 'measure'
+        if run_args['timestamp']:
+            constraints['since'] = timestamp(results['filename_resolved'])-run_args['timestamp_window']
+            constraints['until'] = timestamp(results['filename_resolved'])+run_args['timestamp_window']
+        if run_args['recent_days'] is not None:
+            constraints['since'] = time.time() - run_args['recent_days']*24*60*60
+
+
+        # Search for this filename in databroker
+        headers = db(**constraints)
+
+
+        headers = [h for h in headers]
+        if run_args['verbosity']>=1 and len(headers)!=1:
+            print('  WARNING: databroker_extract got {} matches for filename: {}'.format(len(headers), filename))
+        header = headers[0]
+
+        if run_args['verbosity']>=4:
+            print('        databroker lookup took {:.2f}s'.format(time.time()-start_time))
+        results['uid'] = header['start']['uid']
+        if run_args['section'] is not None and run_args['section'] in header:
+            # Put the results of this section into the top-level
+            results.update(header[run_args['section']])
+
+        # Add all db metadata to the results
+        for section_name in header.keys():
+            results[section_name] = header[section_name]
+
+        if run_args['verbosity']>=10:
+            print_n(results)
+
+        return results
+
+
+
+
+
+
+
+
+
+
+# DEPRECATED
 # Protocols that operate on multiple files
 # These methods are being moved to a separate file (Multiple.py)
-    
 class _deprecated_sum_images(Protocol):
     
     def __init__(self, name='sum_images', **kwargs):
@@ -3042,8 +3277,6 @@ class _deprecated_sum_images(Protocol):
             data.resize(run_args['resize'])        
             
         return data
-    
-    
     
 class _deprecated_merge_images_tiling(Protocol):
     
@@ -3181,7 +3414,6 @@ class _deprecated_merge_images_tiling(Protocol):
             
         
         return results
-            
     
 class _deprecated_merge_images_gonio_phi(Protocol):
     
@@ -3313,7 +3545,4 @@ class _deprecated_merge_images_gonio_phi(Protocol):
             
         
         return results
-        
-        
-        
-        
+# DEPRECATED

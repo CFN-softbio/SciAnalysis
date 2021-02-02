@@ -28,6 +28,11 @@ import os
 import time, difflib
 import numpy as np
 
+
+from pathlib import Path
+import sqlite3, pickle # Used for storing/retrieving from database
+
+
 from SciAnalysis.settings import * #from .settings import *
 
 try:
@@ -40,6 +45,11 @@ except:
     USE_LXML = False
 import xml.dom.minidom as minidom
 
+
+
+# Helpers
+########################################
+
 def make_dir(directory):
     if not os.path.isdir(directory):
         #os.mkdir( directory )
@@ -49,6 +59,10 @@ def timestamp(filepath):
     statinfo = os.stat(filepath)
     filetimestamp = statinfo.st_mtime
     return filetimestamp
+
+
+# Printout helpers
+########################################
 
 def print_array(data, name='array', verbosity=3):
     '''Helper code for inspecting arrays (e.g. for debugging).'''
@@ -60,11 +74,44 @@ def print_array(data, name='array', verbosity=3):
     if verbosity>=4:
         print(data)
 
+def print_d(d, i=4):
+    '''Simple helper to print a dictionary.'''
+    for k, v in d.items():
+        if isinstance(v,dict):
+            print('{}{} : <dict>'.format(' '*i,k))
+            print_d(v, i=i+4)
+        elif isinstance(v,(np.ndarray)):
+            print('{}{} : Ar{}: {}'.format(' '*i,k,v.shape,v))
+        elif isinstance(v,(list,tuple)):
+            print('{}{} : L{}: {}'.format(' '*i,k,len(v),v))
+        else:
+            print('{}{} : {}'.format(' '*i,k,v))
+
+def print_results(results):
+    '''Simple helper to print out a list of dictionaries.'''
+    for i, result in enumerate(results):
+        print(i)
+        print_d(result)
+
+def print_n(d):
+    '''Simple helper to print nested arrays/dicts'''
+    if isinstance(d, (list,tuple,np.ndarray)):
+        print_results(d)
+    elif isinstance(d, dict):
+        print_d(d)
+    else:
+        print(d)
+
+def val_stats(values, name='z'):
+    span = np.max(values)-np.min(values)
+    print("  {} = {:.2g} ± {:.2g} (span {:.2g}, from {:.3g} to {:.3g})".format(name, np.average(values), np.std(values), span, np.min(values), np.max(values)))
+
 
 
 # Filename
 ################################################################################
-# TODO: Modernize by using Python3's from pathlib import Path
+# TODO: Modernize by using Python3's new capabilities:
+#    from pathlib import Path
 class Filename(object):
     '''Parses a filename into pieces following the desired pattern.'''
     
@@ -135,13 +182,22 @@ class Filename(object):
         return self.get_filepath()
 
     def get_best_match(self, filelist): 
+        import difflib
         # Find a string from the filelist that matches the filebase the most
-        length = -1; 
-        while True and length>(-len(self.filebase)):
-            samplename= difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+        length = -1
+        while length > (-len(self.filebase)):
+            samplename = difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
             # get the best match
-            length = length-5
+            length = length-5 # TODO: Explain why a -5 step is used
             if samplename in self.filebase: break # break if the best mathch is actually in the filename
+        
+        # TODO: Replace above code with for loop, along the lines of:
+        #samplename = None
+        # for length in range(-1, -len(self.filebase), -5):
+            #if (samplename is not None) and samplename in self.filebase: break
+            #samplename = difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+            
+            
         return samplename	  
 
     # End class Filename(object)
@@ -160,7 +216,20 @@ class Processor(object):
         
         self.load_args = load_args
         self.run_args = run_args
-           
+        
+        self.db_connection = None
+        self.db_cursor = None
+
+
+    def __del__(self):
+        '''Destructor for the Processor class, called when this object
+        is no longer needed.'''
+        
+        # Close our connection to the results database
+        if self.db_connection is not None:
+            if self.db_connection:
+                self.db_connection.close()
+    
     
     def set_files(self, infiles):
         
@@ -202,6 +271,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -264,6 +335,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -271,6 +344,7 @@ class Processor(object):
         n_jobs = r_args['num_jobs'] if 'num_jobs' in r_args else 5
         with Parallel(n_jobs=n_jobs) as parallel:
             ret = parallel( delayed(self.run_parallel_file)(infile, protocols, output_dir, force, ignore_errors, l_args, r_args, verbosity) for infile in infiles )
+
             
     def run_parallel_file(self, infile, protocols, output_dir, force, ignore_errors, l_args, r_args, verbosity):
             
@@ -323,10 +397,14 @@ class Processor(object):
     
     def store_results(self, results, output_dir, name, protocol, **md):
         
-        if ('save_results' not in md) or ('xml' in md['save_results']):
-            # Default behavior is to save to xml file
-
-            output_dir = self.access_dir(output_dir, 'results')
+        if 'save_results' not in md:
+            md['save_results'] = ['xml', 'sql']
+        
+        output_dir = self.access_dir(output_dir, 'results')
+        
+        if 'xml' in md['save_results']:
+            # Save the results to an XML file with the name of the input file
+            
             if 'full_name' in md and md['full_name']:
                 outfile = os.path.join( output_dir, Filename(name).get_filename()+'.xml' )
             else:
@@ -360,29 +438,116 @@ class Processor(object):
             attributes = dict([k, str(v)] for k, v in attributes.items())
             prot = etree.SubElement(root, 'protocol', **attributes)
 
-            for name, content in results.items():
+            for result_name, content in results.items():
                 import numpy as np
 
                 if isinstance(content, dict):
                     content = dict([k, str(v)] for k, v in content.items())
-                    etree.SubElement(prot, 'result', name=name, **content)
+                    etree.SubElement(prot, 'result', name=result_name, **content)
                     
                 elif isinstance(content, list) or isinstance(content, np.ndarray):
                     
-                    res = etree.SubElement(prot, 'result', name=name, type='list')
+                    res = etree.SubElement(prot, 'result', name=result_name, type='list')
                     for i, element in enumerate(content):
                         etree.SubElement(res, 'element', index=str(i), value=str(element))
                         
                 else:
-                    etree.SubElement(prot, 'result', name=name, value=str(content))
+                    etree.SubElement(prot, 'result', name=result_name, value=str(content))
 
             tree = etree.ElementTree(root)
             if USE_LXML:
                 tree.write(outfile, pretty_print=True)
             else:
                 tree.write(outfile)
-
-
+                
+                
+        if 'sql' in md['save_results']:
+            # Save the results to an SQLite database
+            
+            #outfile = os.path.join( output_dir, 'results.db' )
+            #if not os.path.isfile(outfile):
+            outfile = Path(output_dir, 'results.db')
+            if not outfile.is_file():
+                # Create database
+                self.db_connection = sqlite3.connect(str(outfile))
+                self.db_cursor = self.db_connection.cursor()
+                
+                # Create db structure
+                sql = '''-- analyses table (for each run of a Protocol)
+                CREATE TABLE IF NOT EXISTS analyses (
+                        analysis_id integer PRIMARY KEY,
+                        protocol text NOT NULL,
+                        infile text NOT NULL,
+                        filename text NOT NULL,
+                        infile_resolved text NOT NULL,
+                        start_timestamp timestamp NOT NULL,
+                        end_timestamp timestamp NOT NULL,
+                        runtime real NOT NULL,
+                        save_timestamp timestamp NOT NULL
+                );
+                '''
+                self.db_cursor.execute(sql)
+                sql = '''-- results table (for each result/value)
+                CREATE TABLE IF NOT EXISTS results (
+                        result_id integer PRIMARY KEY,
+                        analysis_id integer NOT NULL,
+                        protocol text NOT NULL,
+                        result_name text NOT NULL,
+                        value real,
+                        units text,
+                        error real,
+                        value_text text,
+                        value_blob blob
+                );
+                '''
+                self.db_cursor.execute(sql)
+                
+                
+            if self.db_connection is None:
+                # Connect to database
+                self.db_connection = sqlite3.connect(str(outfile))
+                self.db_cursor = self.db_connection.cursor()
+            
+            # Store data in SQLite database
+            
+            # First store the analysis run
+            sql = '''-- Add a new analysis run
+            INSERT INTO analyses (protocol, infile, filename, infile_resolved, start_timestamp, end_timestamp, runtime, save_timestamp)
+            VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP);
+            '''
+            
+            insert_tuple = (protocol.name, name, str(Path(name).stem), str(Path(name).resolve()), protocol.start_timestamp, protocol.end_timestamp, protocol.end_timestamp-protocol.start_timestamp )
+            self.db_cursor.execute(sql, insert_tuple)
+            
+            
+            analysis_id = self.db_cursor.lastrowid
+            
+            # Then store each result value
+            for result_name, content in results.items():
+                insert_tuple = [analysis_id, protocol.name, result_name, None, None, None, None, None]
+                if isinstance(content, (int,float)):
+                    insert_tuple[3] = content
+                elif isinstance(content, str):
+                    insert_tuple[6] = content
+                elif isinstance(content, dict):
+                    if 'value' in content:
+                        insert_tuple[3] = content['value']
+                    if 'units' in content:
+                        insert_tuple[4] = content['units']
+                    if 'error' in content:
+                        insert_tuple[5] = content['error']
+                    insert_tuple[7] = pickle.dumps(content)
+                else:
+                    insert_tuple[7] = pickle.dumps(content)
+                
+                sql = '''-- Add a result
+                INSERT INTO results (analysis_id, protocol, result_name, value, units, error, value_text, value_blob) 
+                VALUES(?,?,?,?,?,?,?,?);
+                '''
+                self.db_cursor.execute(sql, insert_tuple)
+                
+                
+                
 
     def rundirs(self, indir, pattern='*', protocols=None, output_dir=None, force=False, check_timestamp=False, ignore_errors=False, sort=True, load_args={}, run_args={}, verbosity=3, **kwargs):
         
@@ -426,6 +591,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -475,6 +642,8 @@ class Processor(object):
 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
 
         if output_dir is None:
             output_dir = self.output_dir
@@ -513,6 +682,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -574,6 +745,8 @@ class Processor(object):
                 
         if protocols is None:
             protocols = self.protocols
+        for protocol in protocols:
+            protocol._processor = self # Allow a protocol to access global connections
             
         if output_dir is None:
             output_dir = self.output_dir
@@ -795,6 +968,10 @@ class Protocol(object):
 
     @run_default
     def run(self, data, output_dir, **run_args):
+        '''This class should be over-ridden in the derived class
+        used to define a given Protocol. This function will be called
+        when the Protocol is run, so the main logic of the analysis
+        should be within this function.'''
         
         outfile = self.get_outfile(data.name, output_dir)
         
@@ -830,8 +1007,16 @@ class Protocol(object):
         '''             
         outfile = self.get_outfile_HDF5(data.name, output_dir, extra=extra)
         
-        from .IO_HDF import dicttoh5
-        to_save = { 'data': data.data, 'label': label, 'results':results }
+        from SciAnalysis.IO_HDF import dicttoh5
+        to_save = {
+            'data': data.data, 
+            'label': label, 
+            'x_axis': data.x_axis,
+            'y_axis': data.y_axis,
+            'x_scale': data.x_scale,
+            'y_scale': data.y_scale,
+            'results':results 
+            }
         dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')
 
     def save_DataLine_HDF5(self, line, name, output_dir, results=None, extra=None):
@@ -849,7 +1034,7 @@ class Protocol(object):
         outfile = self.get_outfile_HDF5(name, output_dir, extra=extra)
         #print( 'In tools, the out put dir is: %s'%outfile )
         
-        from .IO_HDF import dicttoh5
+        from SciAnalysis.IO_HDF import dicttoh5
         # TODO: Handle case where there is only an x_err or y_err (but not both)
         if line.x_err is not None and line.y_err is not None:
             label =  [ line.x_label, line.y_label,  line.x_label+ '_err',  line.y_label+ '_err'    ]
@@ -862,6 +1047,15 @@ class Protocol(object):
         # TODO: Handle case where results contain arrays.
         #print( outfile, self.name )
         dicttoh5(to_save, outfile, overwrite_data=True, h5path='/{}'.format(self.name), mode='a')       
+        
+    def label_filename(self, data, datap=None, **run_args):
+        '''Handle the common case where we want to apply the data's
+        filename as the title for a graph.
+        The name of data.name is applied to datap'''
+        if 'label_filename' in run_args and run_args['label_filename']:
+            if datap is None:
+                datap = data
+            datap.plot_args.update( {'title': data.name} )
         
     
     # End class Protocol(object)
@@ -887,6 +1081,7 @@ class ProtocolMultiple(Protocol):
 
 # get_result
 ################################################################################
+# TODO: Rationalize when to use get_result and when to use Results()
 def get_result_xml(infile, protocol):
     '''Extracts a list of results for the given protocol, from the specified
     xml file. The most recent run of the protocol is used.'''
@@ -954,8 +1149,13 @@ def get_result_xml(infile, protocol):
     
     return results
 
-    # End def get_result()
+    # End def get_result_xml()
     ########################################
+
+# TODO: Add get_result_db() for extracting previous results from SQLite results.db
+
+
+
 
 
 # Notes

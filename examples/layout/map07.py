@@ -5,7 +5,8 @@ import time
 import os, sys
 import re
 import glob
-from scipy import ndimage
+#from scipy import ndimage
+import imageio
 
 
 HEADER ="""<?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -151,7 +152,9 @@ class LayoutSVG():
     def add_image(self, filename, xc, yc, width=200):
         
         # Determine actual image size (aspect ratio)
-        im = ndimage.imread(filename)
+        #im = ndimage.imread(filename) # Deprecated
+        im = imageio.imread(filename)
+        
         h, w, d = im.shape
         aspect = float(w)/float(h)
         height = width/aspect

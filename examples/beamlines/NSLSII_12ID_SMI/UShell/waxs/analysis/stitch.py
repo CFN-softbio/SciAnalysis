@@ -20,7 +20,6 @@ from SciAnalysis.XSAnalysis import Protocols
 
 # Experimental parameters
 ########################################
-mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
 
 # WAXS detector on SMI
 from SciAnalysis.XSAnalysis.DataGonio import *
@@ -39,6 +38,7 @@ calibration.set_distance(0.273900)
 calibration.set_angles(det_phi_g=0, det_theta_g=0)
 print('ratio Dw = {:.3f}'.format(calibration.get_ratioDw()))
 
+mask_dir = SciAnalysis_PATH + '/SciAnalysis/XSAnalysis/masks/'
 mask = Mask(mask_dir+'Dectris/Pilatus300kWv_main_gaps-mask.png')
 mask.load('./mask.png')
 

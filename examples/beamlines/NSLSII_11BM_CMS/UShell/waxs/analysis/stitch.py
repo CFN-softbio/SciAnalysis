@@ -134,7 +134,10 @@ for infile in infiles:
         search_for = '{}{}{}'.format(els[0], '_pos1_', els[2])
         try:
             pos1 = [s for s in allfiles if search_for in s][0]
-            outname = pos1[1:-6] # exclude .tiff 
+
+            #outname = pos1
+            outname = pos1[1:-6] # Exclude .tiff
+
         except:
             log_file(log_filename, infile)
             continue
