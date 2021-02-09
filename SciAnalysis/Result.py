@@ -332,10 +332,10 @@ class ResultsDB():
                 if result_row['value'] is not None:
                     value = result_row['value']
                     if result_row['units'] is not None:
-                        key = '{} units'.format(result_row['result_name'])
+                        key = '{}_units'.format(result_row['result_name'])
                         entries[key] = result_row['units']
                     if result_row['error'] is not None:
-                        key = '{} error'.format(result_row['result_name'])
+                        key = '{}_error'.format(result_row['result_name'])
                         entries[key] = result_row['error']
                 elif result_row['value_text'] is not None:
                     value = result_row['value_text']

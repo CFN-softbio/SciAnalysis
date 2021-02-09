@@ -279,6 +279,72 @@ class thumbnails(Protocol):
         
         
         
+class thumb_view(thumbnails):
+    '''Thumbnail variant intended to extract a square region of a 
+    prescribed size (in nm).'''
+    
+    def __init__(self, name='thumb_view', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.jpg'
+        self.run_args = {
+                        'size_nm' : 500,
+                        'blur' : 1.0,
+                        'resize' : 1.0,
+                        'cmap' : mpl.cm.Greys_r,
+                        'offset' : None,
+                        'preserve_data' : True,
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @tools.run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if run_args['preserve_data']:
+            # Avoid changing the data (which would disrupt downstream analysis of this data object)
+            data = copy.deepcopy(data)
+        
+        # Crop out the correct region
+        height, width = data.data.shape
+        
+        w_pix = run_args['size_nm']/data.x_scale
+        h_pix = run_args['size_nm']/data.y_scale
+        
+        left = (width-w_pix)/2
+        right = left
+        bottom = (height-h_pix)/2
+        top = bottom
+        
+        if run_args['offset'] is not None:
+            left += run_args['offset'][0]
+            right -= run_args['offset'][0]
+            top += run_args['offset'][1]
+            bottom -= run_args['offset'][1]
+        
+        data.crop_edges(left=left, right=right, bottom=bottom, top=top, relative=False)
+        
+        if run_args['blur'] is not None:
+            data.blur(run_args['blur'])
+        if run_args['resize'] is not None:
+            data.resize(run_args['resize']) # Shrink
+        
+        data.equalize()
+        
+        data.maximize_intensity_spread()
+        #print(data.stats())
+        
+        data.set_z_display([None, None, 'linear', 1.0])
+        outfile = self.get_outfile(data.name, output_dir)
+        data.plot_image(outfile, zmin=0, zmax=255, **run_args)
+        
+        return results
+    
+    
+    
 class fft(Protocol, mask):
     
     def __init__(self, name='fft', **kwargs):
@@ -291,8 +357,15 @@ class fft(Protocol, mask):
                         'Iqn_n' : 1.0,
                         'fourier_filter_invert' : False,
                         'fourier_filter_shift' : 0.3,
+                        'q_max_multiple' : 0.25,
+                        'q_max_q0_multiple' : 3.0,
                         }
         self.run_args.update(kwargs)
+
+
+    def output_exists(self, name, output_dir):
+        outfile = self.get_outfile('{}/01_fft'.format(name), output_dir, ext='.png')
+        return os.path.isfile(outfile)
         
 
     @run_default
@@ -340,7 +413,12 @@ class fft(Protocol, mask):
             data_fft.set_z_display( [None, None, 'gamma', 0.3] )
             outfile = self.get_outfile('fft_zoom', output_dir, ext='.png', ir=True)
             x_axis, y_axis = data_fft.xy_axes()
-            q_max = np.max(x_axis)*0.25
+            
+            if 'q0' in run_args:
+                q_max = run_args['q0']*run_args['q_max_q0_multiple']
+            else:
+                q_max = np.max(x_axis)*run_args['q_max_multiple']
+            
             data_fft.plot(save=outfile, ztrim=[0.5,0.0001], plot_range=[-q_max,+q_max,-q_max,+q_max], blur=run_args['blur'])
             if run_args['verbosity']>=4:
                 outfile = self.get_outfile('fft_zoom_blur', output_dir, ext='.png', ir=True)

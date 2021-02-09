@@ -475,11 +475,17 @@ class fit_peaks(Protocol):
         
         # Calculate some additional things
         for i in range(run_args['num_curves']):
-            # TODO: Add calculation of errors.
-            d = 0.1*2.*np.pi/results['{}_x_center{}'.format(fit_name, i+1)]['value']
-            results['{}_d0{}'.format(fit_name, i+1)] = d
-            xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma{}'.format(fit_name, i+1)]['value']
-            results['{}_grain_size{}'.format(fit_name, i+1)] = xi
+            q = results['{}_x_center{}'.format(fit_name, i+1)]['value']
+            d = 0.1*2.*np.pi/q
+            d_err = results['{}_x_center{}'.format(fit_name, i+1)]['error']*(d/q)
+            #results['{}_d0{}'.format(fit_name, i+1)] = d
+            results['{}_d0{}'.format(fit_name, i+1)] = { 'value': d, 'error': d_err }
+            
+            sigma = results['{}_sigma{}'.format(fit_name, i+1)]['value']
+            xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/sigma
+            xi_err = results['{}_sigma{}'.format(fit_name, i+1)]['error']*(xi/sigma)
+            #results['{}_grain_size{}'.format(fit_name, i+1)] = xi
+            results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi, 'error': xi_err }
             
         results['{}_d0'.format(fit_name)] = results['{}_d01'.format(fit_name)]
         results['{}_grain_size'.format(fit_name)] = results['{}_grain_size1'.format(fit_name)]
@@ -528,7 +534,7 @@ class fit_peaks(Protocol):
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = r'$d \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)])
+                    s = r'$d \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
@@ -536,7 +542,7 @@ class fit_peaks(Protocol):
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
                     
                     yp -= v_spacing
-                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)])
+                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)        
                     
         
@@ -855,7 +861,10 @@ class sector_average_fit(sector_average, fit_peaks):
             'bins_relative' : 1.0,
             'markersize' : 0,
             'linewidth' : 1.5,
-            'error' : True, 
+            'error' : False, 
+            #'elinewidth' : 0.25,
+            #'ecolor': '0.5',
+            #'capsize': 1.5,
             'show_region' : False,
             'qn_power' : None,
             'num_curves' : 1,
@@ -874,9 +883,6 @@ class sector_average_fit(sector_average, fit_peaks):
         
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
-        
-        if 'trim_range' in run_args:
-            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
         
         if run_args['qn_power'] is not None:
             if run_args['qn_power']==2.0:
@@ -908,6 +914,10 @@ class sector_average_fit(sector_average, fit_peaks):
 
         if 'hdf5' in run_args['save_results']:          
             self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
+
+
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
 
 
         # Do fit
@@ -1840,8 +1850,11 @@ class linecut_angle_fit(linecut_angle):
         self.run_args = {
             'show_region' : False,
             'plot_range' : [-90, 90, None, None],
-            'do_FWHM' : True,
-            'do_fits' : False,
+            'do_max' : True,
+            'do_fits' : True,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            'between_convention' : False,
             }
         self.run_args.update(kwargs)
         
@@ -1887,84 +1900,134 @@ class linecut_angle_fit(linecut_angle):
         
         
         
-        # Fit
         class DataLines_current(DataLines):
             
             def _plot_extra(self, **plot_args):
-                
-                v_spacing = 0.1
-                
+                #v_spacing = 0.1
                 xi, xf, yi, yf = self.ax.axis()
-
                 #yi = min( self.lines[-1].y )*0.5
                 #yf = max( self.lines[-1].y )*1.5
                 #self.ax.axis( [xi, xf, yi, yf] )
 
                 if run_args['do_fits']:
                     yp = yf
-                    s = '$\eta = {:.2f}$'.format(self.results['fit_eta_eta'])
+                    s = '$\eta = {:.2f}$'.format(self.results['fit_eta_eta']['value'])
                     self.ax.text(xi, yp, s, size=30, color='b', verticalalignment='top', horizontalalignment='left')
 
                     yp = yf
-                    s = '$m = {:.2f}$'.format(self.results['fit_MaierSaupe_m'])
+                    s = '$m = {:.2f}$'.format(self.results['fit_MaierSaupe_m']['value'])
                     self.ax.text(xf, yp, s, size=30, color='purple', verticalalignment='top', horizontalalignment='right')
                     
                     
-                if run_args['do_FWHM']:
-                    # FWHM
-                    line = self.lines[0]
-                    xt, yt = line.target_y(max(line.y))
-                    hm = yt*0.5
+                if run_args['do_max']:
+                    xt, yt = self.results['max_position'], self.results['max_height']
+                    fwhm = self.results['fwhm']
+                    self.ax.plot([xt], [yt], 'o', color='b', markersize=8)
+                    s = r'$\chi_{{ \mathrm{{max}} }} = {:.1f}^{{\circ}}$'.format(xt)
+                    self.ax.text(xt, yt, s, color='b', size=20, verticalalignment='bottom', horizontalalignment='left')
                     
-                    # Right (+) side
-                    line_temp = line.sub_range(xt, +60)
-                    xtr, ytr = line_temp.target_y(hm)
+                    self.ax.plot([xt-fwhm/2, xt+fwhm/2], [yt/2, yt/2], 'o-', color='b', markersize=8, linewidth=1.0)
+                    s = r'$\mathrm{{FWHM}} = {:.1f}^{{\circ}}$'.format(fwhm)
+                    self.ax.text(xt+fwhm/2, yt/2, s, color='b', size=20, verticalalignment='center', horizontalalignment='left')
                     
-                    
-                    # Left (-) side
-                    line_temp = line.sub_range(-60, xt)
-                    xtl, ytl = line_temp.target_y(hm)
-                    
-                    
-                    self.ax.plot([xtl, xtr], [ytl, ytr], 'o-', color='b', markersize=8, linewidth=1.0)
-                    s = r'$\mathrm{{FWHM}} = {:.1f}^{{\circ}}$'.format( abs(xtr-xtl) )
-                    self.ax.text(xtr, ytr, s, color='b', size=20, verticalalignment='center', horizontalalignment='left')
-
+                
+                angle = self.results['orientation_angle']
+                self.ax.axvline(angle, color='r', linewidth=1.0)
+                
+                s = '$\chi = {:.1f} ^{{\circ}} $'.format(angle)
+                self.ax.text(angle, yf, s, size=20, color='r', verticalalignment='top', horizontalalignment='right')
+                s = '$f = {:.3f}$'.format(self.results['orientation_factor'])
+                self.ax.text(angle, yi, s, size=20, color='r', verticalalignment='bottom', horizontalalignment='right')
                 
                 #self.ax.set_xticks([-180, -90, 0, +90, +180])
                 
                 
                 
-        lines = DataLines_current([]) # Not sure why the lines=[] argument needs to be specified here...
+        lines = DataLines_current()
         lines.add_line(line)
         lines.copy_labels(line)
-        lines.results = {}
+        angle = None
+            
+            
+        xt, yt = line.target_y(max(line.y))
+        angle = xt
+            
+        if run_args['do_max']:
+            # FWHM
+            hm = yt*0.5
+
+            # Right (+) side
+            line_temp = line.sub_range(xt, xt+60)
+            if len(line_temp.y)>0:
+                xtr, ytr = line_temp.target_y(hm)
+            else:
+                xtr = None
+            
+            # Left (-) side
+            line_temp = line.sub_range(xt-60, xt)
+            if len(line_temp.y)>0:
+                xtl, ytl = line_temp.target_y(hm)
+                if xtr is None:
+                    xtr, ytr = 2*xt-xtl, ytl
+            else:
+                xtl, ytl = 2*xt-xtr, ytr
+                
+            xtl, ytl = 2*xt-xtr, ytr
+            
+            results['max_position'] = xt
+            results['max_height'] = yt
+            results['fwhm'] = abs(xtr-xtl)
+            
+            
             
             
         if run_args['do_fits']:
             color_list = ['b', 'purple', 'r', 'green', 'orange',]
-            for i, fit_name in enumerate(['fit_eta', 'fit_MaierSaupe']):
+            for i, fit_name in enumerate(['fit_eta', 'fit_MaierSaupe', 'fit_eta_span']):
                 
                 lm_result, fit_line, fit_line_e = getattr(self, fit_name)(line, **run_args)
                 fit_line_e.plot_args['color'] = color_list[i%len(color_list)]
                 lines.add_line(fit_line_e)
+                if fit_name=='fit_eta_span':
+                    lines.add_line(fit_line)
+                
             
                 #prefactor_total = 0
                 for param_name, param in lm_result.params.items():
                     results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
-                    lines.results['{}_{}'.format(fit_name, param_name)] = param.value
                     #if 'prefactor' in param_name:
                         #prefactor_total += np.abs(param.value)
                     
                 #results['{}_prefactor_total'.format(fit_name)] = prefactor_total
                 results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
+                
+                #if fit_name=='fit_eta':
+                if fit_name=='fit_eta' or fit_name=='fit_eta_span':
+                    angle = lm_result.params['x_center'].value
+                
+        
+        if angle<0:
+            angle += 180
+        # angle is now 0 to +180
+        
+        if run_args['between_convention']:
+            # Convert to the 'in between the peaks' convention
+            angle -= 90 
+            # angle is now -90 to +90        
+            
+        qz_unit = np.cos(np.radians(angle))
+        qx_unit = np.sin(np.radians(angle))
+        orientation_factor = 2*np.square(qz_unit) - 1
+        results['orientation_angle'] = angle
+        results['orientation_factor'] = orientation_factor
             
             
         # Output
         if 'plots' in run_args['save_results']:
             self.label_filename(data, lines, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
-            lines.lines.reverse()
+            lines.lines.reverse() # Puts the data on top
+            lines.results = results
             lines.plot(save=outfile, **run_args)
 
             if run_args['verbosity']>=4:
@@ -1977,8 +2040,6 @@ class linecut_angle_fit(linecut_angle):
         return results
     
     
-                        
-
     def fit_eta(self, line, **run_args):
         
         import lmfit
@@ -1994,13 +2055,16 @@ class linecut_angle_fit(linecut_angle):
             m = model(v, x)
             
             return m - data
+
+        
+        xpeak, ypeak = line.target_y(np.max(line.y))
         
         params = lmfit.Parameters()
-        params.add('prefactor', value=np.max(line.y)*0.5, min=0)
-        params.add('x_center', value=0, min=np.min(line.x), max=np.max(line.x), vary=True)
-        params.add('eta', value=0.2, min=0, max=1)
+        params.add('prefactor', value=ypeak*0.5, min=0)
+        params.add('x_center', value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=True)
+        params.add('eta', value=0.4, min=0, max=1)
         params.add('symmetry', value=2, min=0.5, max=20, vary=False)
-        params.add('baseline', value=0, min=0, max=np.max(line.y), vary=False)
+        params.add('baseline', value=0, min=0, max=np.max(line.y)+1e-10, vary=False)
         
         
         lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
@@ -2020,13 +2084,79 @@ class linecut_angle_fit(linecut_angle):
 
         return lm_result, fit_line, fit_line_extended
                     
+                    
+    def fit_eta_span(self, line, span=30, **run_args):
+        '''Fit the data with an "eta orientation" function, but over a limited span of angle.
+        This guards against spurious fits for distributions that do not strictly match the
+        eta function.'''
+        
+        import lmfit
+        
+        xpeak, ypeak = line.target_y(np.max(line.y))
+        if xpeak<0:
+            xpeak += 180
+        line_full = line
+        
+        # Expand the line so that we don't have to worry about edges
+        x = np.asarray(line.x)
+        x = np.concatenate( [x-360, x, x+360] )
+        y = np.asarray(line.y)
+        y = np.concatenate( [y, y, y] )
+        line_extended = DataLine(x=x, y=y)
+        
+        region_right = line_extended.sub_range( xpeak-span/2, xpeak+span/2 )
+        region_left = line_extended.sub_range( (xpeak-180)-span/2, (xpeak-180)+span/2 )
+        
+        x = np.concatenate( [region_left.x, region_right.x] )
+        y = np.concatenate( [region_left.y, region_right.y] )
+        line = DataLine( x=x, y=y )
+        
+        
+        def model(v, x):
+            '''Eta orientation function.'''
+            m = v['prefactor']*( 1 - (v['eta']**2) )/( ((1+v['eta'])**2) - 4*v['eta']*( np.square(np.cos(  (v['symmetry']/2.0)*np.radians(x-v['x_center'])  )) ) ) + v['baseline']
+            return m
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        
+        params = lmfit.Parameters()
+        params.add('prefactor', value=np.max(line.y)*0.5, min=0)
+        params.add('x_center', value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=True)
+        params.add('eta', value=0.4, min=0, max=1)
+        params.add('symmetry', value=2, min=0.5, max=20, vary=False)
+        params.add('baseline', value=0, min=0, max=np.max(line.y)+1e-10, vary=False)
+        
+        
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':'o', 'markersize':8.0, 'linewidth':0.0})
+        
+        fit_x = np.linspace(np.min(line_full.x), np.max(line_full.x), num=1000)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':1.5})
+
+        return lm_result, fit_line, fit_line_extended
+    
            
     def fit_MaierSaupe(self, line, **run_args):
         
         import lmfit
         
         def model(v, x):
-            '''Eta orientation function.'''
+            '''orientation function.'''
             m = v['prefactor']*np.exp(v['m']*np.square(np.cos(np.radians(x-v['x_center'])))) + v['baseline']
             return m
         
@@ -2037,11 +2167,14 @@ class linecut_angle_fit(linecut_angle):
             
             return m - data
         
+        
+        xpeak, ypeak = line.target_y(np.max(line.y))
+        
         params = lmfit.Parameters()
-        params.add('prefactor', value=np.max(line.y)*0.1, min=0)
-        params.add('x_center', value=0, min=np.min(line.x), max=np.max(line.x))
+        params.add('prefactor', value=ypeak*0.1, min=0)
+        params.add('x_center', value=xpeak, min=np.min(line.x), max=np.max(line.x))
         params.add('m', value=2.0, min=0)
-        params.add('baseline', value=0, min=0, max=np.max(line.y), vary=False)
+        params.add('baseline', value=0, min=0, max=np.max(line.y)+1e-10, vary=False)
         
         
         lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))

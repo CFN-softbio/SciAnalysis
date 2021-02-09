@@ -158,9 +158,9 @@ class Plotter():
                 
                 
                 
+if __name__ == '__main__':
+    p = Plotter(x_rlabel='$x \, (\mu \mathrm{m})$', y_rlabel='$T \, (\mathrm{^{\circ}C})$')
+    p.x = np.linspace(0, 100, num=100)
+    p.y = np.square(p.x)
 
-p = Plotter(x_rlabel='$x \, (\mu \mathrm{m})$', y_rlabel='$T \, (\mathrm{^{\circ}C})$')
-p.x = np.linspace(0, 100, num=100)
-p.y = np.square(p.x)
-
-p.plot(save='output.png')
+    p.plot(save='output.png')

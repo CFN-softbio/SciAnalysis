@@ -505,7 +505,7 @@ class Processor(object):
                 
             if self.db_connection is None:
                 # Connect to database
-                self.db_connection = sqlite3.connect(str(outfile))
+                self.db_connection = sqlite3.connect(str(outfile), timeout=30)
                 self.db_cursor = self.db_connection.cursor()
             
             # Store data in SQLite database
@@ -517,7 +517,20 @@ class Processor(object):
             '''
             
             insert_tuple = (protocol.name, name, str(Path(name).stem), str(Path(name).resolve()), protocol.start_timestamp, protocol.end_timestamp, protocol.end_timestamp-protocol.start_timestamp )
-            self.db_cursor.execute(sql, insert_tuple)
+            
+            itry = 0
+            while True:
+                # If multiple SciAnalysis codes are running,
+                # you may get "database is locked" errors.
+                # So, we just keep trying until db is free.
+                try:
+                    self.db_cursor.execute(sql, insert_tuple)
+                except sqlite3.OperationalError as exc:
+                    print('  DB locked (attempt {:d}); retrying...'.format(itry+1))
+                    itry += 1
+                    time.sleep(2)
+                finally:
+                    break
             
             
             analysis_id = self.db_cursor.lastrowid

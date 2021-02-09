@@ -1727,6 +1727,11 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
+        if 'aspect_ratio' in plot_args and plot_args['aspect_ratio'] is not None and plot_args['aspect_ratio'] is not False:
+            # How to set? 'auto', 'equal', num (force ratio)
+            # What to adjust? None, 'box', 'datalim'
+            self.ax.set_aspect('equal', 'box')
+        
         if 'title' in plot_args and isinstance(plot_args['title'], str):
             #size = plot_args['rcParams']['axes.labelsize']
             size = plot_args['rcParams']['xtick.labelsize']
