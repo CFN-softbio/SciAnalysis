@@ -262,16 +262,19 @@ if False:
 # Loop for Autonomous Experimentation (AE):
 ########################################
 local = '127.0.0.1'
-xf11bm_ws1 = '10.11.128.201'
-xf11bm_ws2 = '10.11.128.202'
-xf11bm_ws3 = '10.11.128.203'
-xf11bm_ws4 = '10.11.128.204'
-xf11bm_ws5 = '10.11.128.205'
-xf11bm_ws6 = '10.11.128.206'
 
-xf11bm_srv1 = '10.11.128.1'
-xf11bm_gpu1 = '10.11.128.3'
-xf11bm_gpu2 = '10.11.128.5'
+
+xf11bm_ws1 = '10.68.80.221'
+xf11bm_ws2 = '10.68.80.222'
+xf11bm_ws3 = '10.68.80.223'
+xf11bm_ws4 = '10.68.80.224'
+xf11bm_ws5 = '10.68.80.225'
+xf11bm_ws6 = '10.68.80.226'
+
+xf11bm_srv1 = '10.68.80.25'
+xf11bm_gpu1 = '10.68.80.27'
+xf11bm_gpu2 = '10.68.80.29'
+
 
 xf12id_ws1 = '10.12.0.201'
 xf12id_ws2 = '10.12.0.202'
@@ -317,6 +320,30 @@ class Queue_analyze(CustomQueue): # SciAnalysis
     def get(self, save=True, check_interrupted=True, force_load=False):
         return super().get(save=save, check_interrupted=check_interrupted, force_load=force_load)
 
+class Queue_analyzeFix(Queue_analyze): # SciAnalysis
+    '''This version includes an ad-hoc fix to detect and stop
+    any "double loops" running in the queue loop.'''
+
+    def __init__(self, from_port=c['measure']['port'], to_port=c['analyze']['port'], from_ip=c['measure']['ip'], to_ip=c['analyze']['ip'], name='analyze', save_dir='./', verbosity=VERBOSITY, **kwargs):
+        super().__init__(from_port=from_port, to_port=to_port, from_ip=from_ip, to_ip=to_ip, name=name, save_dir=save_dir, verbosity=verbosity, **kwargs)
+
+        self.list_lengths = []
+
+    def get(self, save=True, check_interrupted=True, force_load=False):
+        
+        data = super().get(save=save, check_interrupted=check_interrupted, force_load=force_load)
+        
+        self.list_lengths.append(len(data))
+        if len(self.list_lengths)>=2:
+            len_cur = self.list_lengths[-1]
+            len_prev = self.list_lengths[-2]
+            
+            if len_cur==len_prev:
+                self.msg("WARNING: Possible double-loop detected.", 3, 1)
+                self.msg("Ignoring this command and waiting for next command instead.", 3, 2)
+                self.get(save=save, check_interrupted=False, force_load=False)
+        
+        return data
 
 
 
@@ -326,7 +353,7 @@ class Queue_analyze(CustomQueue): # SciAnalysis
 
 # Inside gpCAM:
 ########################################
-#from CustomQueue import *
+#from CustomQueue import Queue_decision
 #q = Queue_decision()
 
 #if first_iteration:
@@ -350,7 +377,7 @@ class Queue_analyze(CustomQueue): # SciAnalysis
 #try:
     #measure_queue
 #except NameError:
-    #from CustomQueue import *
+    #from CustomQueue import Queue_measure
     #measure_queue = Queue_measure()
 
 #while True: # The loop that waits for new instructions...
@@ -366,7 +393,7 @@ class Queue_analyze(CustomQueue): # SciAnalysis
 
 # Inside SciAnalysis autonomous.py:
 ########################################
-#from CustomQueue import *
+#from CustomQueue import Queue_analyze
 #q = Queue_analyze()
 
 #while True: # The loop that waits for new instructions...

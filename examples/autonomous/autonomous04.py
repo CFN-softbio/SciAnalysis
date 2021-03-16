@@ -149,6 +149,7 @@ protocols = [
 
 # Helpers
 ########################################
+# TODO: DEPRECATED in favor of tools.val_stats
 def print_d(d, i=4):
     '''Simple helper to print a dictionary.'''
     for k, v in d.items():
@@ -233,7 +234,7 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
     queue_PATH='../../../'
     queue_PATH in sys.path or sys.path.append(queue_PATH)
 
-    from CustomQueue import Queue_analyze as queue
+    from CustomQueue import Queue_analyzeFix as queue
     q = queue()
 
     if clear:

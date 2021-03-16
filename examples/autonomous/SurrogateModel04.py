@@ -726,6 +726,8 @@ class SurrogateModel(Base):
         # Get corresponding z errors
         if '{}{}'.format(self.z_name, e_signature) in self.data['signals'].keys():
             self.z_errors = self.data['signals']['{}{}'.format(self.z_name, e_signature)]
+        else:
+            self.z_errors = None
 
 
         if self.trim_list is not None:
@@ -1057,7 +1059,7 @@ class SurrogateModel(Base):
             if error_relative is None:
                 variances = None
             else:
-                variances = np.stack( (np.square(self.z_vals*error_relative), ), axis=1 )
+                variances = np.stack( (np.square(np.abs(self.z_vals)*error_relative), ), axis=1 )
         else:
             variances = np.stack( (np.square(self.z_errors), ), axis=1 )
             
@@ -1952,6 +1954,8 @@ model = SurrogateModel(sample='AE_DSA_SIS_sampleD_run2_SM', sample_pattern='AE_D
 peak_extractions = [
         'fit_peaks_prefactor1',
         'fit_peaks_prefactor1_error', 
+        #'fit_peaks_m',
+        #'fit_peaks_b',
         'fit_peaks_x_center1',
         'fit_peaks_x_center1_error', 
         'fit_peaks_sigma1',

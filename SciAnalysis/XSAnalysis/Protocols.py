@@ -477,13 +477,19 @@ class fit_peaks(Protocol):
         for i in range(run_args['num_curves']):
             q = results['{}_x_center{}'.format(fit_name, i+1)]['value']
             d = 0.1*2.*np.pi/q
-            d_err = results['{}_x_center{}'.format(fit_name, i+1)]['error']*(d/q)
+            err = results['{}_x_center{}'.format(fit_name, i+1)]['error']
+            if err is None:
+                err = 0
+            d_err = err*(d/q)
             #results['{}_d0{}'.format(fit_name, i+1)] = d
             results['{}_d0{}'.format(fit_name, i+1)] = { 'value': d, 'error': d_err }
             
             sigma = results['{}_sigma{}'.format(fit_name, i+1)]['value']
             xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/sigma
-            xi_err = results['{}_sigma{}'.format(fit_name, i+1)]['error']*(xi/sigma)
+            err = results['{}_sigma{}'.format(fit_name, i+1)]['error']
+            if err is None:
+                err = 0
+            xi_err = err*(xi/sigma)            
             #results['{}_grain_size{}'.format(fit_name, i+1)] = xi
             results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi, 'error': xi_err }
             
@@ -740,6 +746,223 @@ class fit_peaks(Protocol):
             
 
         return lm_result, fit_line, fit_line_extended, fit_line_curves
+
+
+class fit_FormFactor_Sphere(Protocol):
+
+    def __init__(self, name=None, **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+            'load_from' : 'circular_average',
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            'ylog' : True,
+            }
+        self.run_args.update(kwargs)
+
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if run_args['load_from'] is not None:
+            # Load data from corresponding circular_average
+            load_dir = Path(output_dir).parent.joinpath(run_args['load_from'])
+            infile = load_dir.joinpath(data.name + '.dat')
+            data_1d = np.loadtxt(infile) # q qerr I(q) I(q)err
+            
+            line = DataLine(x=data_1d[:,0], y=data_1d[:,2], x_err=data_1d[:,1], y_err=data_1d[:,3], x_label='q', y_label='P(q)', x_rlabel='$q \, (\mathrm{\AA})$', y_rlabel='P(q)')
+            
+        if False:
+            # Testing using CSV file
+            load_dir = Path(output_dir).parent.joinpath('csv')
+            infile = load_dir.joinpath('SP38nm_Free' + '.csv')
+            data_1d = np.loadtxt(infile, delimiter=',', skiprows=1) # q P(q)
+            line = DataLine(x=data_1d[:,1], y=data_1d[:,2], x_label='q', y_label='P(q)', x_rlabel='$q \, (\mathrm{\AA})$', y_rlabel='$P(q)$')
+            
+            
+        # Do the fit
+        lines = self._fit(line, results, **run_args)
+
+
+        # Save results
+        if 'save_fit' in run_args and run_args['save_fit']:
+            outfile = self.get_outfile(data.name, output_dir, ext='_fit.dat')
+            lines.lines[1].save_data(outfile)            
+        
+        
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, lines, **run_args)
+            outfile = self.get_outfile(data.name, output_dir, ext=self.default_ext)
+            lines.plot(save=outfile, **run_args)
+        
+        
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
+        
+        return results
+
+    
+    def _fit(self, line, results, **run_args):
+        
+        # Do the fit
+        lm_result, fit_line, fit_line_extended = self._fit_FF(line, **run_args)
+
+
+        # Store results
+        fit_name = 'fit_FF'
+        prefactor_total = 0
+        for param_name, param in lm_result.params.items():
+            results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
+            
+        results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
+
+
+
+        # Plot and save data
+        class DataLines_current(DataLines):
+            
+            def _plot_extra(self, **plot_args):
+                
+                xi, xf, yi, yf = self.ax.axis()
+                
+                if 'fit_range' in self._run_args:
+                    xstart, xend = self._run_args['fit_range']
+                    line = self.lines[0].sub_range(xstart, xend)
+                else:
+                    line = self.lines[0]
+                
+                yi = np.min(line.y)*0.5
+                yf = np.max(line.y)*2.0
+                self.ax.axis([xi, xf, yi, yf])
+
+                font_size = self._run_args['font_size'] if 'font_size' in self._run_args else 18
+                v_spacing = (np.log(yf)-np.log(yi))*(font_size/20)*0.2
+
+                s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_FF_chi_squared'])
+                self.ax.text(xi, yi, s, size=font_size, color='b', verticalalignment='bottom', horizontalalignment='left')
+                
+                xp, yp = xf, yf
+                for k, v in self._run_args['initial_guess'].items():
+                    r = self.results['fit_FF_{}'.format(k)]
+                    if r['error'] is None:
+                        e = 'NA'
+                    else:
+                        e = '{:.2g}'.format(r['error'])
+                    s = '{} = {:.3g} ± {}'.format(k, r['value'], e)
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment='right')
+                    
+                    yp /= v_spacing
+                    
+
+
+                    
+        
+        
+        lines = DataLines_current([line, fit_line, fit_line_extended])
+        lines.results = results
+        lines._run_args = run_args
+        lines.copy_labels(line)
+        
+        # Note that the results dictionary is modified within this function.
+        # Thus although it is not returned, it is part of the set of returned
+        # information.
+        return lines        
+        
+        
+    def _fit_FF(self, line, **run_args):
+        
+        line_full = line
+        if 'fit_range' in run_args:
+            line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
+        
+        import lmfit
+        
+        def model(v, x):
+            
+            background = v['qpower_scale']*np.power(x, v['qpower']) + v['background']
+            
+            #P = self.sphere_form_factor_intensity(q=x, R=v['radius'], delta_rho=v['delta_rho'] )
+            P = self.poly_sphere_form_factor_intensity( q=x, R=v['radius'], sigma=v['sigma'], delta_rho=v['delta_rho'] )
+            
+            return P + background
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            #return m - data
+            return np.log(data/m)
+        
+        params = lmfit.Parameters()
+        
+        for k, v in run_args['initial_guess'].items():
+            v_min, v_max = run_args['limits'][k]
+            params.add(k, value=v, min=v_min, max=v_max, vary=True)
+
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+            
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'marker':None, 'linewidth':4.0})
+        
+        x_span = abs(np.max(line.x)-np.min(line.x))
+        fit_x = np.linspace(0, np.max(line.x)+x_span*0.2, num=2000)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'alpha':0.5, 'marker':None, 'linewidth':2.0})
+
+        
+        return lm_result, fit_line, fit_line_extended
+
+
+    def sphere_form_factor(self, q, R, delta_rho=1):
+        """Calculate the form factor (fq) of a sphere."""
+        from scipy.special import spherical_jn
+        volume = (4.0/3.0)*np.pi*(R**3)
+        qR = R*q
+        F =  delta_rho  * volume * 3 * spherical_jn(1, qR) / qR      
+        return F
+
+    def sphere_form_factor_intensity(self, q, R, delta_rho=1):
+        """Calculate the form factor intensity (Pq=fq**2) of a sphere."""  
+        F =  self.sphere_form_factor(q=q, R=R, delta_rho=delta_rho)   
+        return np.abs(F)**2 
+
+    def poly_sphere_form_factor_intensity(self, q, R, sigma, delta_rho=1):
+        """Calculate the form factor intensity of a polydispersed distribution
+        of spheres.
+        Pq = sum( wi * fqi**2 )"""    
+        disx, disw, disdx = self.distribution_gaussian( R, sigma * R )
+        f1_ = np.zeros_like(q)
+        cts=0
+        for i, ri in enumerate(disx):
+            f1_ += self.sphere_form_factor_intensity(q, R=ri, delta_rho= delta_rho ) * disw[i] * disdx
+            cts += disw[i] *disdx  
+        return f1_/cts
+    
+    def distribution_gaussian(self, radius=1.0, sigma=0.01, num_points=30, spread=3, only_positive=True): 
+        ''' Create a gaussian distribution'''    
+        distribution_list = []  
+        x, step= np.linspace( radius - spread* sigma, radius + spread*sigma, num_points,retstep=True)
+        #print(x,step)
+        prefactor = 1/( sigma*np.sqrt(2*np.pi) ) 
+        delta = radius - x
+        wt = prefactor*np.exp( - (delta**2)/(2*( sigma**2 ) ) )         
+        if only_positive:
+            wP = x>0
+            return x[wP], wt[wP], step
+        else:
+            return x, wt, step      
         
 
 class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
