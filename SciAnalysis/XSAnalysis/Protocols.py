@@ -699,7 +699,7 @@ class fit_peaks(Protocol):
             x_sorted = xs[indices]
             y_sorted = ys[indices]
             
-            idx = np.where( x_sorted>=q0[0] )[0][0]
+            idx = np.where( x_sorted>=q0 )[0][0]
 
             xpeak = x_sorted[idx]
             ypeak = y_sorted[idx]
