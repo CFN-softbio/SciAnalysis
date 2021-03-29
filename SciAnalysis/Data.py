@@ -1710,14 +1710,11 @@ class Data2D(object):
                 colorbar_labels = [ zmin + i*(zmax-zmin)/4 for i in range(5) ]
             
             tick_positions = self._plot_z_transform(data=colorbar_labels, set_Z=False)
-<<<<<<< HEAD
-            #cbar = plt.colorbar(ticks=tick_positions, fraction=0.045, pad=0.02)
-            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.02, aspect=65)
-=======
+
             #cbar = plt.colorbar(ticks=tick_positions, fraction=0.045, pad=0.02) # Shorter and wider
-            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.03, aspect=30) # Taller and thinner
-            #cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.02, aspect=65) # Very tall and thin (preferred at CMS)
->>>>>>> 70625cf389cd1bc37326de039844369496c3aae9
+            #cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.03, aspect=30) # Taller and thinner
+            cbar = plt.colorbar(ticks=tick_positions, fraction=0.04, pad=0.02, aspect=65) # Very tall and thin (preferred at CMS)
+
             colorbar_labels = ["{:.0f}".format(c) for c in colorbar_labels]
             cbar.ax.set_yticklabels(colorbar_labels, size=13)
         
@@ -1731,12 +1728,6 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
-<<<<<<< HEAD
-        if 'title' in plot_args and plot_args['title'] is not None:
-            size = plot_args['rcParams']['axes.labelsize']
-            #size = plot_args['rcParams']['xtick.labelsize']
-            plt.figtext(0, 1, plot_args['title'], size=size-10, weight='bold', verticalalignment='top', horizontalalignment='left')
-=======
         if 'aspect_ratio' in plot_args and plot_args['aspect_ratio'] is not None and plot_args['aspect_ratio'] is not False:
             # How to set? 'auto', 'equal', num (force ratio)
             # What to adjust? None, 'box', 'datalim'
@@ -1747,7 +1738,6 @@ class Data2D(object):
             size = plot_args['rcParams']['xtick.labelsize']
             size *= 0.75 # Make text smaller
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
->>>>>>> 70625cf389cd1bc37326de039844369496c3aae9
         
         self._plot_extra(**plot_args)
         
@@ -1935,18 +1925,13 @@ class Data2D(object):
             if plot_range[3] != None: yf = plot_range[3]
             self.ax.axis( [xi, xf, yi, yf] )
         
-<<<<<<< HEAD
-        if 'title' in plot_args and plot_args['title'] is not None:
-            size = plot_args['rcParams']['axes.labelsize']
-            #size = plot_args['rcParams']['xtick.labelsize']
-            plt.figtext(0, 1, plot_args['title'], size=size-10, weight='bold', verticalalignment='top', horizontalalignment='left')
-=======
+
         if 'title' in plot_args and isinstance(plot_args['title'], str):
             #size = plot_args['rcParams']['axes.labelsize']
             size = plot_args['rcParams']['xtick.labelsize']
             size *= 0.75 # Make text smaller
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
->>>>>>> 70625cf389cd1bc37326de039844369496c3aae9
+
         
         self._plot_extra3D(**plot_args)
         
