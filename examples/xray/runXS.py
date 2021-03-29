@@ -58,7 +58,7 @@ load_args = { 'calibration' : calibration,
              'mask' : mask,
              }
 run_args = { 'verbosity' : 3,
-            #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
+            #'save_results' : ['xml', 'plots', 'txt', 'npz', 'hdf5'],
             }
 
 process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
@@ -71,8 +71,10 @@ process = Protocols.ProcessorXS(load_args=load_args, run_args=run_args)
 protocols = [
     #Protocols.HDF5(save_results=['hdf5'])
     #Protocols.calibration_check(show=False, AgBH=True, q0=0.010, num_rings=4, ztrim=[0.05, 0.05], ) ,
-    #Protocols.circular_average(ylog=True, plot_range=[0, 0.15, None, None], show=True) ,
-    Protocols.linecut_angle(q0=0.108, dq=0.005, show_region=True),
+    #Protocols.circular_average(ylog=True, plot_range=[0, 0.15, None, None], show=False) ,
+    #Protocols.circular_average_q2I_fit(ylog=False, plot_range=[0, 0.15, None, None], show=False, label_filename=False) ,
+    #Protocols.linecut_angle(q0=0.108, dq=0.005, show_region=False) ,
+    Protocols.q_image(q_max=0.14, blur=2.0, bins_relative=0.25, xticks=[-.1, 0, .1], ztrim=[0.01, 0.001], colorbar=True, label_filename=True) ,
     #Protocols.thumbnails(crop=None, resize=1.0, blur=None, cmap=cmap_vge, ztrim=[0.01, 0.001]) ,
     ]
     

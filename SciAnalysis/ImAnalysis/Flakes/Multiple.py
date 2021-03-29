@@ -10,9 +10,34 @@ import skimage
 
 
 
-class average_image(ProtocolMultiple):
+def re_name_convention(name_convention=None, **kwargs):
+    # Naming convention for raw data files, returned as
+    # a string suitable for use in RE (regular expressions).
     
-    def __init__(self, name='average_image', **kwargs):
+    if 'filename_re' in kwargs and kwargs['filename_re'] is not None:
+        return kwargs['filename_re']
+    
+    if name_convention is None or name_convention=='indexed':
+        filename_re = '^.+_x(\d+)_y(\d+).*$' # Default (Indexed)
+        
+    elif name_convention=='ixiy':
+        filename_re = '^.+_ix(-?\d+)_iy(-?\d+).*$'
+        
+    elif name_convention=='xy':
+        filename_re = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+).*$'
+        
+    else:
+        # If none of the above conditions are met, we simply return the 
+        # name_convention, which allows for a custom definition.
+        filename_re = name_convention
+            
+    return filename_re
+
+
+
+class mean_image(ProtocolMultiple):
+    
+    def __init__(self, name='mean_image', **kwargs):
         
         self.name = self.__class__.__name__ if name is None else name
         
@@ -21,6 +46,7 @@ class average_image(ProtocolMultiple):
                         'file_extension' : '.tif',
                         'force' : False,
                         'verbosity' : 3,
+                        'outname' : None,
                         }
         self.run_args.update(kwargs)
         
@@ -52,10 +78,93 @@ class average_image(ProtocolMultiple):
         average = average/len(datas)
         average = average.astype(np.uint8)
         
-        outfile = self.get_outfile(basename, output_dir, ext=run_args['file_extension'])
+        if run_args['outname'] is None:
+            run_args['outname'] = basename
+        outfile = self.get_outfile(run_args['outname'], output_dir, ext=run_args['file_extension'])
         plt.imsave(outfile, average)
         
         return results
+        
+
+
+class average_image(ProtocolMultiple):
+    
+    def __init__(self, name='average_image', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.tiff'
+        self.run_args = {
+                        'file_extension' : '.tif',
+                        'force' : False,
+                        'verbosity' : 3,
+                        'average_type' : 'median',
+                        'outname' : None,
+                        'average_type_in_filename' : True,
+                        'proportiontocut' : 0.1,
+                        }
+        self.run_args.update(kwargs)
+        
+
+    @run_default
+    def run(self, datas, output_dir, basename, **run_args):
+        
+        results = {}
+
+        l = len(datas)
+        try:
+            h, w, c = datas[0].data_rgb.shape
+        except:
+            data_rgb = plt.imread(datas[0].infile)
+            h, w, c = data_rgb.shape
+        
+        full_dataset = np.zeros( (l, h, w, c) )
+
+        for i, data in enumerate(datas):
+            
+            if run_args['verbosity']>=5:
+                print('  Loading image {} ({}); {:.1f}%'.format(i, data.name, 100.*i/len(datas)))
+            
+            try:
+                data_rgb = data.data_rgb
+            except:
+                data_rgb = plt.imread(data.infile) # Deferred load
+                
+            full_dataset[i,:,:] = data_rgb
+                
+
+        if run_args['verbosity']>=4:
+            print('Computing average of type "{}"'.format(run_args['average_type']))
+            
+                
+        if run_args['average_type']=='mean':
+            average = np.mean(full_dataset, axis=0).astype(np.uint8)
+        elif run_args['average_type']=='median':
+            average = np.median(full_dataset, axis=0).astype(np.uint8)
+        elif run_args['average_type']=='mode':
+            from scipy.stats import mode
+            modes, counts = mode(full_dataset, axis=0)
+            average = modes[0].astype(np.uint8)
+        elif run_args['average_type']=='trim_mean':
+            from scipy.stats import trim_mean
+            average = trim_mean(full_dataset, run_args['proportiontocut'], axis=0).astype(np.uint8)
+        else:
+            print('ERROR: average_type "{}" not recognized.'.format(run_args['average_type']))
+
+        if run_args['verbosity']>=5:
+            avg = np.mean(average, axis=(0,1))
+            print('  Image average rgb = {}'.format(avg))
+
+        if run_args['outname'] is None:
+            run_args['outname'] = basename
+        if run_args['average_type_in_filename']:
+            run_args['outname'] = '{}_{}'.format(run_args['outname'], run_args['average_type'])
+        outfile = self.get_outfile(run_args['outname'], output_dir, ext=run_args['file_extension'])
+        plt.imsave(outfile, average)
+        
+        return results
+
+
         
 
 
@@ -72,10 +181,11 @@ class tile_img(ProtocolMultiple):
                         'verbosity' : 3,
                         'image_contrast' : (0, 1),
                         'file_extension' : '.png',
-                        'filename_re' : 'tile_x(\d\d\d)_y(\d\d\d)',
+                        'filename_re' : None,
+                        'name_convention' : None,
                         'dpi' : 200,
                         'spacing_x' : +1.0,
-                        'spacing_y' : -1.0,
+                        'spacing_y' : +1.0,
                         'overlap' : 0.0,
                         }
         self.run_args.update(kwargs)
@@ -86,6 +196,7 @@ class tile_img(ProtocolMultiple):
         # Single image size
         try:
             h, w = datas[0].data.shape
+            #h, w, c = datas[0].data_rgb.shape
         except:
             img = plt.imread(datas[0].infile) # Deferred load
             h, w, c = img.shape
@@ -94,7 +205,8 @@ class tile_img(ProtocolMultiple):
         
         # Determine total image size
         import re
-        filename_re = re.compile(run_args['filename_re'])
+        filename_re = re_name_convention(**run_args)
+        filename_re = re.compile(filename_re)
         
         nrows = 0
         ncols = 0
@@ -224,7 +336,8 @@ class tile_svg(tile_img):
                         'subdir' : None,
                         'subdir_ext' : '.jpg',
                         'file_extension' : '.svg',
-                        'filename_re' : 'tile_x(\d\d\d)_y(\d\d\d)',
+                        'filename_re' : None,
+                        'name_convention' : None,
                         'spacing_x' : +1.0,
                         'spacing_y' : +1.0,
                         'overlap' : 0.0,
@@ -879,17 +992,8 @@ class ImageGrid(object):
 
 
         # Naming convention for raw data files
-        name_convention = '^.+_x(\d+)_y(\d+).+$' # Default (Indexed)
-        if 'name_convention' in kwargs and kwargs['name_convention'] is not None:
-            if kwargs['name_convention']=='indexed':
-                name_convention = '^.+_x(\d+)_y(\d+).+$'
-            elif kwargs['name_convention']=='ixiy':
-                name_convention = '^.+_ix(-?\d+)_iy(-?\d+).+$'
-            elif kwargs['name_convention']=='xy':
-                name_convention = '^.+_x(-?\d+\.\d+)_y(-?\d+\.\d+).+$'
-            else:
-                name_convention = kwargs['name_convention']
-        self.re_files = re.compile(name_convention)
+        filename_re = re_name_convention(**kwargs)
+        self.re_files = re.compile(filename_re)
         
         self.plot_args = { 'color' : 'k',
                         'marker' : 'o',

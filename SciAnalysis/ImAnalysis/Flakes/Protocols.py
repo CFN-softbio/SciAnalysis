@@ -19,17 +19,7 @@ import skimage.measure as measure
 import cv2
 
 
-# WARNING: Potential namespace collision with Python 'utils' package
-try:
-    # Boyu Wang (Stony Brook University) code:
-    #  https://github.com/Boyu-Wang/material_segmentation
-    from MaterialSegmentation import utils as MatSegUtils
-    #from MaterialSegmentation import MatSegUtils
-except:
-    code_PATH='/home/kyager/current/code/MaterialSegmentation/main/'
-    code_PATH in sys.path or sys.path.append(code_PATH)
-    import utils as MatSegUtils
-    #import MatSegUtils
+
 
 
 
@@ -83,6 +73,21 @@ class find_flakes(thumbnails):
                         }
         self.run_args.update(kwargs)
         
+        
+        # WARNING: Potential namespace collision with Python 'utils' package
+        try:
+            # Boyu Wang (Stony Brook University) code:
+            #  https://github.com/Boyu-Wang/material_segmentation
+            from MaterialSegmentation import utils as MatSegUtils
+            #from MaterialSegmentation import MatSegUtils
+        except:
+            code_PATH='/home/qpress/current/code/MaterialSegmentation/main/'
+            code_PATH in sys.path or sys.path.insert(0, code_PATH)
+            import utils as MatSegUtils
+            #import MatSegUtils
+            
+        self.MatSegUtils = MatSegUtils
+        
 
     @run_default
     def run(self, data, output_dir, **run_args):
@@ -99,11 +104,11 @@ class find_flakes(thumbnails):
         
         image = Image.open(data.infile).convert('RGB')
         im_rgb = np.array(image).astype('float')
-        im_gray = np.array(image.convert('L', (0.2989, 0.5870, 0.1140, 0))).astype('float')
-        # im_hsv = np.array(image.convert('HSV')).astype('float')
+        im_gray = np.array(image.convert('L', (0.2989, 0.5870, 0.1140, 0))).astype('float') # vals in range [0..255]
+        # im_hsv = np.array(image.convert('HSV')).astype('float') # vals in range [0..255]
         # Alternate HSV conversion (consistent with Matlab)
         im_hsv = skimage.color.rgb2hsv(im_rgb)
-        im_hsv[:,:,2] = im_hsv[:,:,2]/255.0
+        im_hsv[:,:,2] = im_hsv[:,:,2]/255.0 # vals in range [0..1]
 
         h, w, c = im_rgb.shape
         if run_args['verbosity']>=5:
@@ -131,14 +136,21 @@ class find_flakes(thumbnails):
             
         if run_args['verbosity']>=4:
             print('  Segmenting image to find flakes')
-        res_map, image_labelmap, flake_centroids, flake_sizes, num_flakes = MatSegUtils.perform_robustfit_multichannel(im_hsv, im_gray, run_args['image_threshold'], run_args['size_threshold'])
+            
+        
+        #res_map, image_labelmap, flake_centroids, flake_sizes, num_flakes = self.MatSegUtils.perform_robustfit_multichannel(im_hsv, im_gray, run_args['image_threshold'], run_args['size_threshold'])
+
+        res_map, image_labelmap, flake_centroids, flake_sizes, num_flakes = self.perform_background_threshold(im_hsv, im_gray, background_image, **run_args)
+        
+        
+        
         if run_args['verbosity']>=4:
             print('    {} flakes'.format(num_flakes))
         
         if run_args['background']:
             if run_args['verbosity']>=4:
                 print('  Segmenting background')
-            _, _, bk_flake_centroids, _, n = MatSegUtils.perform_robustfit(bk_gray, 10, 0)
+            _, _, bk_flake_centroids, _, n = self.MatSegUtils.perform_robustfit(bk_gray, 10, 0)
             
             if n>0:
                 # Remove regions in background
@@ -169,16 +181,19 @@ class find_flakes(thumbnails):
             import scipy.misc
             
             outfile = self.get_outfile(data.name, output_dir, ext='-residuals.png')
-            scipy.misc.toimage(res_map, cmin=0, cmax=255).save(outfile)
+            #scipy.misc.toimage(res_map, cmin=0, cmax=255).save(outfile)
+            Image.fromarray(res_map.astype(np.uint8)).save(outfile)
 
             arr = image_labelmap>0
             outfile = self.get_outfile(data.name, output_dir, ext='-binary.png')
-            scipy.misc.toimage(arr, cmin=0, cmax=1).save(outfile)
+            #scipy.misc.toimage(arr, cmin=0, cmax=1).save(outfile)
+            Image.fromarray( (np.clip(arr, 0, 1)*255).astype(np.uint8) ).save(outfile)
             
             arr = np.dstack([arr]*3)
             im = np.where(arr, im_rgb, np.zeros_like(im_rgb))
             outfile = self.get_outfile(data.name, output_dir, ext='-flakes.png')
-            scipy.misc.toimage(im, cmin=0, cmax=255).save(outfile)
+            #scipy.misc.toimage(im, cmin=0, cmax=255).save(outfile)
+            Image.fromarray(im.astype(np.uint8)).save(outfile)
             
             outfile = self.get_outfile(data.name, output_dir, ext='-colored.png')
             self.colored_objects(image_labelmap, outfile, **run_args)
@@ -250,6 +265,68 @@ class find_flakes(thumbnails):
             pickle.dump(to_save, fout)
         
         return results
+
+
+
+    def perform_background_threshold(self, im_hsv, im_gray, bk_rgb, **run_args):
+        
+        #res_map, image_labelmap, flake_centroids, flake_sizes, num_flakes = self.MatSegUtils.perform_robustfit_multichannel(im_hsv, im_gray, run_args['image_threshold'], run_args['size_threshold'])
+        
+        # Use gray, hue, saturation
+        im_ghs = np.concatenate([np.expand_dims(im_gray/255,2), im_hsv[:,:,:2]], axis=2) # vals in range [0..1]
+        
+        
+        bk_gray = np.array( bk_rgb.convert('L', (0.2989, 0.5870, 0.1140, 0)) ).astype('float') # vals in range [0..255]
+        bk_rgb = np.array(bk_rgb).astype('float')
+        bk_hsv = skimage.color.rgb2hsv(bk_rgb)
+        bk_hsv[:,:,2] = bk_hsv[:,:,2]/255.0 # vals in range [0..1]
+        bk_ghs = np.concatenate([np.expand_dims(bk_gray/255,2), bk_hsv[:,:,:2]], axis=2) # vals in range [0..1]
+
+
+        h, w, c = im_ghs.shape
+        res_map = np.zeros([h,w])
+        for ic in range(c):
+            im_c = im_ghs[:,:,ic]
+            #val_stats(im_c, name=ic)
+            bk_c = bk_ghs[:,:,ic]
+
+            if ic==1:
+                # Hue channel is special due to the cyclic nature of its definition (where 0 and 1 are same number)
+                r = np.min( [np.abs(im_c-bk_c) , 1-np.abs(im_c-bk_c)], axis=0 )
+                res_map +=  r
+            else:
+                res_map +=  np.abs(im_c-bk_c)
+            
+        thresh = c*run_args['image_threshold']/255
+        outlier_map = res_map>thresh
+        outlier_map = outlier_map.astype(np.uint8)
+        
+        # connected component detection
+        nCC, image_labelmap, _, flake_centroids = cv2.connectedComponentsWithStats(outlier_map)
+        # flake_centroid: [m, 2] array, indicates row, column of the centroid
+        flake_centroids = np.flip(flake_centroids, 1)
+        flake_centroids = flake_centroids[1:].astype('int')
+
+        _, flake_sizes = np.unique(image_labelmap, return_counts=True)
+        # remove the background size
+        flake_sizes = flake_sizes[1:]
+        if run_args['size_threshold'] > 0:
+            # remove small connect component
+            large_flakes = flake_sizes > run_args['size_threshold']
+            large_flake_idxs = np.nonzero(large_flakes)[0]
+            new_image_labels = np.zeros([h, w])
+            cnt = 0
+            for idx in large_flake_idxs:
+                cnt += 1
+                new_image_labels[image_labelmap==idx+1] = cnt
+            image_labelmap = new_image_labels
+            num_flakes = large_flakes.sum()
+            flake_centroids = flake_centroids[large_flake_idxs]
+            flake_sizes = flake_sizes[large_flake_idxs]
+        else:
+            num_flakes = nCC - 1        
+        
+        return res_map, image_labelmap, flake_centroids, flake_sizes, num_flakes
         
 
         
@@ -387,9 +464,9 @@ class find_flakes(thumbnails):
         flake_i['bbox_expanded'] = flake_large_bbox_square # Square box
         
         
-        # Flake contour
-        _, flake_contour, _ = cv2.findContours(flake_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        #flake_contour, _ = cv2.findContours(flake_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) # Call signature depends on cv2 version
+        # Flake contour (call signature depends on cv2 version)
+        #_, flake_contour, _ = cv2.findContours(flake_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        flake_contour, _ = cv2.findContours(flake_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         flake_i['contour'] = np.squeeze(flake_contour[0], 1)
         flake_i['contour_perimeter_pixels'] = self.total_length(flake_i['contour'])
         flake_i['contour_size_pixels'] = self.polygon_area(flake_i['contour'])
@@ -405,7 +482,7 @@ class find_flakes(thumbnails):
         contours_center_dis = cdist(np.expand_dims(flake_i['center_of_mass'],0), flake_contour)
         flake_shape_contour_hist = np.histogram(contours_center_dis, bins=15)[0]
         flake_shape_contour_hist = flake_shape_contour_hist / flake_shape_contour_hist.sum()
-        flake_shape_fracdim = MatSegUtils.fractal_dimension(flake_region)
+        flake_shape_fracdim = self.MatSegUtils.fractal_dimension(flake_region)
         flake_i['flake_shape_fea'] = np.array([flake_shape_len_area_ratio] + list(flake_shape_contour_hist) + [flake_shape_fracdim])
         
         flake_i['flake_shape_fea_names'] = ['P/A'] + ['hist {}'.format(i) for i in range(15)] + ['fractal dimension']
@@ -890,6 +967,13 @@ class flake_images(Protocol):
         self.ax3.text(x, y, text, size=ts, weight=weight, horizontalalignment=horizontalalignment, verticalalignment=verticalalignment)
                 
     def table3b_row(self, irow, val_a, val_b, std_a=None, std_b=None, decimals=False):
+        
+        # Unpack the values
+        # (For some reason returned values are in one-element arrays now. Maybe due to a change in a call signature somewhwere in cv2, or a change from Python2.7 to Python3, or some other change in a library.)
+        if isinstance(val_a, np.ndarray) and len(val_a)==1:
+            val_a = val_a[0]
+        if isinstance(val_b, np.ndarray) and len(val_b)==1:
+            val_b = val_b[0]
         
         f = '{:.3f}' if decimals else '{:.0f}'
         f2 = '{:.2f}±{:.2f}' if decimals else '{:.0f}±{:.0f}'

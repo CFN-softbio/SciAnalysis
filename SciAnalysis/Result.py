@@ -26,15 +26,24 @@ import numpy as np
 
 
 
-# Results
+# ResultsXML
 ################################################################################
-class Results(object):
+try:
+    # 'Fancy' xml library
+    from lxml import etree
+    USE_LXML = True
+except:
+    # 'Regular' xml library
+    import xml.etree.ElementTree as etree # XML read/write
+    USE_LXML = False
+#import xml.dom.minidom as minidom
+class ResultsXML(object):
     '''Simple object to help extract result values from a bunch of xml files.'''
     
     def __init__(self):
         
         #import xml.etree.ElementTree as etree
-        from lxml import etree
+        #from lxml import etree
         #import xml.dom.minidom as minidom
         
         self.etree = etree
@@ -103,6 +112,45 @@ class Results(object):
         return results
     
     
+    def extract_dict(self, infiles, extractions, verbosity=3):
+        '''Extracts results from the specified infiles, organizing them into
+        a list of dictionaries.'''
+        
+        # TODO: kwarg to extract all possible results?
+        
+        results = [ {'filename': infile} for infile in infiles ]
+        for i, infile in enumerate(infiles):
+            
+            if verbosity>=5 or (verbosity>=3 and len(infiles)>250 and i%100==0):
+                print( '    Extracting file {} ({:.1f}% done)'.format(i+1, 100.*i/len(infiles)) )
+            if verbosity>=5:
+                print( '     filename: {}'.format(infile))
+
+            try:
+                for protocol, result_names in extractions:
+                    if verbosity>=5:
+                        print('      Procotol {} (looking for {} results)'.format(protocol, len(result_names)))
+                    
+                    result_names_e, results_e = self.extract_results_from_xml(infile, protocol, verbosity=verbosity)
+
+                    if verbosity>=5:
+                        print('        (found {} results)'.format(len(result_names_e)))
+                    
+                    for result_name in result_names:
+                        if result_name in result_names_e:
+                            idx = result_names_e.index(result_name)
+                            
+                            key = '{}__{}'.format(protocol, result_name)
+                            results[i][key] = results_e[idx]
+                            
+            except Exception as e:
+                if verbosity>=1:
+                    print( '    ERROR: Extraction failed for {}'.format(infile))
+                if verbosity>=5:
+                    print(e)
+        
+        return results
+    
             
     def extract_multi(self, infiles, extractions, verbosity=3):
         
@@ -110,6 +158,7 @@ class Results(object):
         for i, infile in enumerate(infiles):
             results.append( [infile] )
         
+        ifailed = 0
         for i, infile in enumerate(infiles):
             
             if verbosity>=5 or (verbosity>=3 and len(infiles)>250 and i%100==0):
@@ -135,18 +184,26 @@ class Results(object):
                             results[i].append('-')
                             
             except Exception as e:
+                ifailed += 1
                 if verbosity>=1:
                     print( '    ERROR: Extraction failed for {}'.format(infile))
                 if verbosity>=5:
                     print(e)
+
+        if verbosity>=2 and len(infiles)>0:
+            print( '  Extracted {} results (failed on {}/{} = {:.1f}%'.format(len(results)-ifailed, ifailed, len(infiles), 100.0*ifailed/len(infiles)) )
+
                 
         return results                  
             
         
     def extract_results_from_xml(self, infile, protocol, verbosity=3):
         
-        parser = self.etree.XMLParser(remove_blank_text=True)
-        root = self.etree.parse(infile, parser).getroot()
+        if USE_LXML:
+            parser = self.etree.XMLParser(remove_blank_text=True)
+        else:
+            parser = self.etree.XMLParser()
+        root = self.etree.parse(str(infile), parser).getroot()
         
         # Get the latest protocol
         element = root
@@ -208,8 +265,132 @@ class Results(object):
         return result_names, results
                 
     
-    # End class Results(object)
+    # End class ResultsXML(object)
     ########################################
     
     
     
+# ResultsDB
+################################################################################
+from pathlib import Path
+import pickle
+class ResultsDB():
+    
+    def __init__(self, source_dir='./', results_dir='results', db_file='results.db'):
+        import sqlite3
+        
+        infile = Path(source_dir, results_dir, db_file)
+        
+        self.db_connection = sqlite3.connect(str(infile))
+        self.db_connection.row_factory = sqlite3.Row
+        self.db_cursor = self.db_connection.cursor()
+
+
+    def __del__(self):
+        '''Destructor for the class, called when this object
+        is no longer needed.'''
+        
+        # Close our connection to the results database
+        if self.db_connection is not None:
+            if self.db_connection:
+                self.db_connection.close()
+
+
+    def extract_single(self, infile, remove_ext=True, verbosity=3):
+        
+        if remove_ext:
+            infile = Path(infile).stem # Just the important filename part
+        else:
+            infile = Path(infile).name
+        
+        sql = '''-- Retrieve the most recent analyses for a given filename
+        SELECT analysis_id, protocol, MAX(save_timestamp) 
+        FROM analyses 
+        WHERE filename=?
+        GROUP BY protocol
+        '''
+        self.db_cursor.execute(sql, ( str(infile), ))
+        analysis_rows = self.db_cursor.fetchall()
+        
+        results = {}
+        for analysis_row in analysis_rows:
+            analysis_row = dict(analysis_row)
+            
+            sql = '''-- Retrieve the results associated with a protocol
+            SELECT *
+            FROM results 
+            WHERE analysis_id=?
+            '''
+            self.db_cursor.execute(sql, ( analysis_row['analysis_id'], ))
+            result_rows = self.db_cursor.fetchall()
+            
+            entries = {}
+            for result_row in result_rows:
+                result_row = dict(result_row)
+                #if result_row['value_blob'] is not None: result_row['value_blob'] = pickle.loads(result_row['value_blob'])
+                
+                if result_row['value'] is not None:
+                    value = result_row['value']
+                    if result_row['units'] is not None:
+                        key = '{}_units'.format(result_row['result_name'])
+                        entries[key] = result_row['units']
+                    if result_row['error'] is not None:
+                        key = '{}_error'.format(result_row['result_name'])
+                        entries[key] = result_row['error']
+                elif result_row['value_text'] is not None:
+                    value = result_row['value_text']
+                elif result_row['value_blob'] is not None:
+                    value = pickle.loads(result_row['value_blob'])
+                else:
+                    value = None
+
+                entries[ result_row['result_name'] ] = value
+            
+            results[ analysis_row['protocol'] ] = entries
+            
+        
+        return results
+
+
+    def extract(self, infiles, remove_ext=True, verbosity=3):
+        
+        results = {}
+        for infile in infiles:
+            result = self.extract_single(infile, remove_ext=remove_ext, verbosity=verbosity)
+            results[infile] = result
+            
+        return results
+        
+
+    def extract_pattern(self, pattern='', any_before=True, any_after=True, verbosity=3):
+        
+        if any_before:
+            pattern = '%{}'.format(pattern)
+        if any_after:
+            pattern = '{}%'.format(pattern)
+        
+        sql = '''-- Retrieve list of files
+        SELECT DISTINCT filename 
+        FROM analyses
+        WHERE filename like ?
+        ORDER BY filename
+        '''
+        self.db_cursor.execute(sql, ( pattern, ))
+        result_rows = self.db_cursor.fetchall()
+        
+        #for result_row in result_rows:
+            #result_row = dict(result_row)
+            #print(result_row)
+        
+        infiles = [result_row['filename'] for result_row in result_rows]
+        
+        return self.extract(infiles, remove_ext=False, verbosity=verbosity)
+        
+
+    # End class ResultsDB()
+    ########################################
+
+
+# TODO: Switch default to DB/SQL
+Results = ResultsXML
+#Results = ResultsDB
