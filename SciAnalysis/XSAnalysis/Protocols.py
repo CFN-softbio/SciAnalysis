@@ -598,8 +598,11 @@ class fit_peaks(Protocol):
                     
                     yp -= v_spacing
                     s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)        
-                    
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)   
+     
+                    yp -= v_spacing
+                    s = '$\gamma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_gamma{}'.format(i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)                    
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
         if 'num_curves' in run_args and run_args['num_curves']>1 and 'show_curves' in run_args and run_args['show_curves']:
@@ -623,6 +626,7 @@ class fit_peaks(Protocol):
             line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
         
         import lmfit
+        import scipy.special as special
         
         def model(v, x):
             # Linear background
@@ -631,10 +635,15 @@ class fit_peaks(Protocol):
             m += v['qp']*np.power( np.abs(x), v['qalpha'] )
             
             # Gaussian peaks
+            #for i in range(num_curves):
+            #    m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+            #return m
+
+            # Voigt
             for i in range(num_curves):
-                m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
-            return m
- 
+                #m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+                m += v['prefactor{:d}'.format(i+1)]*special.voigt_profile(x-v['x_center{:d}'.format(i+1)], v['sigma{:d}'.format(i+1)], v['gamma{:d}'.format(i+1)])
+            return m 
  
         def model_Gaussian(v, x, i):           
             # Gaussian peaks
@@ -724,6 +733,11 @@ class fit_peaks(Protocol):
             sigma = run_args['sigma']
         else:
             sigma = 0.1*xspan
+
+        if 'gamma' in run_args:
+            gamma = run_args['gamma']
+        else:
+            gamma = 0.1*xspan
         
         for i in range(num_curves):
             params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=max(np.max(line.y)*1.5,0)+1e-12, vary=False)
@@ -740,15 +754,18 @@ class fit_peaks(Protocol):
                 params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
                 
             params.add('sigma{:d}'.format(i+1), value=sigma, min=0.00001, max=xspan*0.5, vary=False)
-       
+            params.add('gamma{:d}'.format(i+1), value=gamma, min=0.00001, max=xspan*0.5, vary=False)       
         
         # Fit only the peak width
         params['sigma1'].vary = True
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        params['gamma1'].vary = True
         lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
         
         if True:
             # Tweak peak position
             lm_result.params['sigma1'].vary = False
+            lm_result.params['gamma1'].vary = False
             lm_result.params['x_center1'].vary = True
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
         
@@ -762,6 +779,7 @@ class fit_peaks(Protocol):
             for i in range(num_curves):
                 lm_result.params['prefactor{:d}'.format(i+1)].vary = True
                 lm_result.params['sigma{:d}'.format(i+1)].vary = True
+                lm_result.params['gamma{:d}'.format(i+1)].vary = True
                 lm_result.params['x_center{:d}'.format(i+1)].vary = True
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             
@@ -1049,6 +1067,16 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
         
         lines = self._fit(line, results, **run_args)
         #lines = DataLines([line])
+
+        if 'label_filename' in run_args and run_args['label_filename']:
+            line.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                'xtick.labelsize': 25,
+                                'ytick.labelsize': 25,
+                                'xtick.major.pad': 10,
+                                'ytick.major.pad': 10,
+                                },
+                            'title': data.name,
+                            }
         
         if 'save_fit' in run_args and run_args['save_fit']:
             # lines.lines contains: line, fit_line, fit_line_extended, fit_curve1, fit_curve2, ...
