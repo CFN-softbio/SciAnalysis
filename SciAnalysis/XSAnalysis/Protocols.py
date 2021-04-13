@@ -531,7 +531,7 @@ class fit_peaks(Protocol):
         for i in range(run_args['num_curves']):
             q = results['{}_x_center{}'.format(fit_name, i+1)]['value']
             d = 0.1*2.*np.pi/q
-            s = 1/d
+            ss = 1/(d*10)
             err = results['{}_x_center{}'.format(fit_name, i+1)]['error']
             if err is None:
                 err = 0
@@ -550,10 +550,10 @@ class fit_peaks(Protocol):
                 strain = 0
             else: #Voigt: Cauchy gamma for size
                 xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/gamma
-                strain = sigma/(4*np.pi*s)
+                strain = sigma/(4*np.pi/ss)
                 
-            results['{}_strain{}'.format(fit_name, i+1)] = strain
-            results['{}_grain_size{}'.format(fit_name, i+1)] = xi
+            results['{}_strain{}'.format(fit_name, i+1)] = { 'value': strain}
+            results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi}
             
             #results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi, 'error': xi_err }
             
@@ -600,28 +600,30 @@ class fit_peaks(Protocol):
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = '$q = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center{}'.format(i+1)]['value'])
+                    s = '$q_{{ {:d} }} = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(i+1,self.results['fit_peaks_x_center{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = r'$d \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)]['value'])
+                    s = r'$d \approx \, {:.2f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
                     s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
-     
-                    yp -= v_spacing
-                    s = '$\gamma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_gamma{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)     
+                    
+                    if voigt==1:
+                        yp -= v_spacing
+                        s = '$\gamma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_gamma{}'.format(i+1)]['value'])
+                        self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)     
                     
                     yp -= v_spacing
-                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
+                    s = r'$\xi \approx \, {:.2f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)  
                     
-                    yp -= v_spacing
-                    s = r'$strain \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_strain{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)                      
+                    if voigt==1:
+                        yp -= v_spacing
+                        s = r'$strain \approx \, {:.2e} \, $'.format(self.results['fit_peaks_strain{}'.format(i+1)]['value'])
+                        self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)                      
                     
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
@@ -645,6 +647,11 @@ class fit_peaks(Protocol):
         if 'fit_range' in run_args:
             line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
         
+        if run_args['fittype']=='voigt':
+            voigt=1
+        else: 
+            voigt=0
+        
         import lmfit
         import scipy.special as special
         
@@ -654,16 +661,16 @@ class fit_peaks(Protocol):
             # Power-law background
             m += v['qp']*np.power( np.abs(x), v['qalpha'] )
             
-            # Gaussian peaks
-            #for i in range(num_curves):
-            #    m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
-            #return m
-
-            # Voigt
-            for i in range(num_curves):
-                #m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
-                m += v['prefactor{:d}'.format(i+1)]*special.voigt_profile(x-v['x_center{:d}'.format(i+1)], v['sigma{:d}'.format(i+1)], v['gamma{:d}'.format(i+1)])
+            if voigt==0:
+                # Gaussian peaks
+                for i in range(num_curves):
+                    m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
+            else:
+                # Voigt: standard deviation sigma, Cauchy distribution with HWHM gamma.
+                for i in range(num_curves):
+                    m += v['prefactor{:d}'.format(i+1)]*special.voigt_profile(x-v['x_center{:d}'.format(i+1)], v['sigma{:d}'.format(i+1)], v['gamma{:d}'.format(i+1)])
             return m 
+
  
         def model_Gaussian(v, x, i):           
             # Gaussian peaks
@@ -764,6 +771,7 @@ class fit_peaks(Protocol):
             if i==0:
                 # 1st peak should be at max location
                 params.add('x_center{:d}'.format(i+1), value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=False)
+                print('{}, {}'.format(i+1, xpeak))
             else:
                 # Additional peaks can be spread out
                 # (or use q0s value if available)
@@ -777,11 +785,15 @@ class fit_peaks(Protocol):
             params.add('gamma{:d}'.format(i+1), value=gamma, min=0.00001, max=xspan*0.5, vary=False)       
         
         # Fit only the peak width
-        params['sigma1'].vary = True
-        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
-        params['gamma1'].vary = True
-        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
-        
+        if voigt==0:
+            params['sigma1'].vary = True
+            lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        else:
+            params['gamma1'].vary = True
+            lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+            params['sigma1'].vary = True
+            lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+            
         if True:
             # Tweak peak position
             lm_result.params['sigma1'].vary = False
@@ -820,8 +832,10 @@ class fit_peaks(Protocol):
         fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'alpha':0.5, 'marker':None, 'linewidth':2.0})
         
         # Generate component curves
-        prefactors = [lm_result.params['prefactor{:d}'.format(i+1)].value for i in range(num_curves) ]
         fit_line_curves = []
+        '''
+        prefactors = [lm_result.params['prefactor{:d}'.format(i+1)].value for i in range(num_curves) ]
+
         for i in range(num_curves):
             # Set all but one prefactors to zero
             for j, prefactor in enumerate(prefactors):
@@ -836,7 +850,7 @@ class fit_peaks(Protocol):
         # Return the model to the correct state
         for i, prefactor in enumerate(prefactors):
             lm_result.params['prefactor{:d}'.format(i+1)].value = prefactor
-            
+         '''   
 
         return lm_result, fit_line, fit_line_extended, fit_line_curves
 
@@ -1329,10 +1343,21 @@ class linecut_angle(Protocol):
     def run(self, data, output_dir, **run_args):
         
         results = {}
+
         
         #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
         line = data.linecut_angle(**run_args)
-        
+
+        if 'label_filename' in run_args and run_args['label_filename']:
+            line.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                        'xtick.labelsize': 25,
+                                        'ytick.labelsize': 25,
+                                        'xtick.major.pad': 10,
+                                        'ytick.major.pad': 10,
+                                        },
+                                'title': data.name,
+                                }
+            
         if 'show_region' in run_args:
             if run_args['show_region']=='save':
                 outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
@@ -1507,11 +1532,7 @@ class linecut_q(Protocol):
             outfile = self.get_outfile(data.name, output_dir)
             line.plot(save=outfile, **run_args)
 
-        if 'hdf5' in run_args['save_results']:
-            #print('here for linecut_q.....')
-            #print( output_dir, data.name)            
-            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)           
-        
+      
         return results
 
 
@@ -2841,7 +2862,7 @@ class q_image(Protocol):
             run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
         
         q_data.set_z_display([None, None, 'gamma', 0.3])
-        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
+        q_data.plot_args = { 'rcParams': {'axes.labelsize': 45,
                                     'xtick.labelsize': 40,
                                     'ytick.labelsize': 40,
                                     'xtick.major.pad': 10,
@@ -2850,9 +2871,9 @@ class q_image(Protocol):
                             } 
 
         if 'label_filename' in run_args and run_args['label_filename']:
-            q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
-                                    'xtick.labelsize': 25,
-                                    'ytick.labelsize': 25,
+            q_data.plot_args = { 'rcParams': {'axes.labelsize': 18,
+                                    'xtick.labelsize': 20,
+                                    'ytick.labelsize': 20,
                                     'xtick.major.pad': 10,
                                     'ytick.major.pad': 10,
                                     },
@@ -2919,9 +2940,9 @@ class qr_image(Protocol):
         q_data.set_z_display([None, None, 'gamma', 0.3])
         
         if 'label_filename' in run_args and run_args['label_filename']:
-            q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
-                                    'xtick.labelsize': 25,
-                                    'ytick.labelsize': 25,
+            q_data.plot_args = { 'rcParams': {'axes.labelsize': 18,
+                                    'xtick.labelsize': 20,
+                                    'ytick.labelsize': 20,
                                     'xtick.major.pad': 10,
                                     'ytick.major.pad': 10,
                                     },
@@ -3170,9 +3191,9 @@ class q_image_special(q_image):
     
     
         q_data.set_z_display([None, None, 'gamma', 0.3])
-        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
-                                    'xtick.labelsize': 40,
-                                    'ytick.labelsize': 40,
+        q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
+                                    'xtick.labelsize': 20,
+                                    'ytick.labelsize': 20,
                                     'xtick.major.pad': 10,
                                     'ytick.major.pad': 10,
                                     },
@@ -3237,7 +3258,7 @@ class q_phi_image(Protocol):
             run_args['plot_range'] = [0, +run_args['q_max'], -180, +180]
         
         q_data.set_z_display([None, None, 'gamma', 0.3])
-        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
+        q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
                                     'xtick.labelsize': 40,
                                     'ytick.labelsize': 40,
                                     },
