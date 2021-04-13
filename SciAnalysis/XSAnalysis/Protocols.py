@@ -523,9 +523,15 @@ class fit_peaks(Protocol):
         results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
         
         # Calculate some additional things
+        if run_args['fittype']=='voigt':
+            print('Using single-line Voigt')
+            voigt=1
+        else: 
+            voigt=0
         for i in range(run_args['num_curves']):
             q = results['{}_x_center{}'.format(fit_name, i+1)]['value']
             d = 0.1*2.*np.pi/q
+            s = 1/d
             err = results['{}_x_center{}'.format(fit_name, i+1)]['error']
             if err is None:
                 err = 0
@@ -534,13 +540,22 @@ class fit_peaks(Protocol):
             results['{}_d0{}'.format(fit_name, i+1)] = { 'value': d, 'error': d_err }
             
             sigma = results['{}_sigma{}'.format(fit_name, i+1)]['value']
-            xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/sigma
-            err = results['{}_sigma{}'.format(fit_name, i+1)]['error']
-            if err is None:
-                err = 0
-            xi_err = err*(xi/sigma)            
-            #results['{}_grain_size{}'.format(fit_name, i+1)] = xi
-            results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi, 'error': xi_err }
+            gamma = results['{}_gamma{}'.format(fit_name, i+1)]['value']
+            if voigt==0:
+                xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/sigma
+                err = results['{}_sigma{}'.format(fit_name, i+1)]['error']
+                if err is None:
+                    err = 0
+                xi_err = err*(xi/sigma)   
+                strain = 0
+            else: #Voigt: Cauchy gamma for size
+                xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/gamma
+                strain = sigma/(4*np.pi*s)
+                
+            results['{}_strain{}'.format(fit_name, i+1)] = strain
+            results['{}_grain_size{}'.format(fit_name, i+1)] = xi
+            
+            #results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi, 'error': xi_err }
             
         results['{}_d0'.format(fit_name)] = results['{}_d01'.format(fit_name)]
         results['{}_grain_size'.format(fit_name)] = results['{}_grain_size1'.format(fit_name)]
@@ -595,14 +610,19 @@ class fit_peaks(Protocol):
                     yp -= v_spacing
                     s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
-                    
-                    yp -= v_spacing
-                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)   
      
                     yp -= v_spacing
                     s = '$\gamma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_gamma{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)                    
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)     
+                    
+                    yp -= v_spacing
+                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)  
+                    
+                    yp -= v_spacing
+                    s = r'$strain \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_strain{}'.format(i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)                      
+                    
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
         if 'num_curves' in run_args and run_args['num_curves']>1 and 'show_curves' in run_args and run_args['show_curves']:
