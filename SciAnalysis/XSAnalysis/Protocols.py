@@ -755,7 +755,11 @@ class fit_peaks(Protocol):
         xpeak, ypeak = line.target_x(xpeak)
                                  
 
-        prefactor = ypeak - ( m*xpeak + b )
+        if voigt==1:
+            prefactor = 0.5 
+        else:
+            prefactor = ypeak - ( m*xpeak + b )
+            
         if 'sigma' in run_args:
             sigma = run_args['sigma']
         else:
@@ -771,7 +775,6 @@ class fit_peaks(Protocol):
             if i==0:
                 # 1st peak should be at max location
                 params.add('x_center{:d}'.format(i+1), value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=False)
-                print('{}, {}'.format(i+1, xpeak))
             else:
                 # Additional peaks can be spread out
                 # (or use q0s value if available)
@@ -781,14 +784,15 @@ class fit_peaks(Protocol):
                     xpos = np.min(line.x) + (xspan/num_curves)*i
                 params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
                 
-            params.add('sigma{:d}'.format(i+1), value=sigma, min=0.00001, max=xspan*0.5, vary=False)
-            params.add('gamma{:d}'.format(i+1), value=gamma, min=0.00001, max=xspan*0.5, vary=False)       
+            params.add('sigma{:d}'.format(i+1), value=sigma, min=0.0001, max=xspan*0.5, vary=False)
+            params.add('gamma{:d}'.format(i+1), value=gamma, min=0.0001, max=xspan*0.5, vary=False)       
         
         # Fit only the peak width
         if voigt==0:
             params['sigma1'].vary = True
             lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
         else:
+            params['prefactor1'].vary = True
             params['gamma1'].vary = True
             lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
             params['sigma1'].vary = True
@@ -800,6 +804,11 @@ class fit_peaks(Protocol):
             lm_result.params['gamma1'].vary = False
             lm_result.params['x_center1'].vary = True
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+
         
         if True:
             # Relax entire fit
@@ -814,8 +823,10 @@ class fit_peaks(Protocol):
                 lm_result.params['gamma{:d}'.format(i+1)].vary = True
                 lm_result.params['x_center{:d}'.format(i+1)].vary = True
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
-            
-            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+
+            #for i in range(num_curves):
+            #    lm_result.params['sigma{:d}'.format(i+1)].vary = True
+            #lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             #lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y), method='nelder')
         
         if run_args['verbosity']>=5:
