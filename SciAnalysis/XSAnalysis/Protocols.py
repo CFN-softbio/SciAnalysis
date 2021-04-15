@@ -555,6 +555,10 @@ class fit_peaks(Protocol):
             results['{}_strain{}'.format(fit_name, i+1)] = { 'value': strain}
             results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi}
             
+            if 0:
+                p_adj = results['{}_prefactor{}'.format(fit_name, i+1)]['value']/(sigma*np.sqrt(2*np.pi) + gamma*np.pi)
+                results['{}_prefactor_adj{}'.format(fit_name, i+1)] = { 'value': p_adj}
+            
             #results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi, 'error': xi_err }
             
         results['{}_d0'.format(fit_name)] = results['{}_d01'.format(fit_name)]
@@ -598,13 +602,18 @@ class fit_peaks(Protocol):
         
                     s = '$p_{{ {:d} }} = \, {:.3g}$'.format(i+1, self.results['fit_peaks_prefactor{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
-
+                  
+                    if 0:
+                        yp -= v_spacing
+                        s = '$pa_{{ {:d} }} = \, {:.3g}$'.format(i+1, self.results['fit_peaks_prefactor_adj{}'.format(i+1)]['value'])
+                        self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    
                     yp -= v_spacing
-                    s = '$q_{{ {:d} }} = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(i+1,self.results['fit_peaks_x_center{}'.format(i+1)]['value'])
+                    s = '$q_{{ {:d} }} = \, {:.3f} \, \mathrm{{\AA}}^{{-1}}$'.format(i+1,self.results['fit_peaks_x_center{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = r'$d \approx \, {:.2f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)]['value'])
+                    s = r'$d \approx \, {:.3f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
@@ -617,12 +626,12 @@ class fit_peaks(Protocol):
                         self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)     
                     
                     yp -= v_spacing
-                    s = r'$\xi \approx \, {:.2f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
+                    s = r'$\xi \approx \, {:.3f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)  
                     
                     if voigt==1:
                         yp -= v_spacing
-                        s = r'$strain \approx \, {:.2e} \, $'.format(self.results['fit_peaks_strain{}'.format(i+1)]['value'])
+                        s = r'$strain(\sigma) \approx \, {:.2e} \, $'.format(self.results['fit_peaks_strain{}'.format(i+1)]['value'])
                         self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)                      
                     
         
@@ -785,7 +794,7 @@ class fit_peaks(Protocol):
                 params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
                 
             params.add('sigma{:d}'.format(i+1), value=sigma, min=0.0001, max=xspan*0.5, vary=False)
-            params.add('gamma{:d}'.format(i+1), value=gamma, min=0.0001, max=xspan*0.5, vary=False)       
+            params.add('gamma{:d}'.format(i+1), value=gamma, min=0.000, max=xspan*0.5, vary=False)       
         
         # Fit only the peak width
         if voigt==0:
@@ -844,7 +853,6 @@ class fit_peaks(Protocol):
         
         # Generate component curves
         fit_line_curves = []
-        '''
         prefactors = [lm_result.params['prefactor{:d}'.format(i+1)].value for i in range(num_curves) ]
 
         for i in range(num_curves):
@@ -861,7 +869,7 @@ class fit_peaks(Protocol):
         # Return the model to the correct state
         for i, prefactor in enumerate(prefactors):
             lm_result.params['prefactor{:d}'.format(i+1)].value = prefactor
-         '''   
+  
 
         return lm_result, fit_line, fit_line_extended, fit_line_curves
 

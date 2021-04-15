@@ -235,9 +235,9 @@ class ResultsXML(object):
                 except ValueError:
                     results.append( element.get('value') )
                 
-                if element.get('error') is not None:
-                    result_names.append(element.get('name')+'_error')
-                    results.append(float(element.get('error')))
+                #if element.get('error') is not None and :
+                #    result_names.append(element.get('name')+'_error')
+                #    results.append(float(element.get('error')))
                 
             elif element.get('type') is not None and element.get('type')=='list':
                 
