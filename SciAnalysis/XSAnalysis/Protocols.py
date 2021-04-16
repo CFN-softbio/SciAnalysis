@@ -832,10 +832,10 @@ class fit_peaks(Protocol):
                 lm_result.params['gamma{:d}'.format(i+1)].vary = True
                 lm_result.params['x_center{:d}'.format(i+1)].vary = True
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
-
-            #for i in range(num_curves):
-            #    lm_result.params['sigma{:d}'.format(i+1)].vary = True
-            #lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+            
+            for i in range(num_curves):
+                lm_result.params['gamma{:d}'.format(i+1)].min = 0.001
+            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             #lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y), method='nelder')
         
         if run_args['verbosity']>=5:
