@@ -836,6 +836,16 @@ class fit_peaks(Protocol):
             for i in range(num_curves):
                 lm_result.params['gamma{:d}'.format(i+1)].min = 0.001
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+            
+            ## Redo bad fit
+            chi_squared = lm_result.chisqr/lm_result.nfree
+            if chi_squared>0.2:
+                for i in range(num_curves):
+                    lm_result.params['prefactor{:d}'.format(i+1)].value = 0.1
+                    lm_result.params['sigma{:d}'.format(i+1)].value = 0.01
+                    lm_result.params['gamma{:d}'.format(i+1)].value = 0.01
+                lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
+            
             #lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y), method='nelder')
         
         if run_args['verbosity']>=5:
