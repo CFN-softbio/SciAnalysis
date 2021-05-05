@@ -530,8 +530,8 @@ class fit_peaks(Protocol):
             voigt=0
         for i in range(run_args['num_curves']):
             q = results['{}_x_center{}'.format(fit_name, i+1)]['value']
-            d = 0.1*2.*np.pi/q
-            ss = 1/(d*10)
+            d = 0.1*2.*np.pi/q #nm
+            ss = q/(2*np.pi)
             err = results['{}_x_center{}'.format(fit_name, i+1)]['error']
             if err is None:
                 err = 0
@@ -548,9 +548,11 @@ class fit_peaks(Protocol):
                     err = 0
                 xi_err = err*(xi/sigma)   
                 strain = 0
-            else: #Voigt: Cauchy gamma for size
-                xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/gamma
-                strain = sigma/(4*np.pi/ss)
+            else: #Voigt: Cauchy gamma HWHM for size
+                K = 2*np.sqrt(np.log(2)/np.pi)
+                xi = 0.1*(2.*np.pi*K)/(2*gamma)
+                beta_G = sigma*2*np.sqrt(2*np.log(2))
+                strain = beta_G/(4*np.pi*ss)
                 
             results['{}_strain{}'.format(fit_name, i+1)] = { 'value': strain}
             results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi}
@@ -834,7 +836,7 @@ class fit_peaks(Protocol):
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             
             for i in range(num_curves):
-                lm_result.params['gamma{:d}'.format(i+1)].min = 0.001
+                lm_result.params['gamma{:d}'.format(i+1)].min = 0.000
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             
             ## Redo bad fit
