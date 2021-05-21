@@ -541,8 +541,9 @@ class fit_peaks(Protocol):
             
             sigma = results['{}_sigma{}'.format(fit_name, i+1)]['value']
             gamma = results['{}_gamma{}'.format(fit_name, i+1)]['value']
+            xi_G = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/sigma
             if voigt==0:
-                xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/sigma
+                xi = xi_G
                 err = results['{}_sigma{}'.format(fit_name, i+1)]['error']
                 if err is None:
                     err = 0
@@ -556,6 +557,7 @@ class fit_peaks(Protocol):
                 
             results['{}_strain{}'.format(fit_name, i+1)] = { 'value': strain}
             results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi}
+            results['{}_grain_size_G{}'.format(fit_name, i+1)] = { 'value': xi_G}
             
             if 0:
                 p_adj = results['{}_prefactor{}'.format(fit_name, i+1)]['value']/(sigma*np.sqrt(2*np.pi) + gamma*np.pi)
@@ -619,22 +621,26 @@ class fit_peaks(Protocol):
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma{}'.format(i+1)]['value'])
+                    s = '$\sigma_G = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma{}'.format(i+1)]['value'])
                     self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
                     
                     if voigt==1:
                         yp -= v_spacing
-                        s = '$\gamma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_gamma{}'.format(i+1)]['value'])
+                        s = '$\gamma^h_C = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_gamma{}'.format(i+1)]['value'])
                         self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)     
                     
                     yp -= v_spacing
-                    s = r'$\xi \approx \, {:.3f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)  
+                    s = r'$\xi(\gamma_C) \approx \, {:.3f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size-4, color='b', verticalalignment='top', horizontalalignment=ha)  
                     
                     if voigt==1:
                         yp -= v_spacing
-                        s = r'$strain(\sigma) \approx \, {:.2e} \, $'.format(self.results['fit_peaks_strain{}'.format(i+1)]['value'])
-                        self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)                      
+                        s = r'$strain(\sigma_G) \approx \, {:.4f} \, $'.format(self.results['fit_peaks_strain{}'.format(i+1)]['value'])
+                        self.ax.text(xp, yp, s, size=font_size-4, color='b', verticalalignment='top', horizontalalignment=ha)                         
+
+                        yp -= v_spacing
+                        s = r'$\xi(\sigma_G) \approx \, {:.3f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size_G{}'.format(i+1)]['value'])
+                        self.ax.text(xp, yp, s, size=font_size-4, color='b', verticalalignment='top', horizontalalignment=ha)                         
                     
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
@@ -795,7 +801,7 @@ class fit_peaks(Protocol):
                     xpos = np.min(line.x) + (xspan/num_curves)*i
                 params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
                 
-            params.add('sigma{:d}'.format(i+1), value=sigma, min=0.0001, max=xspan*0.5, vary=False)
+            params.add('sigma{:d}'.format(i+1), value=sigma, min=0.000, max=xspan*0.5, vary=False)
             params.add('gamma{:d}'.format(i+1), value=gamma, min=0.000, max=xspan*0.5, vary=False)       
         
         # Fit only the peak width
@@ -1131,6 +1137,7 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
         
         lines = self._fit(line, results, **run_args)
+        
         #lines = DataLines([line])
 
         if 'label_filename' in run_args and run_args['label_filename']:
