@@ -149,7 +149,7 @@ protocols = [
 
 # Helpers
 ########################################
-# TODO: DEPRECATED in favor of tools.val_stats
+# DEPRECATED in favor of tools.val_stats
 def print_d(d, i=4):
     '''Simple helper to print a dictionary.'''
     for k, v in d.items():
@@ -219,6 +219,52 @@ print_results(results)
 
 '''
 
+def determine_infile(filename, source_dir='./', suffix='_saxs.tiff', filename_re=None, verbosity=3):
+    #  Usage: 
+    # filename_re = re.compile('.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_saxs.+') # TOCHANGE
+    # determine_infile(result['filename'], source_dir=source_dir, filename_re=filename_re, verbosity=verbosity, suffix='_saxs.tiff') # TOCHANGE
+
+    infile = '{}{}{}'.format(source_dir, filename, suffix)
+
+    # Code to handle bug where saved filename doesn't exactly match what is specified in metadata:
+    if not os.path.exists(infile):
+        if verbosity>=1:
+            print('Specified infile is missing. We will attempt to locate the right file based on sequence_ID.')
+        if verbosity>=5:
+            print('  infile: {}'.format(infile))
+            
+        if filename_re is None:
+            if verbosity>=1:
+                print("    No RE provided. Aborting.")
+            return None
+        
+        else:
+            m = filename_re.match(infile)
+            if m:
+                sID = int(m.groups()[2])
+                if verbosity>=2:
+                    print('    sequence ID: {:d}'.format(sID))
+                mfiles = glob.glob('{}*_{:d}_saxs.tiff'.format(source_dir, sID)) # TOCHANGE
+                if len(mfiles)<1:
+                    if verbosity>=1:
+                        print('    No file matches sequence ID {}.'.format(sID))
+                elif len(mfiles)==1:
+                    infile = mfiles[0]
+                    if verbosity>=1:
+                        print('    Using filename: {}'.format(infile))
+                else:
+                    if verbosity>=1:
+                        print('    {} files match sequence ID {}'.format(len(mfiles), sID))
+                        print('    Aborting.')
+                    return None
+            else:
+                if verbosity>=1:
+                    print("    RE did not match. Aborting.")
+                return None
+    
+    return infile
+
+
 
 # Run autonomous loop
 ########################################
@@ -234,7 +280,7 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
     queue_PATH='../../../'
     queue_PATH in sys.path or sys.path.append(queue_PATH)
 
-    from CustomQueue import Queue_analyzeFix as queue
+    from CustomQueue import Queue_analyze as queue
     q = queue()
 
     if clear:
@@ -260,46 +306,15 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
         if verbosity>=3:
             print('Analysis requested for {} results (total {} results)'.format(num_to_analyze, len(results)))
         if verbosity>=10:
-            print_results(results)
+            tools.print_results(results)
         
         ianalyze = 0
         for i, result in enumerate(results):
             
             if 'analyzed' in result and result['analyzed'] is False and 'filename' in result:
                 ianalyze += 1
-                infile = source_dir + result['filename']
-                infile = infile + '_saxs.tiff' # TOCHANGE
-
-
-                # Code to handle bug where saved filename doesn't exactly match what is specified in metadata:
-                if not os.path.exists(infile):
-                    if verbosity>=1:
-                        print('Specified infile is missing. We will attempt to locate the right file based on sequence_ID.')
-                    if verbosity>=5:
-                        print('  infile: {}'.format(infile))
-                    m = filename_re.match(infile)
-                    if m:
-                        sID = int(m.groups()[2])
-                        if verbosity>=2:
-                            print('    sequence ID: {:d}'.format(sID))
-                        mfiles = glob.glob('{}*_{:d}_saxs.tiff'.format(source_dir, sID)) # TOCHANGE
-                        if len(mfiles)<1:
-                            if verbosity>=1:
-                                print('    No file matches sequence ID {}.'.format(sID))
-                        elif len(mfiles)==1:
-                            infile = mfiles[0]
-                            if verbosity>=1:
-                                print('    Using filename: {}'.format(infile))
-                        else:
-                            if verbosity>=1:
-                                print('    {} files match sequence ID {}'.format(len(mfiles), sID))
-                                print('    Aborting.')
-                            return
-                    else:
-                        if verbosity>=1:
-                            print("    RE did not match. Aborting.")
-                        return
-                    
+                
+                determine_infile(result['filename'], source_dir=source_dir, filename_re=filename_re, verbosity=verbosity, suffix='_saxs.tiff') # TOCHANGE
 
                 if verbosity>=3:
                     print('        Analysis for result {}/{}, file: {}'.format(ianalyze, num_to_analyze, infile))
@@ -358,16 +373,13 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
 
                         # TOCHANGE                
                         value = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1']
-                        error = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1 error']
+                        error = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1_error']
                         variance = np.square(error)
 
 
                 # Package for gpCAM
-                result['measurement values'] = {
-                    'values' : np.asarray([value]) ,
-                    'variances' : np.asarray([variance]) ,
-                    'value positions' : np.asarray([[0.]]) # Positions/indices for multi-task GP
-                    }
+                result['value'] = value 
+                result['variance'] = variance   
                 result['analyzed'] = True
 
 

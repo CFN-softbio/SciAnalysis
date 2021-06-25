@@ -102,9 +102,13 @@ def print_n(d):
     else:
         print(d)
 
-def val_stats(values, name='z'):
+def val_stats(values, name='z', sizing=False):
     span = np.max(values)-np.min(values)
-    print("  {} = {:.2g} ± {:.2g} (span {:.2g}, from {:.3g} to {:.3g})".format(name, np.average(values), np.std(values), span, np.min(values), np.max(values)))
+    if sizing:
+        sizing = " [{} = {} elements]".format(values.shape, values.size)
+    else:
+        sizing = ""
+    print("  {} = {:.2g} ± {:.2g} (span {:.2g}, from {:.3g} to {:.3g}){}".format(name, np.average(values), np.std(values), span, np.min(values), np.max(values), sizing))
 
 
 

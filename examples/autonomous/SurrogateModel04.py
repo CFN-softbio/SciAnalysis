@@ -22,6 +22,7 @@
 
 import sys, os
 SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
+#SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
 #SciAnalysis_PATH='/GPFS/xf12id1/analysis/CFN/SciAnalysis/'
 #SciAnalysis_PATH='/nsls2/xf12id2/analysis/CFN/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
@@ -857,6 +858,16 @@ class SurrogateModel(Base):
             self.add_trim(points_to_keep)
 
 
+    def trim_signal(self, **axes):
+        '''Only include points within the given signal range.'''
+        
+        for axis_name, (a_min, a_max) in axes.items():
+            self.msg('Trimming signal {}, restricting from {:.3g} to {:.3g}'.format(axis_name, a_min, a_max), 4, 2)
+            vals = self.select_single(axis_name, order=['signals'])
+            points_to_keep = np.logical_and( vals>=a_min, vals<=a_max )
+            self.add_trim(points_to_keep)
+
+
     def count_nans(self, vals):
         if vals is None:
             return 0
@@ -1043,7 +1054,7 @@ class SurrogateModel(Base):
         
         
 
-    def interpolate_gpcam(self, hps_guess=None, gp_method='global', pre_optimize=False, fill='pixelwise', gpcam_PATH=None, error_relative=None, renormalize_signals=True, hps_lock=None, **kwargs):
+    def interpolate_gpcam(self, hps_guess=None, gp_method='global', pre_optimize=False, fill='pixelwise', gpcam_PATH=None, error_relative=None, renormalize_signals=True, hps_lock=None, convex_clip=False, **kwargs):
         
         # TOCHANGE: Make sure gpCAM is available
         #gpcam_PATH='/home/kyager/current/code/gpcam/main/'
@@ -1152,6 +1163,14 @@ class SurrogateModel(Base):
         if renormalize_signals:
             ZI = (ZI*std)+avg
         
+        if convex_clip:
+            # Force the grid to only exist within the convex hull defined by the points
+            import scipy.interpolate
+            POINTS = np.column_stack((self.x_vals, self.y_vals))
+            VALUES = self.z_vals
+            grid, xi, yi, XI, YI = self.make_grid(**kwargs)
+            clip = np.isnan(scipy.interpolate.griddata(POINTS, VALUES, (XI, YI), rescale=True, method='linear'))
+            ZI = np.ma.masked_where( clip, ZI)
 
         self.grid = grid
         self.xi, self.yi = xi, yi

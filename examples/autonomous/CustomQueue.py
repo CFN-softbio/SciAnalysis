@@ -211,7 +211,7 @@ class CustomQueue():
             self.msg('Removing {}'.format(sent), 3, 2)
             os.remove(sent)
         else:
-            self.msg('Sent data oes not exist ({})'.format(sent), 3, 2)    
+            self.msg('Sent data does not exist ({})'.format(sent), 3, 2)    
         
         
 
