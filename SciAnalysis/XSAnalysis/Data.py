@@ -642,7 +642,7 @@ class Data2DScattering(Data2D):
         # scipy.ndimage.measurements.histogram
         
         
-    def linecut_angle(self, q0, dq, x_label='angle', x_rlabel='$\chi \, (^{\circ})$', y_label='I', y_rlabel=r'$I (\chi) \, (\mathrm{counts/pixel})$', **kwargs):
+    def linecut_angle(self, q0, dq, x_label='angle', x_rlabel='$\chi \, (^{\circ})$', y_label='I', y_rlabel=r'$I (\chi) \, (\mathrm{counts/pixel})$', mask_fraction_cutoff=0, **kwargs):
         '''Returns the intensity integrated along a ring of constant q.'''
         
         if self.mask is None:
@@ -653,6 +653,7 @@ class Data2DScattering(Data2D):
         
         data = self.data.ravel()
         pixel_list = np.where( (abs(self.calibration.q_map().ravel()-q0)<dq) & (mask.ravel()==1) )
+        pixel_list_maskless = np.where( (abs(self.calibration.q_map().ravel()-q0)<dq)  )
         
 
         if 'show_region' in kwargs and kwargs['show_region']:
@@ -670,12 +671,26 @@ class Data2DScattering(Data2D):
         Md -= np.min(Md)
         
         num_per_m = np.bincount(Md[pixel_list])
-        idx = np.where(num_per_m!=0) # distances that actually have data
+        #idx = np.where(num_per_m!=0) # Old method: consider bins that have >0 pixels
+        # New method: Only include bins that don't have too many masked pixels
+        # e.g. mask_fraction_cutoff=0.8 excludes bins where >20% of pixels were masked
+        num_per_m_maskless = np.bincount(Md[pixel_list_maskless])
+        mask_fractions = num_per_m/num_per_m_maskless
+        idx = np.where(mask_fractions>mask_fraction_cutoff)
+            
         
         x_vals = np.bincount( Md[pixel_list], weights=M[pixel_list] )[idx]/num_per_m[idx]
         I_vals = np.bincount( Md[pixel_list], weights=data[pixel_list] )[idx]/num_per_m[idx]
         
         line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
+
+        line.mask_fractions = mask_fractions[idx]
+        
+        #x_vals_full = np.bincount(Md, weights=M)/num_per_m
+        #line.f_chi = len(x_vals)/(len(x_vals_full)+1) # Fraction of full circle that we have actually sampled
+        line.f_chi = len(x_vals)*scale/360
+        line.dchi = scale
+
         
         return line         
     

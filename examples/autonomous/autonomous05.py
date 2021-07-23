@@ -268,7 +268,7 @@ def determine_infile(filename, source_dir='./', suffix='_saxs.tiff', filename_re
 
 # Run autonomous loop
 ########################################
-def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
+def run_autonomous_loop(protocols, clear=False, republish=False, verbosity=3, simulate=False):
     
     # IMPORTANT NOTE: Search for "# TOCHANGE" in the code below for
     # beamline-specific and experiment-specific assumptions that need
@@ -276,15 +276,17 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
 
 
     # Connect to queue to receive the next analysis command
-    #queue_PATH='/nsls2/xf12id2/data/CFN/2020_3/MFukuto/'
-    queue_PATH='../../../'
-    queue_PATH in sys.path or sys.path.append(queue_PATH)
+    #code_PATH='/nsls2/xf12id2/data/CFN/2020_3/MFukuto/'
+    code_PATH='../../../'
+    code_PATH in sys.path or sys.path.append(code_PATH)
 
     from CustomQueue import Queue_analyze as queue
     q = queue()
 
     if clear:
         q.clear()
+    if republish:
+        q.republish()
     
     
     if verbosity>=3:
@@ -314,7 +316,7 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
             if 'analyzed' in result and result['analyzed'] is False and 'filename' in result:
                 ianalyze += 1
                 
-                determine_infile(result['filename'], source_dir=source_dir, filename_re=filename_re, verbosity=verbosity, suffix='_saxs.tiff') # TOCHANGE
+                infile = determine_infile(result['filename'], source_dir=source_dir, filename_re=filename_re, verbosity=verbosity, suffix='_saxs.tiff') # TOCHANGE
 
                 if verbosity>=3:
                     print('        Analysis for result {}/{}, file: {}'.format(ianalyze, num_to_analyze, infile))
@@ -322,7 +324,7 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
 
                 if simulate:
                     value, variance = np.random.random()*10, 1.0
-    
+
                 else:
                     process.run([infile], protocols, output_dir=output_dir, force=True)
                     
@@ -338,7 +340,7 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
                         else:
                             result['metadata'].update({ 'SciAnalysis': new_result })
 
-                        # TOCHANGE                
+                        # TOCHANGE
                         #value = new_result['circular_average_q2I_fit__fit_peaks_prefactor1']
                         #variance = np.square(new_result['circular_average_q2I_fit__fit_peaks_prefactor1_error'])
                         value = new_result['circular_average_q2I_fit__fit_peaks_chi_squared']*1e9
@@ -371,15 +373,15 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
                         else:
                             result['metadata'].update({ 'SciAnalysis': results_dict })
 
-                        # TOCHANGE                
+                        # TOCHANGE
                         value = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1']
                         error = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1_error']
                         variance = np.square(error)
 
 
                 # Package for gpCAM
-                result['value'] = value 
-                result['variance'] = variance   
+                result['value'] = value
+                result['variance'] = variance
                 result['analyzed'] = True
 
 
@@ -392,5 +394,5 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
     
 
 #process.run(infiles, protocols, output_dir=output_dir, force=True)
-run_autonomous_loop(protocols, clear=False, verbosity=3)
+run_autonomous_loop(protocols, clear=False, republish=False, verbosity=3)
 

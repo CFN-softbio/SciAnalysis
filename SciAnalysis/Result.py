@@ -352,10 +352,24 @@ class ResultsDB():
         return results
 
 
-    def extract(self, infiles, remove_ext=True, verbosity=3):
+    def extract(self, infiles, remove_ext=True, print_every=20, verbosity=3):
         
         results = {}
-        for infile in infiles:
+        
+        import time
+        start_time = time.time()
+        for i, infile in enumerate(infiles):
+            
+            if verbosity>=3 and i%print_every==0:
+                took = time.time()-start_time
+                if i>0 and i<len(infiles):
+                    estimate = (len(infiles)-i)*took/i
+                    estimate = '; done in ~{:.1f}s'.format(estimate)
+                else:
+                    estimate = ''
+                print('        extracting file {}/{} = {:.1f}% ({:.1f} s){}'.format(i, len(infiles), 100.*i/len(infiles), took, estimate))
+                
+            
             result = self.extract_single(infile, remove_ext=remove_ext, verbosity=verbosity)
             results[infile] = result
             
@@ -363,6 +377,8 @@ class ResultsDB():
         
 
     def extract_pattern(self, pattern='', any_before=True, any_after=True, verbosity=3):
+        
+        pattern = pattern.replace('_', r'\_') # SQL treats underscore as "any single character" wildcard
         
         if any_before:
             pattern = '%{}'.format(pattern)
@@ -372,10 +388,10 @@ class ResultsDB():
         sql = '''-- Retrieve list of files
         SELECT DISTINCT filename 
         FROM analyses
-        WHERE filename like ?
+        WHERE filename like ? ESCAPE ? 
         ORDER BY filename
         '''
-        self.db_cursor.execute(sql, ( pattern, ))
+        self.db_cursor.execute(sql, ( pattern, "\\", ))
         result_rows = self.db_cursor.fetchall()
         
         #for result_row in result_rows:

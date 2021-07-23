@@ -204,7 +204,7 @@ class CustomQueue():
             self.msg('Removing {}'.format(received), 3, 2)
             os.remove(received)
         else:
-            self.msg('Received data oes not exist ({})'.format(received), 3, 2)
+            self.msg('Received data does not exist ({})'.format(received), 3, 2)
 
         sent = '{}/{}-sent.npy'.format(self.save_dir, self.name)
         if os.path.exists(sent):

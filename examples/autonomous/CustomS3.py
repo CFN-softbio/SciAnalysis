@@ -11,7 +11,7 @@ import io
 from minio import Minio
 from minio.error import S3Error
 
-from base import Base
+from Base import Base
 
 class CustomS3(Base):
     
@@ -213,6 +213,67 @@ class CustomS3(Base):
         self.msg('Sent S3 data: {}'.format(object_name), 4, 2)
 
 
+    def publish_status_file(self, file_path, name=None):
+        self.msg('Uploading status file ({})...'.format(self.now()), 4, 1)
+        
+        p = Path(file_path)
+        name = p.name if name is None else '{}{}'.format(name, p.suffix)
+        object_name = '{}/status/{}/{}'.format(self.experiment, self.send, name)
+        
+        
+        result = self.client.fput_object(
+            bucket_name=self.bucket_name,
+            object_name=object_name,
+            file_path=file_path,
+            content_type="AE/status",
+            metadata={
+                'timestamp': self.now(),
+                'mtime': p.stat().st_mtime,
+                'ctime': p.stat().st_ctime,
+                'filesize': p.stat().st_size,
+                }
+            )
+
+        self.msg('Sent S3 file: {}'.format(object_name), 4, 2)
+
+
+    def get_status_files(self, timestamp=False):
+        
+        prefix = '{}/status/'.format(self.experiment)
+        now_str = self.now(str_format='%Y-%m-%d_%H%M%S')
+        
+        self.msg('Getting status files ({})'.format(self.now()), 4, 1)
+        self.msg('recursive searching: {}'.format(prefix), 4, 2)
+        
+        objects = self.client.list_objects(
+            bucket_name=self.bucket_name,
+            prefix=prefix,
+            recursive=True,
+            )
+        
+        for obj in objects:
+            self.msg('downloading: {}'.format(obj.object_name), 4, 3)
+            
+            if timestamp:
+                obj_str = obj.object_name[len(self.experiment):][len('/status/'):]
+                file_path = '{}/status/{}/{}'.format( self.save_dir, now_str, obj_str )
+            else:
+                file_path = '{}{}'.format( self.save_dir, obj.object_name[len(self.experiment):] )
+            
+            try:
+                self.client.fget_object(
+                    self.bucket_name, 
+                    obj.object_name,
+                    file_path
+                    )
+
+            except Exception as ex:
+                self.msg_error('Python Exception in get_status_files', 1, 2)
+                self.print(ex)
+            
+        self.msg('Done.', 4, 2)
+    
+
     def get(self, save=True, check_interrupted=True, force_load=False):
         '''Get the current item being published.'''
         #message = self.from_socket.recv()
@@ -242,7 +303,8 @@ class CustomS3(Base):
                 #np.save('{}/{}-received.npy'.format(self.save_dir, self.name), data, allow_pickle=True)
 
         return data
-    
+
+
     
     def publish(self, data, save=True):
         
@@ -254,14 +316,14 @@ class CustomS3(Base):
         #if save:
             #np.save('{}/{}-sent.npy'.format(self.save_dir, self.name), data, allow_pickle=True)
 
-    def republish(self):
+    def republish(self, stype='sent'):
         '''Re-send the last data/command.
         You can use this to force the loop to restart, if you interrupted it.'''
         
-        self.msg('Re-publishing the last data/command that was sent ({})'.format(self.now()), 4, 1)
+        self.msg('Re-publishing the last data/command that was {} ({})'.format(stype, self.now()), 4, 1)
         self.interrupted()
         
-        data = self.load()
+        data = self.load(stype=stype)
         self.publish(data)
         
         
@@ -308,7 +370,7 @@ class CustomS3(Base):
             self.msg('Removing {}'.format(received), 3, 2)
             os.remove(received)
         else:
-            self.msg('Received data oes not exist ({})'.format(received), 3, 2)
+            self.msg('Received data does not exist ({})'.format(received), 3, 2)
 
         sent = '{}/{}-sent.npy'.format(self.save_dir, self.name)
         if os.path.exists(sent):
@@ -326,6 +388,7 @@ class CustomS3(Base):
 
 VERBOSITY=4
 ENDPOINT="dtn01.sdcc.bnl.gov:8000"
+USERNAME='kyager'
 SECRET_KEY='/nsls2/xf11bm/data/2021_3/KYager/S3_secret_key.txt' # Specify path
 SECRET_KEY=None # Use default path
 EXPERIMENT='experiment_AE_current'
@@ -333,15 +396,15 @@ EXPERIMENT='experiment_AE_current'
 
 
 class Queue_decision(CustomS3): # gpCAM
-    def __init__(self, username='kyager', send='decision', receive='analyze', endpoint=ENDPOINT, secret_key=SECRET_KEY, experiment=EXPERIMENT, name='decisionS3', save_dir='./', verbosity=VERBOSITY, **kwargs):
+    def __init__(self, username=USERNAME, send='decision', receive='analyze', endpoint=ENDPOINT, secret_key=SECRET_KEY, experiment=EXPERIMENT, name='decisionS3', save_dir='./', verbosity=VERBOSITY, **kwargs):
         super().__init__(username=username, send=send, receive=receive, endpoint=endpoint, secret_key=secret_key, experiment=experiment, name=name, save_dir=save_dir, verbosity=verbosity, **kwargs)
 
 class Queue_measure(CustomS3): # beamline
-    def __init__(self, username='kyager', send='measure', receive='decision', endpoint=ENDPOINT, secret_key=SECRET_KEY, experiment=EXPERIMENT, name='measureS3', save_dir='./', verbosity=VERBOSITY, **kwargs):
+    def __init__(self, username=USERNAME, send='measure', receive='decision', endpoint=ENDPOINT, secret_key=SECRET_KEY, experiment=EXPERIMENT, name='measureS3', save_dir='./', verbosity=VERBOSITY, **kwargs):
         super().__init__(username=username, send=send, receive=receive, endpoint=endpoint, secret_key=secret_key, experiment=experiment, name=name, save_dir=save_dir, verbosity=verbosity, **kwargs)
 
 class Queue_analyze(CustomS3): # SciAnalysis
-    def __init__(self, username='kyager', send='analyze', receive='measure', endpoint=ENDPOINT, secret_key=SECRET_KEY, experiment=EXPERIMENT, name='analyzeS3', save_dir='./', verbosity=VERBOSITY, **kwargs):
+    def __init__(self, username=USERNAME, send='analyze', receive='measure', endpoint=ENDPOINT, secret_key=SECRET_KEY, experiment=EXPERIMENT, name='analyzeS3', save_dir='./', verbosity=VERBOSITY, **kwargs):
         super().__init__(username=username, send=send, receive=receive, endpoint=endpoint, secret_key=secret_key, experiment=experiment, name=name, save_dir=save_dir, verbosity=verbosity, **kwargs)
 
 

@@ -1453,7 +1453,7 @@ class SurrogateModel(Base):
         return outfile
         
         
-    def copy_current(self, outfile=None, copy_to=None):
+    def copy_current(self, outfile=None, copy_to=None, online=True):
         '''Copies the most recently-created plot to another location.
         The intention is for this copied file to act as an updating
         status of the experiment.
@@ -1482,7 +1482,19 @@ class SurrogateModel(Base):
         
         import shutil
         shutil.copyfile(outfile, copy_to)
-    
+        
+        if online:
+            # Put a copy into some kind of online storage
+            code_PATH='../../../../' # TOCHANGE
+            code_PATH in sys.path or sys.path.append(code_PATH)
+            from CustomS3 import Queue_analyze as queue
+            q = queue()
+            # Publish for this experiment
+            q.publish_status_file(outfile, 'current_map')
+            # Publish for the generic current beamline status
+            q.experiment = 'current'
+            q.publish_status_file(outfile, 'current_map')
+
     
     ########################################
     # End: class SurrogateModel(Base)

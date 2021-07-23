@@ -135,13 +135,18 @@ class DataLine(object):
         return x, y
             
             
-    def copy_labels(self, line):
+    def copy_labels(self, line, copy_title=False, copy_plot_args=False):
         '''Copies labels (x, y) from the supplied line into this line.'''
         
         self.x_label = line.x_label
         self.y_label = line.y_label
         self.x_rlabel = line.x_rlabel
         self.y_rlabel = line.y_rlabel
+        
+        if copy_plot_args:
+            self.plot_args.update(line.plot_args)
+        if copy_title and 'title' in line.plot_args:
+            self.plot_args['title'] = line.plot_args['title']
             
             
     # Data export
@@ -416,8 +421,9 @@ class DataLine(object):
         self._plot_main(error=error, error_band=error_band, dashes=dashes, **p_args)
         
         
-        plt.xlabel(self.x_rlabel)
-        plt.ylabel(self.y_rlabel)
+        self.ax.set_xlabel(self.x_rlabel) #plt.xlabel(self.x_rlabel)
+        self.ax.set_ylabel(self.y_rlabel) #plt.ylabel(self.y_rlabel)
+        
         
         if xlog:
             plt.semilogx()
@@ -572,7 +578,7 @@ class DataLine(object):
     
 # DataLineAngle 
 ################################################################################    
-class DataLineAngle (DataLine):
+class DataLineAngle(DataLine):
     
     def __init__(self, infile=None, x=None, y=None, name=None, plot_args=None, **kwargs):
         
@@ -623,7 +629,17 @@ class DataLineAngle (DataLine):
         results[prepend+'S'] = 0.0
         
         return results
-    
+
+
+    def dchis(self):
+        '''Return a list of the spacings between subsequent points.
+        Note that DataLineAngle may have a self.dchi value that more
+        correctly records the spacing used to generate the data.'''
+        dchis = []
+        for i, x in enumerate(self.x):
+            if i>0:
+                dchis.append(x-self.x[i-1])
+        return np.asarray(dchis)
 
 
     # Data modification
@@ -787,6 +803,205 @@ class DataLineAngle (DataLine):
         
         pass
         
+        
+        
+    def plot_graininess(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.12,0.05,0.12,0.05], **kwargs):
+        self._plot_graininess(save=save, show=show, plot_range=plot_range, plot_buffers=plot_buffers, **kwargs)
+
+    def _plot_graininess(self, save=None, show=False, plot_range=[None,None,None,None], plot_buffers=[0.12,0.05,0.12,0.05], error=False, error_band=False, xlog=False, ylog=False, xticks=None, yticks=None, dashes=None, transparent=False, figsize=(10,7), **kwargs):
+
+        plot_args = self.plot_args.copy()
+        plot_args['rcParams']['axes.labelsize'] = 18
+        plot_args['rcParams']['xtick.labelsize'] = 15
+        plot_args['rcParams']['ytick.labelsize'] = 15        
+        plot_args.update(kwargs)
+        self.process_plot_args(**plot_args)
+
+        
+        if not isinstance(figsize, (list,tuple,np.ndarray)):
+            figsize = (figsize, figsize)
+        self.fig = plt.figure( figsize=figsize, facecolor='white' )
+        left_buf, right_buf, bottom_buf, top_buf = plot_buffers
+        fig_width = 1.0-right_buf-left_buf
+        fig_height = 1.0-top_buf-bottom_buf
+        
+        ax2_width_rel = 0.2 # Histogram on right
+        ax3_height_rel = 0.5 # I_sort on bottom
+        
+        ax_width = fig_width*(1-ax2_width_rel)
+        ax_height = fig_height*(1-ax3_height_rel)
+        
+        self.ax = self.fig.add_axes( [left_buf, bottom_buf+fig_height*ax3_height_rel, ax_width, ax_height] )
+        self.ax2 = self.fig.add_axes( [left_buf+ax_width, bottom_buf+fig_height*ax3_height_rel, fig_width*ax2_width_rel, ax_height] )
+        self.ax3 = self.fig.add_axes( [left_buf, bottom_buf, ax_width, fig_height*ax3_height_rel] )
+        
+        
+        p_args = dict([(i, plot_args[i]) for i in self.plot_valid_keys if i in plot_args])
+        self._plot_graininess_main(error=error, error_band=error_band, dashes=dashes, **p_args)
+        
+        
+        self.ax3.set_xlabel(self.x_rlabel)
+        self.ax.set_ylabel(self.y_rlabel)
+        self.ax3.set_ylabel(self.y_rlabel.replace('I (', 'I_{\mathrm{sort}}('))
+        
+        if xlog:
+            plt.semilogx()
+        if ylog:
+            plt.semilogy()
+        if xticks is not None:
+            self.ax.set_xticks(xticks)
+        if yticks is not None:
+            self.ax.set_yticks(yticks)
+
+        if 'gridlines' in plot_args and plot_args['gridlines']:
+            plt.grid()
+        
+        if 'title' in plot_args and isinstance(plot_args['title'], str):
+            #size = plot_args['rcParams']['axes.labelsize']
+            size = plot_args['rcParams']['xtick.labelsize']
+            size *= 0.75 # Make text smaller
+            plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
+        
+        # Axis scaling
+        xi, xf, yi, yf = self.ax.axis()
+        if plot_range[0] != None: xi = plot_range[0]
+        if plot_range[1] != None: xf = plot_range[1]
+        if plot_range[2] != None: yi = plot_range[2]
+        if plot_range[3] != None: yf = plot_range[3]
+        if np.min(self.y)<0:
+            yi = np.min(self.y)
+        else:
+            yi = 0
+        self.ax.axis( [xi, xf, yi, yf] )
+        
+        
+        if 'reflines' in plot_args:
+            # Plot a series of vertical reference lines at the specified x-values.
+            for i, xs in enumerate(plot_args['reflines']):
+                color_list = ['purple', 'darkblue', 'blue', 'cyan'] # Use distinct color for first few lines
+                color = 'lightblue' if i>=len(color_list) else color_list[i] # Use generic color thereafter
+                if not isinstance(xs, (tuple, list, np.ndarray) ):
+                    # Each refline can either be a single x-value, or a sequence of x-values that form a series
+                    xs = [xs]
+                for xpos in xs:
+                    self.ax.axvline(xpos, color=color, dashes=[3,3])
+                    self.ax.text(xpos, yf, str(xpos), size=12, color=color, verticalalignment='top', horizontalalignment='left', rotation=90)
+        
+        
+        self.ax.axhline(0, color='0.75', zorder=-20)
+        self.ax.set_xticklabels([])
+        
+        # Show masked data regions
+        #for i, x in enumerate(self.x):
+            #if i>0:
+                #dchis.append(x-self.x[i-1])
+        cmap = mpl.cm.BuPu
+        for i, (x, m) in enumerate(zip(self.x, self.mask_fractions)):
+            if i>0 and i<(len(self.x)-1):
+                dl, dr = abs(x-self.x[i-1]), abs(x-self.x[i+1])
+                l, r = x-dl/2, x+dr/2
+                color = 'purple' if dl>self.dchi*2 else cmap(1-m)
+                self.ax.axvspan(x-dl/2, x, color=color, linewidth=0, alpha=0.25) # Left of point x
+                color = 'purple' if dr>self.dchi*2 else cmap(1-m)
+                self.ax.axvspan(x, x+dr/2, color=color, linewidth=0, alpha=0.25) # Right of point x
+                    
+        #self.ax.plot(self.x, self.mask_fractions*yf*0.9)
+        #self.ax.text((xi+xf)*0.5, yf, '$f_{{\chi}} = {:.2f}$'.format(self.f_chi), color='purple', size=12, alpha=0.25, verticalalignment='top', horizontalalignment='center')
+        
+        
+        # Show graininess results
+        yspacing = (yf-yi)*0.12
+        s = '$N_g = {:.3g}$'.format(self.results['N_g'])
+        self.ax.text(xi, yf, s, size=14, color='k', horizontalalignment='left', verticalalignment='top')
+        if 'V' in self.results:
+            s = r'$\frac{{N_g}}{{V}} = {:.3g} \, \mathrm{{mm^{{-3}}}}$'.format(self.results['N_g_per_V'])
+            self.ax.text(xf, yf, s, size=14, color='k', horizontalalignment='right', verticalalignment='top')
+            s = r'$\xi_V = {:.3g} \, \mathrm{{\mu m}}$'.format(self.results['grain_size_V'])
+            self.ax.text(xf, yf-yspacing, s, size=14, color='k', horizontalalignment='right', verticalalignment='top')
+        
+        
+        
+        self._plot_graininess_ax2(**plot_args)
+        self._plot_graininess_ax3(**p_args)
+        self._plot_graininess_extra(**plot_args)
+        
+        
+        if save:
+            if 'dpi' in plot_args:
+                plt.savefig(save, dpi=plot_args['dpi'], transparent=transparent)
+            else:
+                plt.savefig(save, transparent=transparent)
+        
+        if show:
+            self._plot_interact()
+            plt.show()
+            
+        plt.close(self.fig.number)
+        
+
+    def _plot_graininess_ax2(self, **plot_args):
+        
+        xi, xf, yi, yf = self.ax.axis()
+        
+        
+        yhist, xhist = np.histogram(self.y, bins=50, range=[yi, yf] )
+        self.ax2.barh( xhist[:-1], yhist, height=xhist[1]-xhist[0], color='0.5', linewidth=0.5, edgecolor='k' )
+        
+        xi, xf = 0, np.max(yhist)*1.1
+        s = '$\sigma = {:.1f}$'.format(self.results['sigma'])
+        self.ax2.text( xf, yf, s, size=14, color='0.5', verticalalignment='top', horizontalalignment='right' )
+        s = r'$\sigma_R = \frac{{\sigma}}{{\langle I \rangle}} = {:.3f}$'.format(self.results['sigma_R'])
+        self.ax2.text( xf, yf-(yf-yi)*0.1, s, size=14, color='0.5', verticalalignment='top', horizontalalignment='right' )
+        
+        self.ax2.axhline(self.results['average'], color='b', zorder=-15)
+        self.ax2.text( xf, self.results['average'], r'$\langle I \rangle$', size=14, color='b', verticalalignment='center', horizontalalignment='left' )
+        self.ax2.axhspan(self.results['average']-self.results['sigma'], self.results['average']+self.results['sigma'], color='b', alpha=0.25, zorder=-15)
+
+        self.ax2.axhline(0, color='0.75', zorder=-20)
+        #xi2, xf2, yi2, yf2 = self.ax2.axis()
+        self.ax2.axis([xi, xf, yi, yf])
+        self.ax2.set_xticks([])
+        self.ax2.set_yticklabels([])
+
+    def _plot_graininess_ax3(self, **plot_args):
+        
+        xi, xf, yi, yf = self.ax.axis()
+        
+        # Sort (and reverse)
+        idx = np.argsort(self.y)
+        y = self.y[idx][::-1] 
+        x = np.arange(0, len(self.x)*self.dchi, self.dchi)
+        m = self.mask_fractions[idx][::-1]
+        for xc, mc in zip(x, m):
+            self.ax3.axvspan(xc-self.dchi/2, xc+self.dchi/2, color=mpl.cm.BuPu(1-mc), linewidth=0, alpha=0.25)
+        
+        self.ax3.plot(x, y, **plot_args)
+        self.ax3.axvspan(x[-1], (xf-xi), color='purple', linewidth=0, alpha=0.25)
+        self.ax3.text((x[-1]+xf-xi)*0.5, yf, '$f_{{\chi}} = {:.2f}$'.format(self.f_chi), color='purple', size=12, alpha=0.25, verticalalignment='top', horizontalalignment='center')
+        
+        
+        
+        self.ax3.axis([0, (xf-xi), yi, yf])
+
+
+    def _plot_graininess_main(self, error=False, error_band=False, dashes=None, **plot_args):
+        if error_band:
+            l, = plt.plot(self.x, self.y, **plot_args)
+            self.ax.fill_between(self.x, self.y-self.y_err, self.y+self.y_err, facecolor='0.8', linewidth=0)
+        elif error:
+            l = plt.errorbar( self.x, self.y, xerr=self.x_err, yerr=self.y_err, **plot_args)
+        else:
+            l, = self.ax.plot(self.x, self.y, **plot_args)
+        if dashes is not None:
+            l.set_dashes(dashes)        
+                
+                
+    def _plot_graininess_extra(self, **plot_args):
+        '''This internal function can be over-ridden in order to force additional
+        plotting behavior.'''
+        #xi, xf, yi, yf = self.ax.axis()
+        #self.ax.axis( [xi, xf, yi, yf] )
+        pass        
         
 
 
@@ -1693,8 +1908,9 @@ class Data2D(object):
 
         x_label = self.x_rlabel if self.x_rlabel is not None else self.x_label
         y_label = self.y_rlabel if self.y_rlabel is not None else self.y_label
-        plt.xlabel(x_label) # self.ax.set_xlabel(x_label)
-        plt.ylabel(y_label) # self.ax.set_ylabel(y_label)
+        self.ax.set_xlabel(self.x_rlabel) #plt.xlabel(x_label)
+        self.ax.set_ylabel(self.y_rlabel) #plt.ylabel(y_label)
+        
         
         if 'xticks' in plot_args and plot_args['xticks'] is not None:
             self.ax.set_xticks(plot_args['xticks'])

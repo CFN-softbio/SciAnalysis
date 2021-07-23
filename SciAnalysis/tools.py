@@ -294,7 +294,7 @@ class Processor(object):
                     if not force and protocol.output_exists(data.name, output_dir_current):
                         # Data already exists
                         if verbosity>=2:
-                            print('Skipping {} for {}'.format(protocol.name, data.name))
+                            print(' Skipping {} for {}'.format(protocol.name, data.name))
                         
                     else:
                         if verbosity>=2:
@@ -362,7 +362,7 @@ class Processor(object):
                 if not force and protocol.output_exists(data.name, output_dir_current):
                     # Data already exists
                     if verbosity>=2:
-                        print('Skipping {} for {}'.format(protocol.name, data.name))
+                        print(' Skipping {} for {}'.format(protocol.name, data.name))
                     
                 else:
                     if verbosity>=2:
@@ -628,7 +628,7 @@ class Processor(object):
                     if not force and protocol.output_exists(data_name, output_dir_current):
                         # Data already exists
                         if verbosity>=2:
-                            print('Skipping {} for {}'.format(protocol.name, data_name))
+                            print(' Skipping {} for {}'.format(protocol.name, data_name))
                         
                     else:
                         data = self.load(infile, **l_args)
@@ -724,7 +724,7 @@ class Processor(object):
                 if not force and protocol.output_exists(basename, output_dir_current):
                     # Data already exists
                     if verbosity>=2:
-                        print('Skipping {} for {}'.format(protocol.name, basename))
+                        print(' Skipping {} for {}'.format(protocol.name, basename))
                 else:
                     if verbosity>=2:
                         print('Running {} for {}'.format(protocol.name, basename))
@@ -810,7 +810,7 @@ class Processor(object):
                                 if not force and protocol.output_exists(basename, output_dir_current):
                                     # Data already exists
                                     if verbosity>=2:
-                                        print('Skipping {} for {}'.format(protocol.name, basename))
+                                        print(' Skipping {} for {}'.format(protocol.name, basename))
                                 else:
                                     if verbosity>=2:
                                         print('Running {} for {}'.format(protocol.name, basename))

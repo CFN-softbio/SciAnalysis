@@ -428,6 +428,7 @@ class circular_average_q2I(Protocol):
             line.y_label = 'q^n*I(q)'
             line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
             
+        results['qn_power'] = run_args['qn_power']
         
         if 'plots' in run_args['save_results']:
             self.label_filename(data, line, **run_args)
@@ -984,6 +985,8 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
             line.y_label = 'q^n*I(q)'
             line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
             
+        results['qn_power'] = run_args['qn_power']
+            
 
         if 'txt' in run_args['save_results']:        
             outfile = self.get_outfile(data.name, output_dir, ext='_q2I.dat')
@@ -1222,7 +1225,7 @@ class linecut_angle(Protocol):
         if 'show_region' in run_args:
             if run_args['show_region']=='save':
                 outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
-                data.plot(save=outfile)
+                data.plot(save=outfile, ztrim=run_args['ztrim'])
             elif run_args['show_region']:
                 data.plot(show=True)
             
@@ -1251,7 +1254,145 @@ class linecut_angle(Protocol):
         
         return results
                                 
-                
+
+
+class linecut_angle_graininess(linecut_angle):
+
+    def __init__(self, name=None, **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [-180, 180, 0, None],
+            'markersize' : 3,
+            'linewidth' : 1.5,
+            'smooth' : 0.25, # Data-smoothing, as a fraction of sigma_chi
+            'multiplicity' : 6,
+            'scattering_volume' : None,
+            }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        # Graininess analysis is based on:
+        # https://doi.org/10.1107/S1600576714020822
+        
+        results = {}
+        
+        #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
+        line = data.linecut_angle(**run_args)
+        
+        q0 = run_args['q0']
+        results['f_chi'] = line.f_chi
+
+        if 'sigma_q' not in run_args or run_args['sigma_q'] is None:
+            # Determine sigma_q based on circular_average_q2I_fit
+            
+            head, tail = os.path.split(output_dir)
+            result_file = os.path.join(head, 'results', '{}.xml'.format(data.name))
+            prev_results = tools.get_result_xml(result_file, 'circular_average_q2I_fit')
+            run_args['sigma_q'] = prev_results['fit_peaks_sigma1']
+        
+        results['sigma_q'] = run_args['sigma_q']
+        sigma_chi_rad = np.arctan2(run_args['sigma_q'], q0)
+        #sigma_chi_rad = run_args['sigma_q']/q0 # Small angle approximation
+        results['sigma_chi'] = np.degrees(np.abs(sigma_chi_rad))
+
+        # Subtract background
+        if 'background' not in run_args or run_args['background'] is None:
+            # Determine background based on circular_average_q2I_fit
+            
+            head, tail = os.path.split(output_dir)
+            result_file = os.path.join(head, 'results', '{}.xml'.format(data.name))
+            prev_results = tools.get_result_xml(result_file, 'circular_average_q2I_fit')
+            m, b = prev_results['fit_peaks_m'], prev_results['fit_peaks_b']
+            qp, qalpha = prev_results['fit_peaks_qp'], prev_results['fit_peaks_qalpha']
+            qn = prev_results['qn_power']
+            
+            background = (m*q0 + b) + qp*np.power(np.abs(q0), qalpha)
+            run_args['background'] = background/np.power(q0, qn)
+            
+        line.y -= run_args['background']*0.9 # Slightly 'under-estimate' the background (since there is a q-dependency that we are averaging over in the binning process)
+
+        # First point often spurious
+        line.x = line.x[1:]
+        line.y = line.y[1:]
+        line.mask_fractions = line.mask_fractions[1:]
+        
+        # Smooth curve (but not by more than sigma_chi)
+        if run_args['smooth'] is not None and run_args['smooth']>0:
+            dbins = run_args['smooth']*results['sigma_chi']/line.dchi
+            line.smooth(dbins)
+        
+        # Compute the standard deviation of the intensity variation along the ring
+        sigma_R = np.std(line.y)/np.average(line.y)
+        
+        # N_g = c_sigmaR * (sigma_R)^beta
+        # c.f. Eq. (30) (page 5) of https://doi.org/10.1107/S1600576714020822  
+        beta = -2
+        c_sigmaR_numerator = 2*( np.sqrt(np.pi) - results['sigma_chi'])*q0
+        c_sigmaR_denominator = run_args['multiplicity']*np.sqrt(2*np.pi)*run_args['sigma_q']*sigma_chi_rad*results['f_chi']
+        c_sigmaR = c_sigmaR_numerator/c_sigmaR_denominator
+        
+        N_g = c_sigmaR*np.power( sigma_R, beta )
+        
+        results['average'] = np.average(line.y)
+        results['sigma'] = np.std(line.y)
+        results['sigma_R'] = sigma_R
+        results['N_g'] = N_g
+        
+        if run_args['scattering_volume'] is not None:
+            results['V'] = run_args['scattering_volume'] # mm
+            results['N_g_per_V'] = N_g/run_args['scattering_volume'] # mm^-3
+            results['grain_size_V'] = np.power(3*run_args['scattering_volume']/(4*np.pi*N_g), 1/3)*1e3 # um
+
+
+        
+        
+        
+        
+        
+        # TODO: I_sort and related analysis
+        
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile, ztrim=run_args['ztrim'])
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
+        
+        if 'smooth' in run_args:
+            line.smooth(run_args['smooth'])
+        
+        if 'polarization_correction' in run_args and run_args['polarization_correction']:
+            chi_deg = line.x
+            two_theta_rad = 2.0*np.arcsin(q0/(2.*data.calibration.get_k()))
+            P_h = 1 - np.square(np.sin(two_theta_rad))*np.square(np.sin(np.radians(chi_deg)))
+            line.y *= P_h
+
+
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
+            outfile = self.get_outfile(data.name, output_dir)
+            #line.plot(save=outfile, **run_args)
+            
+            outfile = self.get_outfile(data.name, output_dir) #, ext='_graininess.png')
+            line.results = results
+            line.plot_graininess(save=outfile, **run_args)
+            
+            #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+            #line.plot_polar(save=outfile, **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+        
+        return results                
                 
 
 
