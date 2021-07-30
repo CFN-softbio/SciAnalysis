@@ -118,9 +118,9 @@ patterns = [
             ['theta', '.+_th(\d+\.\d+)_.+'] ,
             ['x_position', '.+_x(-?\d+\.\d+)_.+'] ,
             ['y_position', '.+_yy(-?\d+\.\d+)_.+'] ,
-            ['anneal_time', '.+_anneal(\d+)_.+'] ,
+            #['anneal_time', '.+_anneal(\d+)_.+'] ,
             #['cost', '.+_Cost(\d+\.\d+)_.+'] ,
-            #['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
+            ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
             #['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
             #['annealing_temperature', '.+_localT(\d+\.\d)_.+'] ,
             #['annealing_time', '.+_clock(\d+\.\d\d)_.+'] ,
@@ -268,7 +268,7 @@ def determine_infile(filename, source_dir='./', suffix='_saxs.tiff', filename_re
 
 # Run autonomous loop
 ########################################
-def run_autonomous_loop(protocols, clear=False, republish=False, verbosity=3, simulate=False):
+def run_autonomous_loop(protocols, clear=False, force_load=False, republish=False, verbosity=3, simulate=False):
     
     # IMPORTANT NOTE: Search for "# TOCHANGE" in the code below for
     # beamline-specific and experiment-specific assumptions that need
@@ -280,7 +280,8 @@ def run_autonomous_loop(protocols, clear=False, republish=False, verbosity=3, si
     code_PATH='../../../'
     code_PATH in sys.path or sys.path.append(code_PATH)
 
-    from CustomQueue import Queue_analyze as queue
+    #from CustomQueue import Queue_analyze as queue
+    from CustomS3 import Queue_analyze as queue
     q = queue()
 
     if clear:
@@ -301,7 +302,8 @@ def run_autonomous_loop(protocols, clear=False, republish=False, verbosity=3, si
     
     while True: # Loop forever
         
-        results = q.get() # Get analysis command
+        results = q.get(force_load=force_load) # Get analysis command
+        force_load = False # Only force a reload on the 1st iteration
         
         num_to_analyze = int( sum( 1.0 for result in results if result['analyzed'] is False ) )
         
@@ -380,6 +382,8 @@ def run_autonomous_loop(protocols, clear=False, republish=False, verbosity=3, si
 
 
                 # Package for gpCAM
+                if verbosity>=5:
+                    print('Packaging result: {:.4g} ± {:.4g}'.format(value, variance))
                 result['value'] = value
                 result['variance'] = variance
                 result['analyzed'] = True
@@ -389,10 +393,12 @@ def run_autonomous_loop(protocols, clear=False, republish=False, verbosity=3, si
             print('Analyzed {} results'.format(ianalyze))
         if verbosity>=1 and ianalyze<1:
             print('WARNING: No results were analyzed.')
+        if verbosity>=5:
+            print_results(results)
         
         q.publish(results)
     
 
 #process.run(infiles, protocols, output_dir=output_dir, force=True)
-run_autonomous_loop(protocols, clear=False, republish=False, verbosity=3)
+run_autonomous_loop(protocols, clear=False, force_load=False, republish=False, verbosity=3)
 

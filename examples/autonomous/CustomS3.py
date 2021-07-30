@@ -19,7 +19,7 @@ class CustomS3(Base):
                  username,                              # S3 access_key
                  send='send',                           # Queue to send/publish to
                  receive='receive',                     # Queue to watch for signals
-                 endpoint="dtn01.sdcc.bnl.gov:8000",    # S3/lustre server
+                 endpoint="localhost:8000",             # S3/lustre server
                  secret_key=None,                       # Authentication key
                  bucket_name='experiments',             # S3 bucket to use
                  experiment=None,                       # Name in S3 storage for the datasets
@@ -388,8 +388,8 @@ class CustomS3(Base):
 
 VERBOSITY=4
 ENDPOINT="dtn01.sdcc.bnl.gov:8000"
-USERNAME='kyager'
-SECRET_KEY='/nsls2/xf11bm/data/2021_3/KYager/S3_secret_key.txt' # Specify path
+USERNAME='username'
+SECRET_KEY='/nsls2/xf11bm/data/2021_3/UShell/S3_secret_key.txt' # Specify path
 SECRET_KEY=None # Use default path
 EXPERIMENT='experiment_AE_current'
 #EXPERIMENT=None # Default is to use day and hour

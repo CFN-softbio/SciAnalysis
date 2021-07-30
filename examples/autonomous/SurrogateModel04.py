@@ -2078,7 +2078,7 @@ if __name__ == '__main__':
     
     task = Tasker(distributed=False, verbosity=verbosity)
     
-    #task.load_data(model, extractions)
+    task.load_data(model, extractions)
     task.prepare_data(model)
     
     kwargs = {

@@ -1074,7 +1074,7 @@ def get_result_xml(infile, protocol):
         if element.get('value') is not None:
             results[element.get('name')] = float(element.get('value'))
             
-            if element.get('error') is not None:
+            if element.get('error') is not None and element.get('error')!='None':
                 results[element.get('name')+'_error'] = float(element.get('error'))
             
         elif element.get('type') is not None and element.get('type')=='list':

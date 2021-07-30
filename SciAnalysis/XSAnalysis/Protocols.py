@@ -486,6 +486,8 @@ class fit_peaks(Protocol):
             results['{}_d0{}'.format(fit_name, i+1)] = { 'value': d, 'error': d_err }
             
             sigma = results['{}_sigma{}'.format(fit_name, i+1)]['value']
+            if 'instrumental_resolution' in run_args:
+                sigma = np.sqrt( np.square(sigma) - np.square(run_args['instrumental_resolution']) )
             xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/sigma
             err = results['{}_sigma{}'.format(fit_name, i+1)]['error']
             if err is None:
@@ -514,15 +516,18 @@ class fit_peaks(Protocol):
                 yf = np.max(line.y)*1.5
                 self.ax.axis([xi, xf, yi, yf])
 
-                
+                color = 'b'
                 font_size = self._run_args['font_size'] if 'font_size' in self._run_args else 18
                 v_spacing = (yf-yi)*0.065*(font_size/20)
 
                 s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_peaks_chi_squared'])
-                self.ax.text(xi, yi, s, size=font_size, color='b', verticalalignment='bottom', horizontalalignment='left')
+                self.ax.text(xi, yi, s, size=font_size, color=color, verticalalignment='bottom', horizontalalignment='left')
 
 
+                
                 for i in range(self._run_args['num_curves']):
+                    
+                    self.ax.axvline(self.results['fit_peaks_x_center{}'.format(i+1)]['value'], linewidth=1, color=color, alpha=0.5)
                     
                     if i<=1:
                         yp = yf
@@ -534,23 +539,23 @@ class fit_peaks(Protocol):
                         ha, xp = 'left', xi
         
                     s = '$p_{{ {:d} }} = \, {:.3g}$'.format(i+1, self.results['fit_peaks_prefactor{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
                     s = '$q = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
                     s = r'$d \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
                     s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)
                     
                     yp -= v_spacing
                     s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)        
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)        
                     
         
         
@@ -1265,6 +1270,7 @@ class linecut_angle_graininess(linecut_angle):
         self.default_ext = '.png'
         self.run_args = {
             'show_region' : False,
+            'ztrim' : [0.1, 0.01],
             'plot_range' : [-180, 180, 0, None],
             'markersize' : 3,
             'linewidth' : 1.5,

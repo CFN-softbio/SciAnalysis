@@ -191,7 +191,7 @@ class ResultsXML(object):
                     print(e)
 
         if verbosity>=2 and len(infiles)>0:
-            print( '  Extracted {} results (failed on {}/{} = {:.1f}%'.format(len(results)-ifailed, ifailed, len(infiles), 100.0*ifailed/len(infiles)) )
+            print( '  Extracted {} results (failed on {}/{} = {:.1f}%)'.format(len(results)-ifailed, ifailed, len(infiles), 100.0*ifailed/len(infiles)) )
 
                 
         return results                  
@@ -235,7 +235,7 @@ class ResultsXML(object):
                 except ValueError:
                     results.append( element.get('value') )
                 
-                if element.get('error') is not None:
+                if element.get('error') is not None and element.get('error')!='None':
                     result_names.append(element.get('name')+'_error')
                     results.append(float(element.get('error')))
                 

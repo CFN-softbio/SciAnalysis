@@ -970,7 +970,8 @@ class DataLineAngle(DataLine):
         # Sort (and reverse)
         idx = np.argsort(self.y)
         y = self.y[idx][::-1] 
-        x = np.arange(0, len(self.x)*self.dchi, self.dchi)
+        #x = np.arange(0, len(self.x)*self.dchi, self.dchi) # Not guaranteed to have right length
+        x = np.linspace(0, (len(self.x)-1)*self.dchi, num=len(self.x), endpoint=True)
         m = self.mask_fractions[idx][::-1]
         for xc, mc in zip(x, m):
             self.ax3.axvspan(xc-self.dchi/2, xc+self.dchi/2, color=mpl.cm.BuPu(1-mc), linewidth=0, alpha=0.25)
