@@ -5,6 +5,41 @@ import matplotlib as mpl
 mpl.rcParams['mathtext.fontset'] = 'cm'
 import pylab as plt
 
+# Helpers
+########################################
+# TODO: DEPRECATED in favor of tools.val_stats
+def print_d(d, i=4):
+    '''Simple helper to print a dictionary.'''
+    for k, v in d.items():
+        if isinstance(v,dict):
+            print('{}{} : <dict>'.format(' '*i,k))
+            print_d(v, i=i+4)
+        elif isinstance(v,(np.ndarray)):
+            print('{}{} : Ar{}: {}'.format(' '*i,k,v.shape,v))
+        elif isinstance(v,(list,tuple)):
+            print('{}{} : L{}: {}'.format(' '*i,k,len(v),v))
+        else:
+            print('{}{} : {}'.format(' '*i,k,v))
+
+def print_results(results):
+    '''Simple helper to print out a list of dictionaries.'''
+    for i, result in enumerate(results):
+        print(i)
+        print_d(result)
+
+def print_n(d):
+    '''Simple helper to print nested arrays/dicts'''
+    if isinstance(d, (list,tuple,np.ndarray)):
+        print_results(d)
+    elif isinstance(d, dict):
+        print_d(d)
+    else:
+        print(d)
+
+def val_stats(values, name='z'):
+    span = np.max(values)-np.min(values)
+    print("  {} = {:.2g} ± {:.2g} (span {:.2g}, from {:.3g} to {:.3g})".format(name, np.average(values), np.std(values), span, np.min(values), np.max(values)))
+
 
 
 class Plotter():
@@ -30,7 +65,7 @@ class Plotter():
         
         self.plot_valid_keys = ['color', 'linestyle', 'linewidth', 'marker', 'markerfacecolor', 'markersize', 'alpha', 'markeredgewidth', 'markeredgecolor', 'capsize', 'ecolor', 'elinewidth']
         self.plot_args = { 'color' : 'k',
-                        'marker' : 'o',
+                        'marker' : None,
                         'linewidth' : 3.0,
                         'rcParams': {'axes.labelsize': 35,
                                         'xtick.labelsize': 30,
@@ -94,7 +129,7 @@ class Plotter():
             plt.grid()
         
         if 'title' in plot_args and plot_args['title'] is not None:
-            size = plot_args['rcParams']['axes.labelsize']
+            size = plot_args['rcParams']['axes.labelsize']*0.5
             #size = plot_args['rcParams']['xtick.labelsize']
             plt.figtext(0, 1, plot_args['title'], size=size, weight='bold', verticalalignment='top', horizontalalignment='left')
         
@@ -125,21 +160,52 @@ class Plotter():
 
     def _plot_main(self, error=False, error_band=False, dashes=None, **plot_args):
         
-        if error_band:
-            # TODO: Make this work
-            l, = plt.plot(self.x, self.y, **plot_args)
-            self.ax.fill_between(self.x, self.y-self.y_err, self.y+self.y_err, facecolor='0.8', linewidth=0)
+        #l, = plt.plot(self.x, self.y, **plot_args)
+        l, = self.ax.plot(self.x, self.y, alpha=0.25, **plot_args)
         
-        elif error:
-            l = plt.errorbar( self.x, self.y, xerr=self.x_err, yerr=self.y_err, **plot_args)
+        from scipy.ndimage import gaussian_filter1d
         
-        else:
-            #l, = plt.plot(self.x, self.y, **plot_args)
-            l, = self.ax.plot(self.x, self.y, **plot_args)
-            
-            
+        y_smoothed = gaussian_filter1d(self.y, sigma=10, mode='nearest')
+        
+        l, = self.ax.plot(self.x, y_smoothed, **plot_args)
         if dashes is not None:
             l.set_dashes(dashes)        
+
+
+        N = int(len(self.y)*0.10)
+        y_final = np.average(self.y[-N:])
+        self.ax.axhline(y_final, color='b', alpha=0.5, linewidth=1.0)
+        
+        thresh = 0.8
+        y_span = self.y[0]-y_final
+        y_target = self.y[0] - y_span*thresh
+        xt, yt = self.target_y(np.asarray(self.x), np.asarray(y_smoothed), y_target)
+        self.ax.plot(xt, yt, 'o', color='b', markersize=10, alpha=0.75)
+        s = '$\epsilon$ decrease reaches {:.0f}% by $N = {:d}$'.format(100*thresh, xt)
+        e = y_span*0.3
+        self.ax.text(xt, yt+e, s, size=15, color='b', verticalalignment='bottom', horizontalalignment='left')
+        self.ax.plot([xt, xt], [yt, yt+e], color='b', alpha=0.5, linewidth=0.5)
+        
+        
+    def target_y(self, x, y, target):
+        '''Find the datapoint closest to the given y.'''
+    
+        #x = np.asarray(self.x)
+        #y = np.asarray(self.y)
+
+        # Sort
+        indices = np.argsort(y)
+        x_sorted = x[indices]
+        y_sorted = y[indices]
+
+        # Search through y for the target
+        idx = np.where( y_sorted>=target )[0][0]
+        xcur = x_sorted[idx]
+        ycur = y_sorted[idx]
+        
+        return xcur, ycur
+        
+            
                 
                 
     def _plot_extra(self, **plot_args):
@@ -159,8 +225,32 @@ class Plotter():
                 
                 
 if __name__ == '__main__':
-    p = Plotter(x_rlabel='$x \, (\mu \mathrm{m})$', y_rlabel='$T \, (\mathrm{^{\circ}C})$')
-    p.x = np.linspace(0, 100, num=100)
-    p.y = np.square(p.x)
+    
+    
+    #infile = 'Data_2021-02-09_10_33_48_model_1.npy' # 101
+    #infile, sample_name = 'Data_2021-02-09_11_59_02_model_1.npy', 'sample2_anneal15_run1' # 1341
+    #infile, sample_name = 'Data_2021-02-09_21_54_05_model_1.npy', 'sample3_anneal1200_run1' # 1502
+    #infile, sample_name = 'Data_2021-02-10_08_57_09_model_1.npy', 'sample5_anneal300_run1' # 1312 
+    infile, sample_name = 'Data_2021-02-10_18_29_11_model_1.npy', 'sample1_anneal5_run1' # 1244 
+    #infile = 'Data_2021-02-11_03_39_16_model_1.npy' # 4
+    #infile = 'Data_2021-02-11_03_43_42_model_1.npy' # 767
+    
+    data = np.load(infile, allow_pickle=True)
+    print('Loaded {} records from {}'.format(data.shape[0], infile))
+    print('    filename: {}'.format(data[-1]['filename']))
+    
+    vals = np.asarray([d['time stamp'] for d in data])
+    idx = np.argsort(vals)
+    data = data[idx]
+    
+    #vals = np.asarray([d['objective function evaluation'] for d in data])
+    vals = []
+    for d in data:
+        if 'objective function evaluation' in d:
+            vals.append(d['objective function evaluation'])
+    Ns = range(len(vals))
+    
+    
+    p = Plotter(x=Ns, y=vals, x_rlabel='$N$', y_rlabel='$ \epsilon \, (\mathrm{a.u.})$')
 
-    p.plot(save='output.png')
+    p.plot(save='error_history-{}.png'.format(sample_name), title=sample_name, plot_range=[0, None, None, None], plot_buffers=[0.14, 0.04, 0.15, 0.08])

@@ -24,9 +24,7 @@ from SciAnalysis.XSAnalysis.Data import * #from .Data import *
 from SciAnalysis.tools import * #from ..tools import *
 #from SciAnalysis.IO_HDF import *
 
-import copy, glob, difflib
-import pandas as pd
-
+import copy
 
 class ProcessorXS(Processor):
 
@@ -40,7 +38,7 @@ class ProcessorXS(Processor):
         #data = Data2DScattering(infile, **kwargs)
         data = self.handle_calibration(infile, **kwargs)
         data.infile = infile
-
+        
         data.threshold_pixels(4294967295-1) # Eiger inter-module gaps
         
         if 'background' in kwargs:
@@ -258,16 +256,6 @@ class thumbnails(Protocol):
         
         #print(data.stats())
         
-        if 'label_filename' in run_args and run_args['label_filename']:
-            data.plot_args = { 'rcParams': {'axes.labelsize': 20,
-                                    'xtick.labelsize': 30,
-                                    'ytick.labelsize': 30,
-                                    'xtick.major.pad': 10,
-                                    'ytick.major.pad': 10,
-                                    },
-                                'title': data.name,
-                                } 
-            
         if 'plots' in run_args['save_results']:
             results['files_saved'] = [
                 { 'filename': '{}'.format(outfile) ,
@@ -304,37 +292,10 @@ class circular_average(Protocol):
             data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
         
         
-        line = data.circular_average_q_bin(error=0, bins_relative=run_args['bins_relative'])
-        
-        #if 'correction' in run_args:
-            #data_bkg = Data2DScattering(infile = run_args['correction'])
-            #ling_bkg = data_bkg.circular_average_q_bin(error=0, bins_relative=run_args['bins_relative'])
-        #else:
-        #    ling_bkg = DataLine(x=line.x, y = line.y*0.0)
-
-        
-        #print('### line_bkg loaded!')
-       
-        
-        #line.smooth(2.0, bins=10)        
+        line = data.circular_average_q_bin(error=True, bins_relative=run_args['bins_relative'])
+        #line.smooth(2.0, bins=10)
         if 'trim_range' in run_args:
             line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
-        
-        if 'label_filename' in run_args and run_args['label_filename']:
-            line.plot_args = { 'rcParams': {'axes.labelsize': 20,
-                                        'xtick.labelsize': 25,
-                                        'ytick.labelsize': 25,
-                                        'xtick.major.pad': 10,
-                                        'ytick.major.pad': 10,
-                                        },
-                                'title': data.name,
-                                }
-
-        if 'twotheta' in run_args and run_args['twotheta']:
-            k = data.calibration.get_k()
-            two_theta_s_rad = 2.0*np.arcsin(line.x/(2.0*k))
-            line.x = two_theta_s_rad/np.pi*180		
-            line.x_rlabel = '2theta (deg)'	
 
         if 'twotheta' in run_args and run_args['twotheta']:
             line.x = data.calibration.q_to_angle(line.x)
@@ -353,8 +314,6 @@ class circular_average(Protocol):
             line.plot(save=outfile, **run_args)
 
         if 'hdf5' in run_args['save_results']:
-            #print('here for cir_avg.....')
-            #print( output_dir, data.name)
             self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
 
        
@@ -428,7 +387,8 @@ class circular_average_sum(circular_average):
 
 
         return results
-                             
+                
+                
                 
 class circular_average_q2I(Protocol):
 
@@ -468,6 +428,7 @@ class circular_average_q2I(Protocol):
             line.y_label = 'q^n*I(q)'
             line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
             
+        results['qn_power'] = run_args['qn_power']
         
         if 'plots' in run_args['save_results']:
             self.label_filename(data, line, **run_args)
@@ -515,11 +476,25 @@ class fit_peaks(Protocol):
         
         # Calculate some additional things
         for i in range(run_args['num_curves']):
-            # TODO: Add calculation of errors.
-            d = 0.1*2.*np.pi/results['{}_x_center{}'.format(fit_name, i+1)]['value']
-            results['{}_d0{}'.format(fit_name, i+1)] = d
-            xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/results['{}_sigma{}'.format(fit_name, i+1)]['value']
-            results['{}_grain_size{}'.format(fit_name, i+1)] = xi
+            q = results['{}_x_center{}'.format(fit_name, i+1)]['value']
+            d = 0.1*2.*np.pi/q
+            err = results['{}_x_center{}'.format(fit_name, i+1)]['error']
+            if err is None:
+                err = 0
+            d_err = err*(d/q)
+            #results['{}_d0{}'.format(fit_name, i+1)] = d
+            results['{}_d0{}'.format(fit_name, i+1)] = { 'value': d, 'error': d_err }
+            
+            sigma = results['{}_sigma{}'.format(fit_name, i+1)]['value']
+            if 'instrumental_resolution' in run_args:
+                sigma = np.sqrt( np.square(sigma) - np.square(run_args['instrumental_resolution']) )
+            xi = 0.1*(2.*np.pi/np.sqrt(2.*np.pi))/sigma
+            err = results['{}_sigma{}'.format(fit_name, i+1)]['error']
+            if err is None:
+                err = 0
+            xi_err = err*(xi/sigma)            
+            #results['{}_grain_size{}'.format(fit_name, i+1)] = xi
+            results['{}_grain_size{}'.format(fit_name, i+1)] = { 'value': xi, 'error': xi_err }
             
         results['{}_d0'.format(fit_name)] = results['{}_d01'.format(fit_name)]
         results['{}_grain_size'.format(fit_name)] = results['{}_grain_size1'.format(fit_name)]
@@ -539,17 +514,20 @@ class fit_peaks(Protocol):
                     line = self.lines[0]
                 
                 yf = np.max(line.y)*1.5
-
                 self.ax.axis([xi, xf, yi, yf])
 
-                
+                color = 'b'
                 font_size = self._run_args['font_size'] if 'font_size' in self._run_args else 18
                 v_spacing = (yf-yi)*0.065*(font_size/20)
 
                 s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_peaks_chi_squared'])
-                self.ax.text(xi, yi, s, size=font_size, color='b', verticalalignment='bottom', horizontalalignment='left')
+                self.ax.text(xi, yi, s, size=font_size, color=color, verticalalignment='bottom', horizontalalignment='left')
 
+
+                
                 for i in range(self._run_args['num_curves']):
+                    
+                    self.ax.axvline(self.results['fit_peaks_x_center{}'.format(i+1)]['value'], linewidth=1, color=color, alpha=0.5)
                     
                     if i<=1:
                         yp = yf
@@ -561,24 +539,25 @@ class fit_peaks(Protocol):
                         ha, xp = 'left', xi
         
                     s = '$p_{{ {:d} }} = \, {:.3g}$'.format(i+1, self.results['fit_peaks_prefactor{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
                     s = '$q = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_x_center{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
-                    s = r'$d \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    s = r'$d \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_d0{}'.format(i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)
 
                     yp -= v_spacing
                     s = '$\sigma = \, {:.4f} \, \mathrm{{\AA}}^{{-1}}$'.format(self.results['fit_peaks_sigma{}'.format(i+1)]['value'])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)
                     
                     yp -= v_spacing
-                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)])
-                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment=ha)        
+                    s = r'$\xi \approx \, {:.1f} \, \mathrm{{nm}}$'.format(self.results['fit_peaks_grain_size{}'.format(i+1)]['value'])
+                    self.ax.text(xp, yp, s, size=font_size, color=color, verticalalignment='top', horizontalalignment=ha)        
                     
+        
         
         lines = DataLines_current([line, fit_line, fit_line_extended])
         if 'num_curves' in run_args and run_args['num_curves']>1 and 'show_curves' in run_args and run_args['show_curves']:
@@ -613,14 +592,7 @@ class fit_peaks(Protocol):
             for i in range(num_curves):
                 m += v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
             return m
- 
- 
-        def model_Gaussian(v, x, i):           
-            # Gaussian peaks
-            m = v['prefactor{:d}'.format(i+1)]*np.exp( -np.square(x-v['x_center{:d}'.format(i+1)])/(2*(v['sigma{:d}'.format(i+1)]**2)) )
-            return m
- 
- 
+        
         def func2minimize(params, x, data):
             
             v = params.valuesdict()
@@ -678,7 +650,7 @@ class fit_peaks(Protocol):
             x_sorted = xs[indices]
             y_sorted = ys[indices]
             
-            idx = np.where( x_sorted>=q0[0] )[0][0]
+            idx = np.where( x_sorted>=q0 )[0][0]
 
             xpeak = x_sorted[idx]
             ypeak = y_sorted[idx]
@@ -705,6 +677,7 @@ class fit_peaks(Protocol):
             sigma = 0.1*xspan
         
         for i in range(num_curves):
+            
             params.add('prefactor{:d}'.format(i+1), value=prefactor, min=0, max=max(np.max(line.y)*1.5,0)+1e-12, vary=False)
             if i==0:
                 # 1st peak should be at max location
@@ -719,7 +692,7 @@ class fit_peaks(Protocol):
                 params.add('x_center{:d}'.format(i+1), value=xpos, min=np.min(line.x), max=np.max(line.x), vary=False)
                 
             params.add('sigma{:d}'.format(i+1), value=sigma, min=0.00001, max=xspan*0.5, vary=False)
-       
+        
         
         # Fit only the peak width
         params['sigma1'].vary = True
@@ -744,7 +717,6 @@ class fit_peaks(Protocol):
                 lm_result.params['x_center{:d}'.format(i+1)].vary = True
             lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             
-            lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y))
             #lm_result = lmfit.minimize(func2minimize, lm_result.params, args=(line.x, line.y), method='nelder')
         
         if run_args['verbosity']>=5:
@@ -780,6 +752,223 @@ class fit_peaks(Protocol):
             
 
         return lm_result, fit_line, fit_line_extended, fit_line_curves
+
+
+class fit_FormFactor_Sphere(Protocol):
+
+    def __init__(self, name=None, **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+            'load_from' : 'circular_average',
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            'ylog' : True,
+            }
+        self.run_args.update(kwargs)
+
+
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if run_args['load_from'] is not None:
+            # Load data from corresponding circular_average
+            load_dir = Path(output_dir).parent.joinpath(run_args['load_from'])
+            infile = load_dir.joinpath(data.name + '.dat')
+            data_1d = np.loadtxt(infile) # q qerr I(q) I(q)err
+            
+            line = DataLine(x=data_1d[:,0], y=data_1d[:,2], x_err=data_1d[:,1], y_err=data_1d[:,3], x_label='q', y_label='P(q)', x_rlabel='$q \, (\mathrm{\AA})$', y_rlabel='P(q)')
+            
+        if False:
+            # Testing using CSV file
+            load_dir = Path(output_dir).parent.joinpath('csv')
+            infile = load_dir.joinpath('SP38nm_Free' + '.csv')
+            data_1d = np.loadtxt(infile, delimiter=',', skiprows=1) # q P(q)
+            line = DataLine(x=data_1d[:,1], y=data_1d[:,2], x_label='q', y_label='P(q)', x_rlabel='$q \, (\mathrm{\AA})$', y_rlabel='$P(q)$')
+            
+            
+        # Do the fit
+        lines = self._fit(line, results, **run_args)
+
+
+        # Save results
+        if 'save_fit' in run_args and run_args['save_fit']:
+            outfile = self.get_outfile(data.name, output_dir, ext='_fit.dat')
+            lines.lines[1].save_data(outfile)            
+        
+        
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, lines, **run_args)
+            outfile = self.get_outfile(data.name, output_dir, ext=self.default_ext)
+            lines.plot(save=outfile, **run_args)
+        
+        
+        if 'hdf5' in run_args['save_results']:
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)
+        
+        return results
+
+    
+    def _fit(self, line, results, **run_args):
+        
+        # Do the fit
+        lm_result, fit_line, fit_line_extended = self._fit_FF(line, **run_args)
+
+
+        # Store results
+        fit_name = 'fit_FF'
+        prefactor_total = 0
+        for param_name, param in lm_result.params.items():
+            results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
+            
+        results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
+
+
+
+        # Plot and save data
+        class DataLines_current(DataLines):
+            
+            def _plot_extra(self, **plot_args):
+                
+                xi, xf, yi, yf = self.ax.axis()
+                
+                if 'fit_range' in self._run_args:
+                    xstart, xend = self._run_args['fit_range']
+                    line = self.lines[0].sub_range(xstart, xend)
+                else:
+                    line = self.lines[0]
+                
+                yi = np.min(line.y)*0.5
+                yf = np.max(line.y)*2.0
+                self.ax.axis([xi, xf, yi, yf])
+
+                font_size = self._run_args['font_size'] if 'font_size' in self._run_args else 18
+                v_spacing = (np.log(yf)-np.log(yi))*(font_size/20)*0.2
+
+                s = '$\chi^2 = \, {:.4g}$'.format(self.results['fit_FF_chi_squared'])
+                self.ax.text(xi, yi, s, size=font_size, color='b', verticalalignment='bottom', horizontalalignment='left')
+                
+                xp, yp = xf, yf
+                for k, v in self._run_args['initial_guess'].items():
+                    r = self.results['fit_FF_{}'.format(k)]
+                    if r['error'] is None:
+                        e = 'NA'
+                    else:
+                        e = '{:.2g}'.format(r['error'])
+                    s = '{} = {:.3g} ± {}'.format(k, r['value'], e)
+                    self.ax.text(xp, yp, s, size=font_size, color='b', verticalalignment='top', horizontalalignment='right')
+                    
+                    yp /= v_spacing
+                    
+
+
+                    
+        
+        
+        lines = DataLines_current([line, fit_line, fit_line_extended])
+        lines.results = results
+        lines._run_args = run_args
+        lines.copy_labels(line)
+        
+        # Note that the results dictionary is modified within this function.
+        # Thus although it is not returned, it is part of the set of returned
+        # information.
+        return lines        
+        
+        
+    def _fit_FF(self, line, **run_args):
+        
+        line_full = line
+        if 'fit_range' in run_args:
+            line = line.sub_range(run_args['fit_range'][0], run_args['fit_range'][1])
+        
+        import lmfit
+        
+        def model(v, x):
+            
+            background = v['qpower_scale']*np.power(x, v['qpower']) + v['background']
+            
+            #P = self.sphere_form_factor_intensity(q=x, R=v['radius'], delta_rho=v['delta_rho'] )
+            P = self.poly_sphere_form_factor_intensity( q=x, R=v['radius'], sigma=v['sigma'], delta_rho=v['delta_rho'] )
+            
+            return P + background
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            #return m - data
+            return np.log(data/m)
+        
+        params = lmfit.Parameters()
+        
+        for k, v in run_args['initial_guess'].items():
+            v_min, v_max = run_args['limits'][k]
+            params.add(k, value=v, min=v_min, max=v_max, vary=True)
+
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+            
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'marker':None, 'linewidth':4.0})
+        
+        x_span = abs(np.max(line.x)-np.min(line.x))
+        fit_x = np.linspace(0, np.max(line.x)+x_span*0.2, num=2000)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'b', 'alpha':0.5, 'marker':None, 'linewidth':2.0})
+
+        
+        return lm_result, fit_line, fit_line_extended
+
+
+    def sphere_form_factor(self, q, R, delta_rho=1):
+        """Calculate the form factor (fq) of a sphere."""
+        from scipy.special import spherical_jn
+        volume = (4.0/3.0)*np.pi*(R**3)
+        qR = R*q
+        F =  delta_rho  * volume * 3 * spherical_jn(1, qR) / qR      
+        return F
+
+    def sphere_form_factor_intensity(self, q, R, delta_rho=1):
+        """Calculate the form factor intensity (Pq=fq**2) of a sphere."""  
+        F =  self.sphere_form_factor(q=q, R=R, delta_rho=delta_rho)   
+        return np.abs(F)**2 
+
+    def poly_sphere_form_factor_intensity(self, q, R, sigma, delta_rho=1):
+        """Calculate the form factor intensity of a polydispersed distribution
+        of spheres.
+        Pq = sum( wi * fqi**2 )"""    
+        disx, disw, disdx = self.distribution_gaussian( R, sigma * R )
+        f1_ = np.zeros_like(q)
+        cts=0
+        for i, ri in enumerate(disx):
+            f1_ += self.sphere_form_factor_intensity(q, R=ri, delta_rho= delta_rho ) * disw[i] * disdx
+            cts += disw[i] *disdx  
+        return f1_/cts
+    
+    def distribution_gaussian(self, radius=1.0, sigma=0.01, num_points=30, spread=3, only_positive=True): 
+        ''' Create a gaussian distribution'''    
+        distribution_list = []  
+        x, step= np.linspace( radius - spread* sigma, radius + spread*sigma, num_points,retstep=True)
+        #print(x,step)
+        prefactor = 1/( sigma*np.sqrt(2*np.pi) ) 
+        delta = radius - x
+        wt = prefactor*np.exp( - (delta**2)/(2*( sigma**2 ) ) )         
+        if only_positive:
+            wP = x>0
+            return x[wP], wt[wP], step
+        else:
+            return x, wt, step      
         
 
 class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
@@ -800,6 +989,8 @@ class circular_average_q2I_fit(circular_average_q2I, fit_peaks):
             line.y *= np.power(line.x, run_args['qn_power'])
             line.y_label = 'q^n*I(q)'
             line.y_rlabel = '$q^n I(q) \, (\AA^{-n} \mathrm{counts/pixel})$'
+            
+        results['qn_power'] = run_args['qn_power']
             
 
         if 'txt' in run_args['save_results']:        
@@ -863,21 +1054,9 @@ class sector_average(Protocol):
         if 'dezing' in run_args and run_args['dezing']:
             data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
         
-        if 'extra' in run_args:
-            extra = run_args['extra']
-        else: extra = ''
         
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
-        if 'label_filename' in run_args and run_args['label_filename']:
-            line.plot_args = { 'rcParams': {'axes.labelsize': 20,
-                                'xtick.labelsize': 25,
-                                'ytick.labelsize': 25,
-                                'xtick.major.pad': 10,
-                                'ytick.major.pad': 10,
-                                },
-                            'title': data.name,
-                            }
         
         if 'show_region' in run_args:
             if run_args['show_region']=='save':
@@ -913,7 +1092,10 @@ class sector_average_fit(sector_average, fit_peaks):
             'bins_relative' : 1.0,
             'markersize' : 0,
             'linewidth' : 1.5,
-            'error' : True, 
+            'error' : False, 
+            #'elinewidth' : 0.25,
+            #'ecolor': '0.5',
+            #'capsize': 1.5,
             'show_region' : False,
             'qn_power' : None,
             'num_curves' : 1,
@@ -932,9 +1114,6 @@ class sector_average_fit(sector_average, fit_peaks):
         
         line = data.sector_average_q_bin(**run_args)
         #line.smooth(2.0, bins=10)
-        
-        if 'trim_range' in run_args:
-            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
         
         if run_args['qn_power'] is not None:
             if run_args['qn_power']==2.0:
@@ -968,6 +1147,10 @@ class sector_average_fit(sector_average, fit_peaks):
             self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
 
 
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
+
+
         # Do fit
         lines = self._fit(line, results, **run_args)
         if 'plots' in run_args['save_results']:
@@ -975,6 +1158,7 @@ class sector_average_fit(sector_average, fit_peaks):
             outfile = self.get_outfile(data.name, output_dir)
             lines.plot(save=outfile, **run_args)        
         
+
         return results
     
 
@@ -1046,7 +1230,7 @@ class linecut_angle(Protocol):
         if 'show_region' in run_args:
             if run_args['show_region']=='save':
                 outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
-                data.plot(save=outfile)
+                data.plot(save=outfile, ztrim=run_args['ztrim'])
             elif run_args['show_region']:
                 data.plot(show=True)
             
@@ -1075,7 +1259,146 @@ class linecut_angle(Protocol):
         
         return results
                                 
-                
+
+
+class linecut_angle_graininess(linecut_angle):
+
+    def __init__(self, name=None, **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+            'show_region' : False,
+            'ztrim' : [0.1, 0.01],
+            'plot_range' : [-180, 180, 0, None],
+            'markersize' : 3,
+            'linewidth' : 1.5,
+            'smooth' : 0.25, # Data-smoothing, as a fraction of sigma_chi
+            'multiplicity' : 6,
+            'scattering_volume' : None,
+            }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        # Graininess analysis is based on:
+        # https://doi.org/10.1107/S1600576714020822
+        
+        results = {}
+        
+        #line = data.linecut_angle(q0=run_args['q0'], dq=run_args['dq'])
+        line = data.linecut_angle(**run_args)
+        
+        q0 = run_args['q0']
+        results['f_chi'] = line.f_chi
+
+        if 'sigma_q' not in run_args or run_args['sigma_q'] is None:
+            # Determine sigma_q based on circular_average_q2I_fit
+            
+            head, tail = os.path.split(output_dir)
+            result_file = os.path.join(head, 'results', '{}.xml'.format(data.name))
+            prev_results = tools.get_result_xml(result_file, 'circular_average_q2I_fit')
+            run_args['sigma_q'] = prev_results['fit_peaks_sigma1']
+        
+        results['sigma_q'] = run_args['sigma_q']
+        sigma_chi_rad = np.arctan2(run_args['sigma_q'], q0)
+        #sigma_chi_rad = run_args['sigma_q']/q0 # Small angle approximation
+        results['sigma_chi'] = np.degrees(np.abs(sigma_chi_rad))
+
+        # Subtract background
+        if 'background' not in run_args or run_args['background'] is None:
+            # Determine background based on circular_average_q2I_fit
+            
+            head, tail = os.path.split(output_dir)
+            result_file = os.path.join(head, 'results', '{}.xml'.format(data.name))
+            prev_results = tools.get_result_xml(result_file, 'circular_average_q2I_fit')
+            m, b = prev_results['fit_peaks_m'], prev_results['fit_peaks_b']
+            qp, qalpha = prev_results['fit_peaks_qp'], prev_results['fit_peaks_qalpha']
+            qn = prev_results['qn_power']
+            
+            background = (m*q0 + b) + qp*np.power(np.abs(q0), qalpha)
+            run_args['background'] = background/np.power(q0, qn)
+            
+        line.y -= run_args['background']*0.9 # Slightly 'under-estimate' the background (since there is a q-dependency that we are averaging over in the binning process)
+
+        # First point often spurious
+        line.x = line.x[1:]
+        line.y = line.y[1:]
+        line.mask_fractions = line.mask_fractions[1:]
+        
+        # Smooth curve (but not by more than sigma_chi)
+        if run_args['smooth'] is not None and run_args['smooth']>0:
+            dbins = run_args['smooth']*results['sigma_chi']/line.dchi
+            line.smooth(dbins)
+        
+        # Compute the standard deviation of the intensity variation along the ring
+        sigma_R = np.std(line.y)/np.average(line.y)
+        
+        # N_g = c_sigmaR * (sigma_R)^beta
+        # c.f. Eq. (30) (page 5) of https://doi.org/10.1107/S1600576714020822  
+        beta = -2
+        c_sigmaR_numerator = 2*( np.sqrt(np.pi) - results['sigma_chi'])*q0
+        c_sigmaR_denominator = run_args['multiplicity']*np.sqrt(2*np.pi)*run_args['sigma_q']*sigma_chi_rad*results['f_chi']
+        c_sigmaR = c_sigmaR_numerator/c_sigmaR_denominator
+        
+        N_g = c_sigmaR*np.power( sigma_R, beta )
+        
+        results['average'] = np.average(line.y)
+        results['sigma'] = np.std(line.y)
+        results['sigma_R'] = sigma_R
+        results['N_g'] = N_g
+        
+        if run_args['scattering_volume'] is not None:
+            results['V'] = run_args['scattering_volume'] # mm
+            results['N_g_per_V'] = N_g/run_args['scattering_volume'] # mm^-3
+            results['grain_size_V'] = np.power(3*run_args['scattering_volume']/(4*np.pi*N_g), 1/3)*1e3 # um
+
+
+        
+        
+        
+        
+        
+        # TODO: I_sort and related analysis
+        
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile, ztrim=run_args['ztrim'])
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
+        
+        if 'smooth' in run_args:
+            line.smooth(run_args['smooth'])
+        
+        if 'polarization_correction' in run_args and run_args['polarization_correction']:
+            chi_deg = line.x
+            two_theta_rad = 2.0*np.arcsin(q0/(2.*data.calibration.get_k()))
+            P_h = 1 - np.square(np.sin(two_theta_rad))*np.square(np.sin(np.radians(chi_deg)))
+            line.y *= P_h
+
+
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
+            outfile = self.get_outfile(data.name, output_dir)
+            #line.plot(save=outfile, **run_args)
+            
+            outfile = self.get_outfile(data.name, output_dir) #, ext='_graininess.png')
+            line.results = results
+            line.plot_graininess(save=outfile, **run_args)
+            
+            #outfile = self.get_outfile(data.name, output_dir, ext='_polar.png')
+            #line.plot_polar(save=outfile, **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+        
+        return results                
                 
 
 
@@ -1208,19 +1531,6 @@ class linecut_q(Protocol):
 
         if 'hdf5' in run_args['save_results']:
             self.save_DataLine_HDF5(line, data.name, output_dir, results=results)          
-        
-        if 'txt' in run_args['save_results']:
-            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
-            line.save_data(outfile)
-
-        if 'plots' in run_args['save_results']:
-            outfile = self.get_outfile(data.name, output_dir)
-            line.plot(save=outfile, **run_args)
-
-        if 'hdf5' in run_args['save_results']:
-            #print('here for linecut_q.....')
-            #print( output_dir, data.name)            
-            self.save_DataLine_HDF5(line, data.name, output_dir, results=results)           
         
         return results
 
@@ -1910,8 +2220,11 @@ class linecut_angle_fit(linecut_angle):
         self.run_args = {
             'show_region' : False,
             'plot_range' : [-90, 90, None, None],
-            'do_FWHM' : True,
-            'do_fits' : False,
+            'do_max' : True,
+            'do_fits' : True,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            'between_convention' : False,
             }
         self.run_args.update(kwargs)
         
@@ -1957,84 +2270,134 @@ class linecut_angle_fit(linecut_angle):
         
         
         
-        # Fit
         class DataLines_current(DataLines):
             
             def _plot_extra(self, **plot_args):
-                
-                v_spacing = 0.1
-                
+                #v_spacing = 0.1
                 xi, xf, yi, yf = self.ax.axis()
-
                 #yi = min( self.lines[-1].y )*0.5
                 #yf = max( self.lines[-1].y )*1.5
                 #self.ax.axis( [xi, xf, yi, yf] )
 
                 if run_args['do_fits']:
                     yp = yf
-                    s = '$\eta = {:.2f}$'.format(self.results['fit_eta_eta'])
+                    s = '$\eta = {:.2f}$'.format(self.results['fit_eta_eta']['value'])
                     self.ax.text(xi, yp, s, size=30, color='b', verticalalignment='top', horizontalalignment='left')
 
                     yp = yf
-                    s = '$m = {:.2f}$'.format(self.results['fit_MaierSaupe_m'])
+                    s = '$m = {:.2f}$'.format(self.results['fit_MaierSaupe_m']['value'])
                     self.ax.text(xf, yp, s, size=30, color='purple', verticalalignment='top', horizontalalignment='right')
                     
                     
-                if run_args['do_FWHM']:
-                    # FWHM
-                    line = self.lines[0]
-                    xt, yt = line.target_y(max(line.y))
-                    hm = yt*0.5
+                if run_args['do_max']:
+                    xt, yt = self.results['max_position'], self.results['max_height']
+                    fwhm = self.results['fwhm']
+                    self.ax.plot([xt], [yt], 'o', color='b', markersize=8)
+                    s = r'$\chi_{{ \mathrm{{max}} }} = {:.1f}^{{\circ}}$'.format(xt)
+                    self.ax.text(xt, yt, s, color='b', size=20, verticalalignment='bottom', horizontalalignment='left')
                     
-                    # Right (+) side
-                    line_temp = line.sub_range(xt, +60)
-                    xtr, ytr = line_temp.target_y(hm)
+                    self.ax.plot([xt-fwhm/2, xt+fwhm/2], [yt/2, yt/2], 'o-', color='b', markersize=8, linewidth=1.0)
+                    s = r'$\mathrm{{FWHM}} = {:.1f}^{{\circ}}$'.format(fwhm)
+                    self.ax.text(xt+fwhm/2, yt/2, s, color='b', size=20, verticalalignment='center', horizontalalignment='left')
                     
-                    
-                    # Left (-) side
-                    line_temp = line.sub_range(-60, xt)
-                    xtl, ytl = line_temp.target_y(hm)
-                    
-                    
-                    self.ax.plot([xtl, xtr], [ytl, ytr], 'o-', color='b', markersize=8, linewidth=1.0)
-                    s = r'$\mathrm{{FWHM}} = {:.1f}^{{\circ}}$'.format( abs(xtr-xtl) )
-                    self.ax.text(xtr, ytr, s, color='b', size=20, verticalalignment='center', horizontalalignment='left')
-
+                
+                angle = self.results['orientation_angle']
+                self.ax.axvline(angle, color='r', linewidth=1.0)
+                
+                s = '$\chi = {:.1f} ^{{\circ}} $'.format(angle)
+                self.ax.text(angle, yf, s, size=20, color='r', verticalalignment='top', horizontalalignment='right')
+                s = '$f = {:.3f}$'.format(self.results['orientation_factor'])
+                self.ax.text(angle, yi, s, size=20, color='r', verticalalignment='bottom', horizontalalignment='right')
                 
                 #self.ax.set_xticks([-180, -90, 0, +90, +180])
                 
                 
                 
-        lines = DataLines_current([]) # Not sure why the lines=[] argument needs to be specified here...
+        lines = DataLines_current()
         lines.add_line(line)
         lines.copy_labels(line)
-        lines.results = {}
+        angle = None
+            
+            
+        xt, yt = line.target_y(max(line.y))
+        angle = xt
+            
+        if run_args['do_max']:
+            # FWHM
+            hm = yt*0.5
+
+            # Right (+) side
+            line_temp = line.sub_range(xt, xt+60)
+            if len(line_temp.y)>0:
+                xtr, ytr = line_temp.target_y(hm)
+            else:
+                xtr = None
+            
+            # Left (-) side
+            line_temp = line.sub_range(xt-60, xt)
+            if len(line_temp.y)>0:
+                xtl, ytl = line_temp.target_y(hm)
+                if xtr is None:
+                    xtr, ytr = 2*xt-xtl, ytl
+            else:
+                xtl, ytl = 2*xt-xtr, ytr
+                
+            xtl, ytl = 2*xt-xtr, ytr
+            
+            results['max_position'] = xt
+            results['max_height'] = yt
+            results['fwhm'] = abs(xtr-xtl)
+            
+            
             
             
         if run_args['do_fits']:
             color_list = ['b', 'purple', 'r', 'green', 'orange',]
-            for i, fit_name in enumerate(['fit_eta', 'fit_MaierSaupe']):
+            for i, fit_name in enumerate(['fit_eta', 'fit_MaierSaupe', 'fit_eta_span']):
                 
                 lm_result, fit_line, fit_line_e = getattr(self, fit_name)(line, **run_args)
                 fit_line_e.plot_args['color'] = color_list[i%len(color_list)]
                 lines.add_line(fit_line_e)
+                if fit_name=='fit_eta_span':
+                    lines.add_line(fit_line)
+                
             
                 #prefactor_total = 0
                 for param_name, param in lm_result.params.items():
                     results['{}_{}'.format(fit_name, param_name)] = { 'value': param.value, 'error': param.stderr, }
-                    lines.results['{}_{}'.format(fit_name, param_name)] = param.value
                     #if 'prefactor' in param_name:
                         #prefactor_total += np.abs(param.value)
                     
                 #results['{}_prefactor_total'.format(fit_name)] = prefactor_total
                 results['{}_chi_squared'.format(fit_name)] = lm_result.chisqr/lm_result.nfree
+                
+                #if fit_name=='fit_eta':
+                if fit_name=='fit_eta' or fit_name=='fit_eta_span':
+                    angle = lm_result.params['x_center'].value
+                
+        
+        if angle<0:
+            angle += 180
+        # angle is now 0 to +180
+        
+        if run_args['between_convention']:
+            # Convert to the 'in between the peaks' convention
+            angle -= 90 
+            # angle is now -90 to +90        
+            
+        qz_unit = np.cos(np.radians(angle))
+        qx_unit = np.sin(np.radians(angle))
+        orientation_factor = 2*np.square(qz_unit) - 1
+        results['orientation_angle'] = angle
+        results['orientation_factor'] = orientation_factor
             
             
         # Output
         if 'plots' in run_args['save_results']:
             self.label_filename(data, lines, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
-            lines.lines.reverse()
+            lines.lines.reverse() # Puts the data on top
+            lines.results = results
             lines.plot(save=outfile, **run_args)
 
             if run_args['verbosity']>=4:
@@ -2047,8 +2410,6 @@ class linecut_angle_fit(linecut_angle):
         return results
     
     
-                        
-
     def fit_eta(self, line, **run_args):
         
         import lmfit
@@ -2064,13 +2425,16 @@ class linecut_angle_fit(linecut_angle):
             m = model(v, x)
             
             return m - data
+
+        
+        xpeak, ypeak = line.target_y(np.max(line.y))
         
         params = lmfit.Parameters()
-        params.add('prefactor', value=np.max(line.y)*0.5, min=0)
-        params.add('x_center', value=0, min=np.min(line.x), max=np.max(line.x), vary=True)
-        params.add('eta', value=0.2, min=0, max=1)
+        params.add('prefactor', value=ypeak*0.5, min=0)
+        params.add('x_center', value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=True)
+        params.add('eta', value=0.4, min=0, max=1)
         params.add('symmetry', value=2, min=0.5, max=20, vary=False)
-        params.add('baseline', value=0, min=0, max=np.max(line.y), vary=False)
+        params.add('baseline', value=0, min=0, max=np.max(line.y)+1e-10, vary=False)
         
         
         lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
@@ -2090,13 +2454,79 @@ class linecut_angle_fit(linecut_angle):
 
         return lm_result, fit_line, fit_line_extended
                     
+                    
+    def fit_eta_span(self, line, span=30, **run_args):
+        '''Fit the data with an "eta orientation" function, but over a limited span of angle.
+        This guards against spurious fits for distributions that do not strictly match the
+        eta function.'''
+        
+        import lmfit
+        
+        xpeak, ypeak = line.target_y(np.max(line.y))
+        if xpeak<0:
+            xpeak += 180
+        line_full = line
+        
+        # Expand the line so that we don't have to worry about edges
+        x = np.asarray(line.x)
+        x = np.concatenate( [x-360, x, x+360] )
+        y = np.asarray(line.y)
+        y = np.concatenate( [y, y, y] )
+        line_extended = DataLine(x=x, y=y)
+        
+        region_right = line_extended.sub_range( xpeak-span/2, xpeak+span/2 )
+        region_left = line_extended.sub_range( (xpeak-180)-span/2, (xpeak-180)+span/2 )
+        
+        x = np.concatenate( [region_left.x, region_right.x] )
+        y = np.concatenate( [region_left.y, region_right.y] )
+        line = DataLine( x=x, y=y )
+        
+        
+        def model(v, x):
+            '''Eta orientation function.'''
+            m = v['prefactor']*( 1 - (v['eta']**2) )/( ((1+v['eta'])**2) - 4*v['eta']*( np.square(np.cos(  (v['symmetry']/2.0)*np.radians(x-v['x_center'])  )) ) ) + v['baseline']
+            return m
+        
+        def func2minimize(params, x, data):
+            
+            v = params.valuesdict()
+            m = model(v, x)
+            
+            return m - data
+        
+        
+        params = lmfit.Parameters()
+        params.add('prefactor', value=np.max(line.y)*0.5, min=0)
+        params.add('x_center', value=xpeak, min=np.min(line.x), max=np.max(line.x), vary=True)
+        params.add('eta', value=0.4, min=0, max=1)
+        params.add('symmetry', value=2, min=0.5, max=20, vary=False)
+        params.add('baseline', value=0, min=0, max=np.max(line.y)+1e-10, vary=False)
+        
+        
+        lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
+        
+        if run_args['verbosity']>=5:
+            print('Fit results (lmfit):')
+            lmfit.report_fit(lm_result.params)
+            
+        
+        fit_x = line.x
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':'o', 'markersize':8.0, 'linewidth':0.0})
+        
+        fit_x = np.linspace(np.min(line_full.x), np.max(line_full.x), num=1000)
+        fit_y = model(lm_result.params.valuesdict(), fit_x)
+        fit_line_extended = DataLine(x=fit_x, y=fit_y, plot_args={'linestyle':'-', 'color':'r', 'marker':None, 'linewidth':1.5})
+
+        return lm_result, fit_line, fit_line_extended
+    
            
     def fit_MaierSaupe(self, line, **run_args):
         
         import lmfit
         
         def model(v, x):
-            '''Eta orientation function.'''
+            '''orientation function.'''
             m = v['prefactor']*np.exp(v['m']*np.square(np.cos(np.radians(x-v['x_center'])))) + v['baseline']
             return m
         
@@ -2107,11 +2537,14 @@ class linecut_angle_fit(linecut_angle):
             
             return m - data
         
+        
+        xpeak, ypeak = line.target_y(np.max(line.y))
+        
         params = lmfit.Parameters()
-        params.add('prefactor', value=np.max(line.y)*0.1, min=0)
-        params.add('x_center', value=0, min=np.min(line.x), max=np.max(line.x))
+        params.add('prefactor', value=ypeak*0.1, min=0)
+        params.add('x_center', value=xpeak, min=np.min(line.x), max=np.max(line.x))
         params.add('m', value=2.0, min=0)
-        params.add('baseline', value=0, min=0, max=np.max(line.y), vary=False)
+        params.add('baseline', value=0, min=0, max=np.max(line.y)+1e-10, vary=False)
         
         
         lm_result = lmfit.minimize(func2minimize, params, args=(line.x, line.y))
@@ -2171,20 +2604,6 @@ class calibration_check(Protocol):
             
             for i in range(11):
                 data.overlay_ring(q0*(i+1), q0*(i+1)*dq)
-
-        if 'CeO2' in run_args and run_args['CeO2']:
-            
-            #FCC sturcture, a=5.411
-            #ref: https://community.dur.ac.uk/john.evans/topas_workshop/data/ceo2.cif
-            q0 = 2*np.pi/5.411*np.sqrt(3) # A^-1, (111)
-            
-            qlist = q0/np.sqrt(3)*np.array((np.sqrt(3), 2, np.sqrt(8),np.sqrt(11),np.sqrt(12),np.sqrt(16),np.sqrt(19),  np.sqrt(20)))
-            
-            data.overlay_ring(q0, q0*dq)
-            for q in qlist:
-                data.overlay_ring(q, q*dq)
-            #print(q0)    
-                
                 
         if 'CeO2' in run_args and run_args['CeO2']:
             # FCC structure, a = 5.411 Angstroms
@@ -2436,16 +2855,7 @@ class q_image(Protocol):
                                     },
                             } 
 
-        if 'label_filename' in run_args and run_args['label_filename']:
-            q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
-                                    'xtick.labelsize': 25,
-                                    'ytick.labelsize': 25,
-                                    'xtick.major.pad': 10,
-                                    'ytick.major.pad': 10,
-                                    },
-                                'title': data.name,
-                                } 
-            
+
         if 'plot_buffers' not in run_args:
             run_args['plot_buffers'] = [0.30,0.05,0.25,0.05]
         self.label_filename(data, q_data, **run_args)
@@ -2504,17 +2914,13 @@ class qr_image(Protocol):
             run_args['plot_range'] = [-q_max, +q_max, -q_max, +q_max]
         
         q_data.set_z_display([None, None, 'gamma', 0.3])
-        
-        if 'label_filename' in run_args and run_args['label_filename']:
-            q_data.plot_args = { 'rcParams': {'axes.labelsize': 20,
-                                    'xtick.labelsize': 25,
-                                    'ytick.labelsize': 25,
+        q_data.plot_args = { 'rcParams': {'axes.labelsize': 55,
+                                    'xtick.labelsize': 40,
+                                    'ytick.labelsize': 40,
                                     'xtick.major.pad': 10,
                                     'ytick.major.pad': 10,
                                     },
-                                'title': data.name,
-                                } 
-            
+                            } 
         q_data.x_label = 'qr'
         q_data.x_rlabel = '$q_r \, (\mathrm{\AA^{-1}})$'
 
@@ -2547,6 +2953,8 @@ class q_image_special(q_image):
             'blur' : None,
             'ztrim' : [0.05, 0.005],
             'method' : 'nearest',
+            # 'incident_angle' : 0.2, 
+            'critical_angle' : 0.13, 
             }
         self.run_args.update(kwargs)
         
@@ -2583,6 +2991,7 @@ class q_image_special(q_image):
             m = filename_re.match(data.name)
             if m:
                 run_args['incident_angle'] = float(m.groups()[0])/100.0
+                print('incident_angle = {}'.format(run_args['incident_angle']))
             else:
                 print("ERROR: Couldn't identify theta from filename: {}".format(data.name))
                 run_args['incident_angle'] = 0
@@ -2591,7 +3000,8 @@ class q_image_special(q_image):
         q_data.incident_angle = run_args['incident_angle']
         q_data.critical_angle = run_args['critical_angle']
         
-        
+        print('incident_angle = {}'.format(run_args['incident_angle']))
+
         def _plot(self, save=None, show=False, ztrim=[0.01, 0.01], size=10.0, plot_buffers=[0.1,0.1,0.1,0.1], **kwargs):
             
             # Data2D._plot()
@@ -2724,6 +3134,7 @@ class q_image_special(q_image):
             # Horizon
             s = '$\mathrm{H}$'
             qz = data.calibration.angle_to_q(self.incident_angle)
+            print(qz)
             self.ax.axhline(qz, xmin=xmin, xmax=xmax, color='0.5', linewidth=4.0, dashes=[15,15])
             self.ax.text(xf, qz, s, size=30, color='0.5', horizontalalignment='left', verticalalignment='center')
             # Specular
@@ -2802,7 +3213,6 @@ class q_phi_image(Protocol):
             #'save_data' : False, # Deprecated
             'save_data_pickle' : True,
             }
-
         self.run_args.update(kwargs)
         
 
@@ -2835,12 +3245,6 @@ class q_phi_image(Protocol):
             run_args['plot_buffers'] = [0.20,0.05,0.20,0.05]
         self.label_filename(data, q_data, **run_args)
         q_data.plot(outfile, **run_args)
-
-        q_data.x_label = 'q'
-        q_data.x_rlabel = '$q \, (\mathrm{\AA{-1]})$'
-        q_data.y_label = 'phi'
-        q_data.y_rlabel = '$phi \, (\mathrm{\deg})$'
-
         
         #if 'save_data' in run_args and run_args['save_data']: # Deprecated
         if 'npz' in run_args['save_results']:
@@ -2862,9 +3266,6 @@ class q_phi_image(Protocol):
                 out_data = q_data.data, q_data.x_axis, q_data.y_axis
                 pickle.dump(out_data, fout)
 
-
-        
-        
         
         return results
 

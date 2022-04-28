@@ -102,9 +102,13 @@ def print_n(d):
     else:
         print(d)
 
-def val_stats(values, name='z'):
+def val_stats(values, name='z', sizing=False):
     span = np.max(values)-np.min(values)
-    print("  {} = {:.2g} ± {:.2g} (span {:.2g}, from {:.3g} to {:.3g})".format(name, np.average(values), np.std(values), span, np.min(values), np.max(values)))
+    if sizing:
+        sizing = " [{} = {} elements]".format(values.shape, values.size)
+    else:
+        sizing = ""
+    print("  {} = {:.2g} ± {:.2g} (span {:.2g}, from {:.3g} to {:.3g}){}".format(name, np.average(values), np.std(values), span, np.min(values), np.max(values), sizing))
 
 
 
@@ -290,7 +294,7 @@ class Processor(object):
                     if not force and protocol.output_exists(data.name, output_dir_current):
                         # Data already exists
                         if verbosity>=2:
-                            print('Skipping {} for {}'.format(protocol.name, data.name))
+                            print(' Skipping {} for {}'.format(protocol.name, data.name))
                         
                     else:
                         if verbosity>=2:
@@ -358,7 +362,7 @@ class Processor(object):
                 if not force and protocol.output_exists(data.name, output_dir_current):
                     # Data already exists
                     if verbosity>=2:
-                        print('Skipping {} for {}'.format(protocol.name, data.name))
+                        print(' Skipping {} for {}'.format(protocol.name, data.name))
                     
                 else:
                     if verbosity>=2:
@@ -505,7 +509,7 @@ class Processor(object):
                 
             if self.db_connection is None:
                 # Connect to database
-                self.db_connection = sqlite3.connect(str(outfile))
+                self.db_connection = sqlite3.connect(str(outfile), timeout=30)
                 self.db_cursor = self.db_connection.cursor()
             
             # Store data in SQLite database
@@ -517,7 +521,20 @@ class Processor(object):
             '''
             
             insert_tuple = (protocol.name, name, str(Path(name).stem), str(Path(name).resolve()), protocol.start_timestamp, protocol.end_timestamp, protocol.end_timestamp-protocol.start_timestamp )
-            self.db_cursor.execute(sql, insert_tuple)
+            
+            itry = 0
+            while True:
+                # If multiple SciAnalysis codes are running,
+                # you may get "database is locked" errors.
+                # So, we just keep trying until db is free.
+                try:
+                    self.db_cursor.execute(sql, insert_tuple)
+                except sqlite3.OperationalError as exc:
+                    print('  DB locked (attempt {:d}); retrying...'.format(itry+1))
+                    itry += 1
+                    time.sleep(2)
+                finally:
+                    break
             
             
             analysis_id = self.db_cursor.lastrowid
@@ -611,7 +628,7 @@ class Processor(object):
                     if not force and protocol.output_exists(data_name, output_dir_current):
                         # Data already exists
                         if verbosity>=2:
-                            print('Skipping {} for {}'.format(protocol.name, data_name))
+                            print(' Skipping {} for {}'.format(protocol.name, data_name))
                         
                     else:
                         data = self.load(infile, **l_args)
@@ -707,7 +724,7 @@ class Processor(object):
                 if not force and protocol.output_exists(basename, output_dir_current):
                     # Data already exists
                     if verbosity>=2:
-                        print('Skipping {} for {}'.format(protocol.name, basename))
+                        print(' Skipping {} for {}'.format(protocol.name, basename))
                 else:
                     if verbosity>=2:
                         print('Running {} for {}'.format(protocol.name, basename))
@@ -793,7 +810,7 @@ class Processor(object):
                                 if not force and protocol.output_exists(basename, output_dir_current):
                                     # Data already exists
                                     if verbosity>=2:
-                                        print('Skipping {} for {}'.format(protocol.name, basename))
+                                        print(' Skipping {} for {}'.format(protocol.name, basename))
                                 else:
                                     if verbosity>=2:
                                         print('Running {} for {}'.format(protocol.name, basename))
@@ -1122,7 +1139,7 @@ def get_result_xml(infile, protocol):
         if element.get('value') is not None:
             results[element.get('name')] = float(element.get('value'))
             
-            if element.get('error') is not None:
+            if element.get('error') is not None and element.get('error')!='None':
                 results[element.get('name')+'_error'] = float(element.get('error'))
             
         elif element.get('type') is not None and element.get('type')=='list':
