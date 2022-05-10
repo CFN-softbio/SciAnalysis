@@ -45,13 +45,14 @@ def extract_results(infiles, extractions, outfile, verbosity=3):
 def load_file(infile, verbosity=3):
     if verbosity>=3:
         print(" Loading data from file: {}".format(infile))
-    if verbosity>=4:
-        print('Saved data has {} columns:'.format(len(names)))
-        print(names)
     
     with open(infile, 'r') as fin:
         names = fin.readline().split()
         lines = fin.readlines()
+
+    if verbosity>=4:
+        print('  Saved data has {} columns:'.format(len(names)))
+        print(names)
         
     return names, lines
 

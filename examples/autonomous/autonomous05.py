@@ -118,9 +118,9 @@ patterns = [
             ['theta', '.+_th(\d+\.\d+)_.+'] ,
             ['x_position', '.+_x(-?\d+\.\d+)_.+'] ,
             ['y_position', '.+_yy(-?\d+\.\d+)_.+'] ,
-            ['anneal_time', '.+_anneal(\d+)_.+'] ,
+            #['anneal_time', '.+_anneal(\d+)_.+'] ,
             #['cost', '.+_Cost(\d+\.\d+)_.+'] ,
-            #['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
+            ['annealing_temperature', '.+_T(\d+\.\d\d\d)C_.+'] ,
             #['annealing_time', '.+_(\d+\.\d)s_T.+'] ,
             #['annealing_temperature', '.+_localT(\d+\.\d)_.+'] ,
             #['annealing_time', '.+_clock(\d+\.\d\d)_.+'] ,
@@ -149,7 +149,7 @@ protocols = [
 
 # Helpers
 ########################################
-# TODO: DEPRECATED in favor of tools.val_stats
+# DEPRECATED in favor of tools.val_stats
 def print_d(d, i=4):
     '''Simple helper to print a dictionary.'''
     for k, v in d.items():
@@ -219,10 +219,56 @@ print_results(results)
 
 '''
 
+def determine_infile(filename, source_dir='./', suffix='_saxs.tiff', filename_re=None, verbosity=3):
+    #  Usage: 
+    # filename_re = re.compile('.+_x(-?\d+\.\d+)_y(-?\d+\.\d+)_.+_(\d+)_saxs.+') # TOCHANGE
+    # determine_infile(result['filename'], source_dir=source_dir, filename_re=filename_re, verbosity=verbosity, suffix='_saxs.tiff') # TOCHANGE
+
+    infile = '{}{}{}'.format(source_dir, filename, suffix)
+
+    # Code to handle bug where saved filename doesn't exactly match what is specified in metadata:
+    if not os.path.exists(infile):
+        if verbosity>=1:
+            print('Specified infile is missing. We will attempt to locate the right file based on sequence_ID.')
+        if verbosity>=5:
+            print('  infile: {}'.format(infile))
+            
+        if filename_re is None:
+            if verbosity>=1:
+                print("    No RE provided. Aborting.")
+            return None
+        
+        else:
+            m = filename_re.match(infile)
+            if m:
+                sID = int(m.groups()[2])
+                if verbosity>=2:
+                    print('    sequence ID: {:d}'.format(sID))
+                mfiles = glob.glob('{}*_{:d}_saxs.tiff'.format(source_dir, sID)) # TOCHANGE
+                if len(mfiles)<1:
+                    if verbosity>=1:
+                        print('    No file matches sequence ID {}.'.format(sID))
+                elif len(mfiles)==1:
+                    infile = mfiles[0]
+                    if verbosity>=1:
+                        print('    Using filename: {}'.format(infile))
+                else:
+                    if verbosity>=1:
+                        print('    {} files match sequence ID {}'.format(len(mfiles), sID))
+                        print('    Aborting.')
+                    return None
+            else:
+                if verbosity>=1:
+                    print("    RE did not match. Aborting.")
+                return None
+    
+    return infile
+
+
 
 # Run autonomous loop
 ########################################
-def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
+def run_autonomous_loop(protocols, clear=False, force_load=False, republish=False, verbosity=3, simulate=False):
     
     # IMPORTANT NOTE: Search for "# TOCHANGE" in the code below for
     # beamline-specific and experiment-specific assumptions that need
@@ -230,15 +276,18 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
 
 
     # Connect to queue to receive the next analysis command
-    #queue_PATH='/nsls2/xf12id2/data/CFN/2020_3/MFukuto/'
-    queue_PATH='../../../'
-    queue_PATH in sys.path or sys.path.append(queue_PATH)
+    #code_PATH='/nsls2/xf12id2/data/CFN/2020_3/MFukuto/'
+    code_PATH='../../../'
+    code_PATH in sys.path or sys.path.append(code_PATH)
 
-    from CustomQueue import Queue_analyzeFix as queue
+    #from CustomQueue import Queue_analyze as queue
+    from CustomS3 import Queue_analyze as queue
     q = queue()
 
     if clear:
         q.clear()
+    if republish:
+        q.republish()
     
     
     if verbosity>=3:
@@ -253,53 +302,23 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
     
     while True: # Loop forever
         
-        results = q.get() # Get analysis command
+        results = q.get(force_load=force_load) # Get analysis command
+        force_load = False # Only force a reload on the 1st iteration
         
         num_to_analyze = int( sum( 1.0 for result in results if result['analyzed'] is False ) )
         
         if verbosity>=3:
             print('Analysis requested for {} results (total {} results)'.format(num_to_analyze, len(results)))
         if verbosity>=10:
-            print_results(results)
+            tools.print_results(results)
         
         ianalyze = 0
         for i, result in enumerate(results):
             
             if 'analyzed' in result and result['analyzed'] is False and 'filename' in result:
                 ianalyze += 1
-                infile = source_dir + result['filename']
-                infile = infile + '_saxs.tiff' # TOCHANGE
-
-
-                # Code to handle bug where saved filename doesn't exactly match what is specified in metadata:
-                if not os.path.exists(infile):
-                    if verbosity>=1:
-                        print('Specified infile is missing. We will attempt to locate the right file based on sequence_ID.')
-                    if verbosity>=5:
-                        print('  infile: {}'.format(infile))
-                    m = filename_re.match(infile)
-                    if m:
-                        sID = int(m.groups()[2])
-                        if verbosity>=2:
-                            print('    sequence ID: {:d}'.format(sID))
-                        mfiles = glob.glob('{}*_{:d}_saxs.tiff'.format(source_dir, sID)) # TOCHANGE
-                        if len(mfiles)<1:
-                            if verbosity>=1:
-                                print('    No file matches sequence ID {}.'.format(sID))
-                        elif len(mfiles)==1:
-                            infile = mfiles[0]
-                            if verbosity>=1:
-                                print('    Using filename: {}'.format(infile))
-                        else:
-                            if verbosity>=1:
-                                print('    {} files match sequence ID {}'.format(len(mfiles), sID))
-                                print('    Aborting.')
-                            return
-                    else:
-                        if verbosity>=1:
-                            print("    RE did not match. Aborting.")
-                        return
-                    
+                
+                infile = determine_infile(result['filename'], source_dir=source_dir, filename_re=filename_re, verbosity=verbosity, suffix='_saxs.tiff') # TOCHANGE
 
                 if verbosity>=3:
                     print('        Analysis for result {}/{}, file: {}'.format(ianalyze, num_to_analyze, infile))
@@ -307,7 +326,7 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
 
                 if simulate:
                     value, variance = np.random.random()*10, 1.0
-    
+
                 else:
                     process.run([infile], protocols, output_dir=output_dir, force=True)
                     
@@ -323,7 +342,7 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
                         else:
                             result['metadata'].update({ 'SciAnalysis': new_result })
 
-                        # TOCHANGE                
+                        # TOCHANGE
                         #value = new_result['circular_average_q2I_fit__fit_peaks_prefactor1']
                         #variance = np.square(new_result['circular_average_q2I_fit__fit_peaks_prefactor1_error'])
                         value = new_result['circular_average_q2I_fit__fit_peaks_chi_squared']*1e9
@@ -356,18 +375,17 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
                         else:
                             result['metadata'].update({ 'SciAnalysis': results_dict })
 
-                        # TOCHANGE                
+                        # TOCHANGE
                         value = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1']
-                        error = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1 error']
+                        error = results_dict['circular_average_q2I_fit']['fit_peaks_prefactor1_error']
                         variance = np.square(error)
 
 
                 # Package for gpCAM
-                result['measurement values'] = {
-                    'values' : np.asarray([value]) ,
-                    'variances' : np.asarray([variance]) ,
-                    'value positions' : np.asarray([[0.]]) # Positions/indices for multi-task GP
-                    }
+                if verbosity>=5:
+                    print('Packaging result: {:.4g} ± {:.4g}'.format(value, variance))
+                result['value'] = value
+                result['variance'] = variance
                 result['analyzed'] = True
 
 
@@ -375,10 +393,12 @@ def run_autonomous_loop(protocols, clear=False, verbosity=3, simulate=False):
             print('Analyzed {} results'.format(ianalyze))
         if verbosity>=1 and ianalyze<1:
             print('WARNING: No results were analyzed.')
+        if verbosity>=5:
+            print_results(results)
         
         q.publish(results)
     
 
 #process.run(infiles, protocols, output_dir=output_dir, force=True)
-run_autonomous_loop(protocols, clear=False, verbosity=3)
+run_autonomous_loop(protocols, clear=False, force_load=False, republish=False, verbosity=3)
 
