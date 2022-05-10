@@ -356,6 +356,14 @@ class circular_average(Protocol):
             outfile = self.get_outfile(data.name, output_dir, ext='.dat')
             line.save_data(outfile)
 
+        if 'csv' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.csv')
+            a = line.x.reshape(len(line.x),1);
+            b = line.y.reshape(len(line.y),1);
+            temp = np.concatenate((a, b), axis=1)
+            print(" {}".format(temp.shape))
+            np.savetxt(outfile, temp, delimiter=',')
+
         if 'plots' in run_args['save_results']:
             self.label_filename(data, line, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
@@ -551,7 +559,7 @@ class fit_peaks(Protocol):
                 strain = 0
             else: #Voigt: Cauchy gamma HWHM for size
                 K = 2*np.sqrt(np.log(2)/np.pi)
-                xi = 0.1*(2.*np.pi*K)/(2*gamma)
+                xi = 0.1*(2.*np.pi*K)/(2*gamma) #grain size
                 beta_G = sigma*2*np.sqrt(2*np.log(2))
                 strain = beta_G/(4*np.pi*ss)
                 

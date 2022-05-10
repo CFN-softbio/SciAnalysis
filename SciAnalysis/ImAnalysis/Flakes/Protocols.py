@@ -81,7 +81,8 @@ class find_flakes(thumbnails):
             from MaterialSegmentation import utils as MatSegUtils
             #from MaterialSegmentation import MatSegUtils
         except:
-            code_PATH='/home/qpress/current/code/MaterialSegmentation/main/'
+            #code_PATH='/home/qpress/current/code/MaterialSegmentation/main/'
+            code_PATH = '/home/etsai/BNL/Users/software/material_segmentation/scripts_v2/'
             code_PATH in sys.path or sys.path.insert(0, code_PATH)
             import utils as MatSegUtils
             #import MatSegUtils
@@ -116,6 +117,7 @@ class find_flakes(thumbnails):
 
         
         if run_args['background']:
+            print('  Getting background')
             background_image = Image.open(run_args['background']).convert('RGB')
             bk_rgb = np.array(background_image).astype('float')
             bk_gray = np.array( background_image.convert('L', (0.2989, 0.5870, 0.1140, 0)) ).astype('float')
@@ -127,6 +129,7 @@ class find_flakes(thumbnails):
             im_maps = im_gray, im_hsv, im_rgb, bk_gray, bk_hsv
             
         else:
+            print('  No background')
             im_maps = im_gray, im_hsv, im_rgb, None, None
         
         
