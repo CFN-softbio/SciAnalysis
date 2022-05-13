@@ -24,7 +24,7 @@ from SciAnalysis.XSAnalysis.Data import * #from .Data import *
 from SciAnalysis.tools import * #from ..tools import *
 #from SciAnalysis.IO_HDF import *
 
-import copy
+import copy, glob
 
 class ProcessorXS(Processor):
 
@@ -1450,7 +1450,9 @@ class linecut_qz(Protocol):
     def __init__(self, name='linecut_qz', **kwargs):
         
         self.name = self.__class__.__name__ if name is None else name
-        
+        # if self.name[:9] != 'linecut_qz':
+        #     self.name = 'linecut_qz' + '=' + self.name
+
         self.default_ext = '.png'
         self.run_args = {
             'show_region' : False,
