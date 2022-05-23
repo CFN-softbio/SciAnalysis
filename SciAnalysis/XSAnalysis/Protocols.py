@@ -93,7 +93,8 @@ class ProcessorXS(Processor):
             if isinstance(kwargs['transmission_int'], (str)):
                 # Read from file
                 import pandas as pd
-                df = pd.read_csv(kwargs['transmission_int'])
+                infile = kwargs['transmission_int']
+                df = pd.read_csv(infile)
                 if verbosity>=6:
                     print(df)
                 
