@@ -103,7 +103,7 @@ class ProcessorXS(Processor):
                 emptyname = Filename(infile_background).get_best_match(df['a_filename'])
                 df0 = df[df['a_filename'].str.contains(emptyname)]
                 df1 = df[df['a_filename'].str.contains(samplename)]
-                print("# Found {} and {}".format(df0['a_filename'].values, df1['a_filename'].values))
+                print("# Found {} for background, {} for sample".format(df0['a_filename'].values, df1['a_filename'].values))
                 # User the latest if more than one
                 factor = df1.c_I0.to_numpy()[-1] / df0.c_I0.to_numpy()[-1]
 
