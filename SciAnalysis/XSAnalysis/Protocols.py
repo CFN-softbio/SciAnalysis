@@ -93,17 +93,16 @@ class ProcessorXS(Processor):
             if isinstance(kwargs['transmission_int'], (str)):
                 # Read from file
                 import pandas as pd
-                infile = kwargs['transmission_int']
-                df = pd.read_csv(infile)
+                infile_int = kwargs['transmission_int']
+                df = pd.read_csv(infile_int)
                 if verbosity>=6:
                     print(df)
                 
                 # Find the best matched name from CSV
-                samplename = Filename(infile).get_best_match(df['a_filename'])
-                emptyname = Filename(infile_background).get_best_match(df['a_filename'])
-                df0 = df[df['a_filename'].str.contains(emptyname)]
-                df1 = df[df['a_filename'].str.contains(samplename)]
+                emptyname, df0 = Filename(infile_background).get_best_match(df)
+                samplename, df1 = Filename(data.infile).get_best_match(df)
                 print("# Found {} for background, {} for sample".format(df0['a_filename'].values, df1['a_filename'].values))
+                print("# i.e. {} for background, {} for sample".format(df0['b_scanID'].values, df1['b_scanID'].values))
                 # User the latest if more than one
                 factor = df1.c_I0.to_numpy()[-1] / df0.c_I0.to_numpy()[-1]
 
