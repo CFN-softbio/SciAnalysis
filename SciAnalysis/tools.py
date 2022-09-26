@@ -185,24 +185,39 @@ class Filename(object):
         self._update()
         return self.get_filepath()
 
-    def get_best_match(self, filelist): 
-        import difflib
-        # Find a string from the filelist that matches the filebase the most
-        length = -1
-        while length > (-len(self.filebase)):
-            samplename = difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
-            # get the best match
-            length = length-5 # TODO: Explain why a -5 step is used
-            if samplename in self.filebase: break # break if the best mathch is actually in the filename
-        
-        # TODO: Replace above code with for loop, along the lines of:
-        #samplename = None
-        # for length in range(-1, -len(self.filebase), -5):
-            #if (samplename is not None) and samplename in self.filebase: break
-            #samplename = difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+    def get_best_match(self, df): 
+        import re, difflib
+
+        found = 0
+		# Find the scan
+        m = re.findall('[0-9]*_[a-z]axs', self.filename)
+        if len(m)>0:
+            scan_id = int(m[0].split('_')[0])
+            x = df['b_scanID'].isin([scan_id])
+            if x.any():
+                samplename = scan_id
+                df_matched = df[x]
+                found = 1
+                        
+        if found==0:
+            #('Did not find matching scan id.')
+            # Find a string from the filelist that matches the filebase the most
+            length = -1
+            while length > (-len(self.filebase)):
+                samplename = difflib.get_close_matches(self.filebase[0:length], df['a_filename'], cutoff=0.01)[0] 
+                # get the best match
+                length = length-5 # TODO: Explain why a -5 step is used
+                if samplename in self.filebase: break # break if the best mathch is actually in the filename
             
-            
-        return samplename	  
+            # TODO: Replace above code with for loop, along the lines of:
+            #samplename = None
+            # for length in range(-1, -len(self.filebase), -5):
+                #if (samplename is not None) and samplename in self.filebase: break
+                #samplename = difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+
+            df_matched = df[df['a_filename'].str.contains(samplename)]
+
+        return samplename, df_matched
 
     # End class Filename(object)
     ########################################
