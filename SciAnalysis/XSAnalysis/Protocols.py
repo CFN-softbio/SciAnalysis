@@ -789,6 +789,10 @@ class fit_FormFactor_Sphere(Protocol):
             infile = load_dir.joinpath('SP38nm_Free' + '.csv')
             data_1d = np.loadtxt(infile, delimiter=',', skiprows=1) # q P(q)
             line = DataLine(x=data_1d[:,1], y=data_1d[:,2], x_label='q', y_label='P(q)', x_rlabel='$q \, (\mathrm{\AA})$', y_rlabel='$P(q)$')
+
+
+        if 'trim_range' in run_args:
+            line.trim(run_args['trim_range'][0], run_args['trim_range'][1])
             
             
         # Do the fit
@@ -958,7 +962,7 @@ class fit_FormFactor_Sphere(Protocol):
     
     def distribution_gaussian(self, radius=1.0, sigma=0.01, num_points=30, spread=3, only_positive=True): 
         ''' Create a gaussian distribution'''    
-        distribution_list = []  
+        #distribution_list = []  
         x, step= np.linspace( radius - spread* sigma, radius + spread*sigma, num_points,retstep=True)
         #print(x,step)
         prefactor = 1/( sigma*np.sqrt(2*np.pi) ) 

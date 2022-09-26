@@ -60,12 +60,12 @@ class Base():
             if self.log_verbosity is None and self._common:
                 for i in range(empty_lines):
                     self._common.log('')
-                self._common.log(message)
+                self._common.log(message, threshold=threshold)
             
         if self.log_verbosity is not None and self.log_verbosity>=threshold and self._common:
             for i in range(empty_lines):
                 self._common.log('')
-            self._common.log(message)
+            self._common.log(message, threshold=threshold)
             
 
     def msgm(self, txt=None, threshold=1, indent=0, verbosity=None, mark='=', nmark=40, empty_lines=1, **kwargs):
@@ -116,10 +116,10 @@ class Base():
                 took = self.timing_end()
                 if icurrent>0 and icurrent<itotal:
                     estimate = (itotal-icurrent)*took/icurrent
-                    estimate = '; done in ~{:.1f}s'.format(estimate)
+                    estimate = '; done in ~{}'.format(self.time_diff_str(estimate))
                 else:
                     estimate = ''
-                txt = "{}{}/{} = {:.1f}% ({:.1f}s{})".format(indent_txt*indent, icurrent, itotal, 100.*icurrent/itotal, took, estimate)
+                txt = "{}{:,d}/{:,d} = {:.1f}% ({}{})".format(indent_txt*indent, icurrent, itotal, 100.*icurrent/itotal, self.time_diff_str(took), estimate)
                 self.print(txt)
 
     def now(self, str_format='%Y-%m-%d %H:%M:%S'):
@@ -132,16 +132,23 @@ class Base():
         s = datetime.datetime.fromtimestamp(timestamp).strftime(str_format)
         return s
 
-    def time_delta(self, first, second):
-        diff = abs(second-first)
-        if diff>60*60:
+    def time_diff_str(self, diff):
+        diff = abs(diff)
+        if diff>60*60*48:
+            diff = '{:.1f} days'.format(diff/(60*60*24))
+        elif diff>60*60:
             diff = '{:.1f} hours'.format(diff/(60*60))
         elif diff>60:
-            diff = '{:.1f} minutes'.format(diff/60)
+            diff = '{:.1f} mins'.format(diff/60)
         elif diff>0.1:
             diff = '{:.1f} s'.format(diff)
         else:
             diff = '{:.4f} s'.format(diff)
+            
+        return diff
+
+    def time_delta(self, first, second):
+        diff = self.time_diff_str(second-first)
         
         if second<first:
             return '{} earlier'.format(diff)
@@ -211,43 +218,62 @@ class Common():
     '''A class meant to hold settings and pointers to open files, which many
     different other classes/objects may need to access.'''
     
-    def __init__(self, settings=None, logdir='./logs/', prepend_timestamp=True):
+    def __init__(self, settings=None, logdir='./logs/', log_verbosity=None, prepend_timestamp=True):
         
         self.settings = {} if settings is None else settings
         
         self.logdir = logdir
+        self.log_verbosity = log_verbosity
         self._logfile = None
         self.prepend_timestamp = prepend_timestamp
 
+        self._accumulate = False
+        self._accumulated_msgs = []
 
-    def log(self, msg, prepend_timestamp=None):
+
+    def log(self, msg, prepend_timestamp=None, threshold=None):
         
-        logdir = Path(self.logdir)
-        logfile = '{}.log'.format(datetime.datetime.now().strftime("%Y-%m-%d"))
-        
-        if self._logfile is None:
-            # Open new logfile if none exists
-            logdir.mkdir(exist_ok=True)
-            logfile = Path(logdir, logfile)
-            self._logfile = open(logfile, 'a', buffering=1)
+        if (threshold is None) or (self.log_verbosity is None) or (self.log_verbosity>=threshold):
+
+            if self._accumulate:
+                self._accumulated_msgs.append(msg)
             
-        else:
-            # Check if existing logfile is from yesterday
-            cur_logfile = Path(self._logfile.name).name
-            if cur_logfile!=logfile:
+            logdir = Path(self.logdir)
+            logfile = '{}.log'.format(datetime.datetime.now().strftime("%Y-%m-%d"))
+            
+            if self._logfile is None:
+                # Open new logfile if none exists
                 logdir.mkdir(exist_ok=True)
                 logfile = Path(logdir, logfile)
                 self._logfile = open(logfile, 'a', buffering=1)
-            
-            
-        if (prepend_timestamp is None and self.prepend_timestamp) or prepend_timestamp:
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d (%a %b %d) %H:%M:%S")
-            #timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-            msg = '[{}] {}'.format(timestamp, msg)
-            
-        self._logfile.write('{}\n'.format(msg))
+                
+            else:
+                # Check if existing logfile is from yesterday
+                cur_logfile = Path(self._logfile.name).name
+                if cur_logfile!=logfile:
+                    logdir.mkdir(exist_ok=True)
+                    logfile = Path(logdir, logfile)
+                    self._logfile = open(logfile, 'a', buffering=1)
+                
+                
+            if (prepend_timestamp is None and self.prepend_timestamp) or prepend_timestamp:
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d (%a %b %d) %H:%M:%S")
+                #timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+                msg = '[{}] {}'.format(timestamp, msg)
+                
+            self._logfile.write('{}\n'.format(msg))
+        
     
     
+    def accumulate_msgs(self):
+        self._accumulate = True
+        self._accumulated_msgs = []
+        
+    def get_accumulated_msgs(self):
+        m = self._accumulated_msgs
+        self._accumulate = False
+        self._accumulated_msgs = []
+        return m    
         
     
     def __del__(self):

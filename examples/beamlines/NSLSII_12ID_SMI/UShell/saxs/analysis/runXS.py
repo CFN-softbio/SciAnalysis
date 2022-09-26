@@ -7,7 +7,8 @@
 import sys, os
 #SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
 #SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
-SciAnalysis_PATH='/GPFS/xf12id1/analysis/CFN/SciAnalysis/'
+#SciAnalysis_PATH='/GPFS/xf12id1/analysis/CFN/SciAnalysis/'
+SciAnalysis_PATH='/nsls2/xf12id2/analysis/CFN/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob

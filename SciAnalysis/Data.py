@@ -1893,8 +1893,8 @@ class Data2D(object):
             if 'shading' in plot_args:
                 shading = plot_args['shading']
             else:
-                shading = 'flat'
-                #shading = 'gouraud'
+                #shading = 'flat'
+                shading = 'gouraud'
             self.im = self.ax.pcolormesh( self.x_axis, self.y_axis, self.Z, cmap=cmap, vmin=0, vmax=1, shading=shading )
             
         else:
@@ -2611,4 +2611,19 @@ color_list_seismic_hdr = [
     [ 132.0/255.0, 0.0/255.0, 0.0/255.0],
 ]
 cmap_hdr_seismic = mpl.colors.LinearSegmentedColormap.from_list('cmap_hdr_seismic', color_list_seismic_hdr)
+        
+# Cyclic map inspired by fractal visualizers
+#https://stackoverflow.com/questions/16500656/which-color-gradient-is-used-to-color-mandelbrot-in-wikipedia
+color_list_UltraFractal = [
+    ( 0.0,    [   0/255,   0/255,   0/255] ),
+    ( 0.02,   [   0/255,   7/255, 100/255] ),
+    ( 0.16,   [  32/255, 107/255, 203/255] ),
+    ( 0.42,   [ 237/255, 255/255, 255/255] ),
+    ( 0.6425, [ 255/255, 170/255,   0/255] ),
+    ( 0.8575, [   0/255,   2/255,   0/255] ),
+    ( 1.0,    [   0/255,   0/255,   0/255] ),
+]
+
+cmap_UltraFractal = mpl.colors.LinearSegmentedColormap.from_list('cmap_UltraFractal', color_list_UltraFractal)
+cmap = cmap_UltraFractal
         

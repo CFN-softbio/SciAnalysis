@@ -11,7 +11,7 @@ class Plotter():
     '''A generic (shell) class meant to streamline plotting. The intent is to modify this
     class for a specific plot.
     
-    The structure of the class follows the convetions used in SciAnalysis:
+    The structure of the class follows the conventions used in SciAnalysis:
     https://github.com/CFN-softbio/SciAnalysis/
     '''
     

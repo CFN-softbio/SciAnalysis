@@ -589,4 +589,5 @@
     <result name="fit_peaks_qR" value="0.005994326296429124"/>
     <result name="fit_peaks_dR" value="104.8188736559526"/>
   </protocol>
+  <protocol end_timestamp="1634667817.98223" infile="./BCP_x0.000_th0.120_30.00s_2357823_saxs.tiff" name="q_image" outfile="./results/BCP_x0.000_th0.120_30.00s_2357823_saxs.xml" output_dir="./results" runtime="1.856968879699707" save_results="['xml', 'sql']" save_timestamp="1634667818.1041648" start_timestamp="1634667816.125261"/>
 </DataFile>

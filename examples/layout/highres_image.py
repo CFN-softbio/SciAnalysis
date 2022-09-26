@@ -74,6 +74,68 @@ if True:
 
 
 
+
+if False:
+    # Sorting
+    
+    source_dir = '/media/extend2/CMS/'
+    #infiles = glob.glob(source_dir+'**/thumbnails/*.png', recursive=True)
+    infiles = glob.glob(source_dir+'**/analysis/thumbnails/*.jpg', recursive=True)
+    
+    #source_dir = '/media/extend2/CMS/data/2019_02Feb_26-Autonomous/'
+    #infiles = glob.glob(source_dir+'**/thumbnails2/*.jpg', recursive=True)
+    
+    
+    #source_dir = '/media/extend2/CMS/'
+    #from pathlib import Path
+    #for filename in Path(source_dir).glob('**/*.png'):
+        #print(filename)
+    
+    print('{} infiles'.format(len(infiles)))
+
+    random.shuffle(infiles)
+    
+    infiles = np.asarray(infiles)[:3000]
+    infiles = np.asarray(infiles)
+    
+    if True:
+        # Sort
+        avgs = []
+        devs = []
+        for i, infile in enumerate(infiles):
+            if i%100==0:
+                print('    Sorting image {:d}/{:d} ({:.1f}% complete)'.format(i, len(infiles), 100*i/len(infiles)))
+            #im = scipy.misc.imread(infile)
+            im = imageio.imread(infile)
+            if im.shape[2]>3:
+                im = im[:,:,3]
+            avg = np.average(im)
+            avgs.append(avg) # Average (grayscale) of each image
+            #devs.append(np.average(np.abs(im - avg))) # Deviation from gray/average (how 'colored' it is)
+            
+        #idx = np.argsort(devs)
+        #infiles = infiles[idx]
+        #avgs = np.asarray(avgs)[idx]
+        
+        idx = np.argsort(avgs)
+        infiles = infiles[idx]
+
+
+    aspect = width/height # w/h, x/y, col/row
+    num_col = int(np.floor( np.sqrt(len(infiles)*aspect) ))
+    num_row = len(infiles)//num_col
+    print('{} columns by {} rows = {:,} elements ({:.1f}% of {:,} total)'.format(num_col, num_row, num_col*num_row, 100.*num_col*num_row/len(infiles), len(infiles)))
+
+    positions = []
+    for icol in range(num_col):
+        for irow in range(num_row):
+            positions.append( [icol, irow] )
+
+    positions = np.asarray(positions)
+
+
+
+
 # For testing/debugging
 #print(infiles[0])
 #infiles = infiles[:100]

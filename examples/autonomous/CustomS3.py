@@ -237,9 +237,9 @@ class CustomS3(Base):
         self.msg('Sent S3 file: {}'.format(object_name), 4, 2)
 
 
-    def get_status_files(self, timestamp=False):
+    def get_status_files(self, name='status', timestamp=False):
         
-        prefix = '{}/status/'.format(self.experiment)
+        prefix = '{}/{}/'.format(self.experiment, name)
         now_str = self.now(str_format='%Y-%m-%d_%H%M%S')
         
         self.msg('Getting status files ({})'.format(self.now()), 4, 1)

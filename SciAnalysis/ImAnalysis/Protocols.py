@@ -1668,7 +1668,7 @@ class particles(Protocol, preprocess):
                     self._plot_stats(**plot_args)
                     
                     lm_result, fit_line, fit_line_e = self.fit_peak(self)
-                    self.ax.axvline(lm_result.params['x_center'], color='r', linewidth=2.0)
+                    self.ax.axvline(lm_result.params['x_center'].value, color='r', linewidth=2.0)
                     self.ax.plot(fit_line_e.x, fit_line_e.y, 'r', linewidth=2.0)
                     
                     

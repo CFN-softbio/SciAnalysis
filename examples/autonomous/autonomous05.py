@@ -7,7 +7,8 @@
 import sys, os
 # Update this to point to the directory where you copied the SciAnalysis base code
 #SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
-SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
+#SciAnalysis_PATH='/nsls2/xf11bm/software/SciAnalysis/'
+SciAnalysis_PATH='/nsls2/data/cms/legacy/xf11bm/software/SciAnalysis/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 
 import glob
@@ -212,10 +213,10 @@ results = np.load('analyze-sent.npy', allow_pickle=True); print_results(results)
 results = np.load('../../measure-received.npy', allow_pickle=True); print_results(results)
 results = np.load('../../measure-sent.npy', allow_pickle=True); print_results(results)
 
-results = np.load('../../gpcamv4and5/scripts/decision-received.npy', allow_pickle=True); print_results(results)
-results = np.load('../../gpcamv4and5/scripts/decision-sent.npy', allow_pickle=True); print_results(results)
+results = np.load('../../gpcam/scripts/decision-received.npy', allow_pickle=True); print_results(results)
+results = np.load('../../gpcam/scripts/decision-sent.npy', allow_pickle=True); print_results(results)
 
-print_results(results)
+#print_results(results)
 
 '''
 
@@ -384,8 +385,10 @@ def run_autonomous_loop(protocols, clear=False, force_load=False, republish=Fals
                 # Package for gpCAM
                 if verbosity>=5:
                     print('Packaging result: {:.4g} ± {:.4g}'.format(value, variance))
-                result['value'] = value
-                result['variance'] = variance
+
+                n = 1.0e0 # TOCHANGE Rescale values for gpCAM, so that they are roughly of order unity (this avoids machine precision problems)
+                result['value'] = value*n
+                result['variance'] = variance*n
                 result['analyzed'] = True
 
 
