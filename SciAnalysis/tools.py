@@ -219,6 +219,25 @@ class Filename(object):
 
         return samplename, df_matched
 
+    def get_best_match_old_version(self, filelist): 
+        import difflib
+        # Find a string from the filelist that matches the filebase the most
+        length = -1
+        while length > (-len(self.filebase)):
+            samplename = difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+            # get the best match
+            length = length-5 # TODO: Explain why a -5 step is used
+            if samplename in self.filebase: break # break if the best mathch is actually in the filename
+        
+        # TODO: Replace above code with for loop, along the lines of:
+        #samplename = None
+        # for length in range(-1, -len(self.filebase), -5):
+            #if (samplename is not None) and samplename in self.filebase: break
+            #samplename = difflib.get_close_matches(self.filebase[0:length], filelist, cutoff=0.01)[0] 
+            
+            
+        return samplename	
+
     # End class Filename(object)
     ########################################
 

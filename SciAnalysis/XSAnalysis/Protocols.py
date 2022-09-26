@@ -93,8 +93,7 @@ class ProcessorXS(Processor):
             if isinstance(kwargs['transmission_int'], (str)):
                 # Read from file
                 import pandas as pd
-                infile_int = kwargs['transmission_int']
-                df = pd.read_csv(infile_int)
+                df = pd.read_csv(kwargs['transmission_int'])
                 if verbosity>=6:
                     print(df)
                 
@@ -1454,8 +1453,6 @@ class linecut_qz(Protocol):
     def __init__(self, name='linecut_qz', **kwargs):
         
         self.name = self.__class__.__name__ if name is None else name
-        # if self.name[:9] != 'linecut_qz':
-        #     self.name = 'linecut_qz' + '=' + self.name
 
         self.default_ext = '.png'
         self.run_args = {

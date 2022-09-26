@@ -672,24 +672,23 @@ class Data2DScattering(Data2D):
         
         num_per_m = np.bincount(Md[pixel_list])
 
+
         idx = np.where(num_per_m!=0) # Old method: consider bins that have >0 pixels
+        
+        # TODO: Fix the new method
         # New method: Only include bins that don't have too many masked pixels
         # e.g. mask_fraction_cutoff=0.8 excludes bins where >20% of pixels were masked
-        # num_per_m_maskless = np.bincount(Md[pixel_list_maskless])
-        # mask_fractions = num_per_m/num_per_m_maskless
-
-        # # print(len(num_per_m))
-        # # print(len(num_per_m_maskless))
-        # # mask_fractions = len(num_per_m)/len(num_per_m_maskless)
-        # idx = np.where(mask_fractions>mask_fraction_cutoff)
-            
+        #num_per_m_maskless = np.bincount(Md[pixel_list_maskless])
+        #mask_fractions = num_per_m/num_per_m_maskless
+        #idx = np.where(mask_fractions>mask_fraction_cutoff)
+        
         
         x_vals = np.bincount( Md[pixel_list], weights=M[pixel_list])[idx]/num_per_m[idx]
         I_vals = np.bincount( Md[pixel_list], weights=data[pixel_list])[idx]/num_per_m[idx]
         
         line = DataLineAngle( x=x_vals, y=I_vals, x_label=x_label, y_label=y_label, x_rlabel=x_rlabel, y_rlabel=y_rlabel )
 
-        # line.mask_fractions = mask_fractions[idx]
+        #line.mask_fractions = mask_fractions[idx]
         
         #x_vals_full = np.bincount(Md, weights=M)/num_per_m
         #line.f_chi = len(x_vals)/(len(x_vals_full)+1) # Fraction of full circle that we have actually sampled
