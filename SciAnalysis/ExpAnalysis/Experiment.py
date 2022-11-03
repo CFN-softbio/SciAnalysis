@@ -95,14 +95,14 @@ class experiment():
                 self.dict['expinfo']['uid'].append(h.metadata['start']['uid'])
         self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['uid'])
                 
-    def defFiles_query(self, cycle=None, SAF=None, fn=None, timerange=None, folder=None, scanid=None, verbose=0):
+    def defFiles_query(self, cycle=None, SAF=None, fn=None, timerange=None, folder=None, scanid=None, verbose=1):
 
         if folder is None:
             folder = self.folder
             
         while folder[-1]=='/': folder = folder[:-1]
         folder = folder + '/'
-        if verbose>1:
+        if verbose>0:
             print(folder)
 
         query = {
@@ -139,14 +139,17 @@ class experiment():
         if self.dict['type'] == 'maxs':
             detector = 'pilatus8002'
             
-#         print(query)
         t0 = time.time()
         results = cat.search(query)
 #         results = results[::-1]
-        
-        for uid in results:
+        Nfile = len(results)
+        if verbose>0: print('Len(results) = {}'.format(Nfile))        
+
+        for ii, uid in enumerate(results):
+            if verbose>0:
+                if np.mod(ii, 200)==0: print('[{:.0f}%] '.format(ii/Nfile*100))
             
-            print(uid)
+            if verbose>1: print(uid)
 #             infile_scanid = infile.split('_'+self.det)[0].split('_')[-1]
             h = results[uid]
             self.dict['expinfo']['filename'].append(h.metadata['start']['filename'])
@@ -172,18 +175,24 @@ class experiment():
 #         for key in keys:
 #             self.dict['metadata'][key] = h.start['uid'][key]
     
-    def loadMetadata(self, keys=None):
+    def loadMetadata(self, keys=None, verbose=1):
+        t0 = time.time()
         if keys is None:
             keys = self.dict['mdata_list']
         
         for key in keys:
             self.dict['metadata'][key] = []
-        #
-        for uid in self.dict['expinfo']['uid']:
+        
+        Nfile = len(self.dict['expinfo']['uid'])
+        for ii, uid in enumerate(self.dict['expinfo']['uid']):
 #         uid = self.dict['expinfo']['uid'][0]
+            if verbose>0:
+                if np.mod(ii, 200)==0: print('[{:.0f}%] '.format(ii/Nfile*100))
+
             h = cat[uid]
             for key in keys:
                 self.dict['metadata'][key].append(h.metadata['start'][key])
+        print('loadMetadata time = {:.1f}s'.format(time.time()-t0))
 
     #TODO: change fn to self.dict
     def listMetadata(self, scanid=None, uid=None, verbosity=3):
@@ -224,12 +233,14 @@ class experiment():
 
     
     
-    def loadSciAnalysisData(self, keys=None):
-        
+    def loadSciAnalysisData(self, keys=None, verbose=0):
+        t0 = time.time()
         if 'data' not in self.dict:
             self.dict['data'] = {} # create a dict for data loading
         
         analysis_folder = self.folder + '/' + self.det + '/analysis/'
+        if verbose > 0: print(analysis_folder)
+
         if keys is None:
             folders = glob.glob(analysis_folder + '/*/')
             keys = []
@@ -239,8 +250,12 @@ class experiment():
         
 #         print(folders)
 #         print(keys)
+        Nfile = len(self.dict['expinfo']['filename'])
 
         for nn, infile in enumerate(self.dict['expinfo']['filename']):
+            if verbose>0: 
+                if np.mod(nn, 200)==0: print('[{:.0f}%] '.format(nn/Nfile*100))
+            if verbose>1: print('Searching analysis results for {}'.format(infile))
 
             for key in keys:
                 
@@ -250,7 +265,7 @@ class experiment():
                 if 'average' in key:
                     files = glob.glob(os.path.join(analysis_folder+key, infile+'*.dat'))
                     if len(files) == 0:
-                        return print('There is not data in the folder {}. '.format(key))
+                        return print('There is no data in the folder {}. '.format(key))
                     else:
                         file=files[0]                    
                     headers = pd.read_csv(file, delim_whitespace=True, nrows=0).columns[1:]
@@ -264,7 +279,7 @@ class experiment():
                 if 'linecut' in key:
                     files = glob.glob(os.path.join(analysis_folder + key, infile + '*.dat'))
                     if len(files) == 0:
-                        return print('There is not data in the folder {}. '.format(key))
+                        return print('There is no data in the folder {}. '.format(key))
                     else:
                         file=files[0]                       
                     headers = pd.read_csv(file, delim_whitespace=True, nrows=0).columns[1:]
@@ -277,7 +292,7 @@ class experiment():
                 if 'image' in key:
                     files = glob.glob(os.path.join(analysis_folder + key, infile + '*.png'))
                     if len(files) == 0:
-                        return print('There is not data in the folder {}. '.format(key))
+                        return print('There is no data in the folder {}. '.format(key))
                     else:
                         file=files[0]                    
                     self.dict['data'][key][nn] = imageio.imread(file)
@@ -285,15 +300,16 @@ class experiment():
                 if 'roi' in key: # load roi results from xml file
                     files = glob.glob(os.path.join(analysis_folder + 'results', infile + '*.xml'))
                     if len(files) == 0:
-                        return print('There is not data in the folder {}. '.format(key))
+                        return print('There is no data in the folder {}. '.format(key))
                     else:
                         file=files[0]                    
                     names, values = Results().extract_results_from_xml(file, protocol='roi', verbosity=3)
                     for kk,name in enumerate(names):
                         if name not in self.dict['data'][key]:
                             self.dict['data'][key][name]= []
-                        self.dict['data'][key][name].append(values[kk])                       
-                        
+                        self.dict['data'][key][name].append(values[kk])  
+
+        print('loadSciAnalysisData time = {:.1f}s'.format(time.time()-t0))             
         
                     
 
@@ -627,6 +643,7 @@ class experiment():
     def publishH5(self, mdata_dict):
 #         dicttoH5
         pass
+
 
 
 #exp = experiment('BestExpEver_SAXS')

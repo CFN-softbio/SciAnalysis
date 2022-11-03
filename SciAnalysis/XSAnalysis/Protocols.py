@@ -71,7 +71,7 @@ class ProcessorXS(Processor):
         return data
         
     
-    def handle_background(self, data, **kwargs):
+    def handle_background(self, data, scanid=None, **kwargs):
         
         verbosity = kwargs['verbosity'] if 'verbosity' in kwargs else 3
         
@@ -98,7 +98,11 @@ class ProcessorXS(Processor):
                     print(df)
                 
                 # Find the best matched name from CSV
-                emptyname, df0 = Filename(infile_background).get_best_match(df)
+                if scanid ==None:
+                    emptyname, df0 = Filename(infile_background).get_best_match(df)
+                else:
+                    emptyname, df0 = Filename(infile_background).get_best_match(scanID)
+
                 samplename, df1 = Filename(data.infile).get_best_match(df)
                 print("# Found {} for background, {} for sample".format(df0['a_filename'].values, df1['a_filename'].values))
                 print("# i.e. {} for background, {} for sample".format(df0['b_scanID'].values, df1['b_scanID'].values))
