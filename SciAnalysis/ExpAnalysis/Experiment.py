@@ -95,12 +95,15 @@ class experiment():
                 self.dict['expinfo']['uid'].append(h.metadata['start']['uid'])
         self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['uid'])
                 
-    def defFiles_query(self, cycle=None, SAF=None, fn=None, timerange=None, folder=None, scanid=None):
+    def defFiles_query(self, cycle=None, SAF=None, fn=None, timerange=None, folder=None, scanid=None, verbose=0):
 
         if folder is None:
             folder = self.folder
             
         while folder[-1]=='/': folder = folder[:-1]
+        folder = folder + '/'
+        if verbose>1:
+            print(folder)
 
         query = {
              'experiment_alias_directory': folder,
@@ -113,7 +116,8 @@ class experiment():
         if scanid is not None:
             query['scan_id'] = {'$gte': scanid[0], '$lte': scanid[-1]}
         if fn is not None:
-            query['sample_name'] = fn
+            #query['sample_name'] = fn  #Sample name does not contain information on x, y, th, etc
+            query['filename'] = {'$regex': fn }
         if SAF is not None:
             query['experiment_SAF_number'] = SAF
         if timerange is not None:
@@ -244,8 +248,11 @@ class experiment():
                     self.dict['data'][key] = {}
 
                 if 'average' in key:
-                    file = glob.glob(os.path.join(analysis_folder + key + '/' + infile + '*.dat'))[0]
-                    
+                    files = glob.glob(os.path.join(analysis_folder+key, infile+'*.dat'))
+                    if len(files) == 0:
+                        return print('There is not data in the folder {}. '.format(key))
+                    else:
+                        file=files[0]                    
                     headers = pd.read_csv(file, delim_whitespace=True, nrows=0).columns[1:]
                     dat = pd.read_csv(file, delim_whitespace=True, header=None, skiprows=1, names=headers)
                     
@@ -255,7 +262,11 @@ class experiment():
                     
 
                 if 'linecut' in key:
-                    file = glob.glob(os.path.join(analysis_folder + key + '/' + infile + '*.dat'))[0]
+                    files = glob.glob(os.path.join(analysis_folder + key, infile + '*.dat'))
+                    if len(files) == 0:
+                        return print('There is not data in the folder {}. '.format(key))
+                    else:
+                        file=files[0]                       
                     headers = pd.read_csv(file, delim_whitespace=True, nrows=0).columns[1:]
                     dat = pd.read_csv(file, delim_whitespace=True, header=None, skiprows=1, names=headers)
                     
@@ -264,11 +275,19 @@ class experiment():
                     self.dict['data'][key][nn][headers[1]] = dat[headers[1]].values
                     
                 if 'image' in key:
-                    file = glob.glob(os.path.join(analysis_folder + key + '/' + infile + '*.png'))[0]
+                    files = glob.glob(os.path.join(analysis_folder + key, infile + '*.png'))
+                    if len(files) == 0:
+                        return print('There is not data in the folder {}. '.format(key))
+                    else:
+                        file=files[0]                    
                     self.dict['data'][key][nn] = imageio.imread(file)
                 
                 if 'roi' in key: # load roi results from xml file
-                    file = glob.glob(os.path.join(analysis_folder + 'results' + '/' + infile + '*.xml'))[0]
+                    files = glob.glob(os.path.join(analysis_folder + 'results', infile + '*.xml'))
+                    if len(files) == 0:
+                        return print('There is not data in the folder {}. '.format(key))
+                    else:
+                        file=files[0]                    
                     names, values = Results().extract_results_from_xml(file, protocol='roi', verbosity=3)
                     for kk,name in enumerate(names):
                         if name not in self.dict['data'][key]:
@@ -291,6 +310,9 @@ class experiment():
         '''
         plot the heatmap for the 2D arrays
         '''
+
+        print('0')
+
         xy_axes = list(self.dict['data'][key][0].keys())  
         x_axis = self.dict['analysis']['2Darray'][key][xy_axes[0]]
         I_array = self.dict['analysis']['2Darray'][key]['I_array']
@@ -299,6 +321,7 @@ class experiment():
 
         y_idx = np.arange(self.dict['expinfo']['filenumber'])
         
+        print('1')
         if y_axes is not None:
             y_axis = self.dict['analysis']['2Darray'][key][y_axes[0]]    
         
@@ -313,7 +336,9 @@ class experiment():
         fig_width = 1.0-right_buf-left_buf
         fig_height = 1.0-top_buf-bottom_buf
         fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
-        
+
+        print('2')
+    
         ## 2D plot
         plt.pcolormesh(x_axis[plot_range], y_idx, I_array[:,plot_range])
 
@@ -323,6 +348,7 @@ class experiment():
             plt.yticks(y_idx, y_axis)
             plt.ylabel(y_axes[0])
         plt.colorbar()
+        print('3')
 
         ## plot the 1D
         y_params = list(self.dict['analysis']['2Darray'][key].keys())
@@ -353,7 +379,8 @@ class experiment():
 #                 ax_new.set_ylabel(y_param, color = cmap(kk))
 
 #             ax.set_xlabel('idx')
-
+        # plt.show()
+        
 
     def plotWaterfall(self, key, y_axes=None, gridlines=True, flag_log = [0, 0], plot_range=np.arange(0,100)):
         '''
@@ -485,7 +512,44 @@ class experiment():
                         self.dict['analysis'][protocol[0]][key]['I_array'] = np.array([
                             self.dict['data'][key][i][xy_axes[1]] for i in range(self.dict['expinfo']['filenumber'])])                    
                             
+            if 'reduction' in protocol:
 
+                print('reduction is working')
+                for item in set(self.dict['metadata'][protocol[-1]]):
+                    reduction_protocol = data + protocol[-1] + str(item)
+                    self.dict['analysis'][reduction_protocol] = []
+                    for ii, data in enumerate(self.dict['metadata'][protocol]):
+                        if data == item:
+
+                            for key in self.dict['data'].keys():
+                                if ('average' in key) or ('linecut' in key):
+                                    
+                                    # Data in a 2D dict
+                                    # 2D array: 'Iq_array' (nrow x ncol)
+                                    # 1D array: 'q' (len = ncol)
+                                    # 1D array: 'scan_id', 'time', and other parameters in the 'mdata_list' (len = nrow)
+
+                                    self.dict['analysis'][protocol[0]] = {}
+                                    print(key)
+                                    self.dict['analysis'][protocol[0]][key] = {}
+                                    
+                                    
+                                    xy_axes = list(self.dict['data'][key][0].keys())
+                                    
+                                    self.dict['analysis'][protocol[0]][key][xy_axes[0]] = self.dict['data'][key][0][xy_axes[0]] 
+                                    
+                                    ## Include basic parameters (always)
+                                    basic_params = ['scan_id', 'time']
+                                    for basic_param in basic_params:
+                                        self.dict['analysis'][protocol[0]][key][basic_param] = np.array(self.dict['expinfo'][basic_param])       
+                                
+                                    ## Include corresponding metadata
+                                    for param in self.dict['mdata_list']:
+                                        self.dict['analysis'][protocol[0]][key][param] = np.array(self.dict['metadata'][param])
+                                    
+                                    # Iq 2D array
+                                    self.dict['analysis'][protocol[0]][key]['I_array'] = np.array([
+                                        self.dict['data'][key][i][xy_axes[1]] for i in range(self.dict['expinfo']['filenumber'])])        
 #                         #load x as the first row
 #                         self.dict['analysis'][protocol][key] = self.dict['data'][key]
                         
