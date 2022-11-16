@@ -117,6 +117,7 @@ class experiment():
             #input exp. info
             for infile in infiles:
                 filename = infile.split('_'+self.det)[0]
+                filename = filename.split('/')[-1]
                 scan_id = infile.split('_'+self.det)[0].split('_')[-1]
                 self.dict['expinfo']['filename'].append(filename)
                 #self.dict['expinfo']['time'].append(h.metadata['start']['time']) #linux time
@@ -295,7 +296,7 @@ class experiment():
             self.dict['data'] = {} # create a dict for data loading
         
         analysis_folder = self.folder + '/' + self.det + '/analysis/'
-        if verbose > 0: print(analysis_folder)
+        if verbose > 0: print('analysis_folder = {}'.format(analysis_folder))
 
         if keys is None:
             folders = glob.glob(analysis_folder + '/*/')
@@ -318,6 +319,7 @@ class experiment():
                 if key not in self.dict['data']:
                     self.dict['data'][key] = {}
 
+                if verbose>1: print(os.path.join(analysis_folder+key, infile+'*.dat'))
                 if 'average' in key:
                     files = glob.glob(os.path.join(analysis_folder+key, infile+'*.dat'))
                     if len(files) == 0:
