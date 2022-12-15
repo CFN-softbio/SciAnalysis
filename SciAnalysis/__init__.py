@@ -14,3 +14,7 @@
 #  This file is simply a placeholder to tell Python that this
 # directory should be parsed as a package.
 ###################################################################
+
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
