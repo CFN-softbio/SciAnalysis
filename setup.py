@@ -35,7 +35,7 @@ with open(path.join(here, "requirements.txt")) as requirements_file:
 
 
 setup(
-    name="SciTools-SciAnalysis",
+    name="SciToolsSciAnalysis",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     description="SciAnalysis scripts for processing image files.",
