@@ -40,6 +40,7 @@ setup(
     cmdclass=versioneer.get_cmdclass(),
     description="SciAnalysis scripts for processing image files.",
     long_description=readme,
+    long_description_content_type='text/markdown',
     author="Kevin Yager",
     author_email="kyager@bnl.gov",
     keywords="Analysis",
