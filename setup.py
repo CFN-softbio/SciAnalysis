@@ -60,7 +60,7 @@ setup(
         ]
     },
     install_requires=requirements,
-    #license="",
+    license="BSD (3-clause)",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Natural Language :: English",
