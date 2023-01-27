@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 ###################################################################
 # SciAnalysis
-# version 0.5
-# Oct 2015
 ###################################################################
 # Author: Kevin G. Yager
 # Affiliation: Brookhaven National Lab, Center for Functional Nanomaterials
