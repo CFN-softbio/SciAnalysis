@@ -159,16 +159,16 @@ class DataLine(object):
             header = '%s %s' % (self.x_label, self.y_label)
         
         elif self.y_err is None:
-            data = np.dstack([self.x, self.x_err, self.y])[0]
-            header = '%s %serr %s' % (self.x_label, self.x_label, self.y_label)
+            data = np.dstack([self.x, self.y, self.x_err])[0]
+            header = '%s %serr %s' % (self.x_label, self.y_label, self.x_label )
             
         elif self.x_err is None:
             data = np.dstack([self.x, self.y, self.y_err])[0]
             header = '%s %s %serr' % (self.x_label, self.y_label, self.y_label)
             
         else:
-            data = np.dstack([self.x, self.x_err, self.y, self.y_err])[0]
-            header = '%s %serr %s %serr' % (self.x_label, self.x_label, self.y_label, self.y_label)
+            data = np.dstack([self.x, self.y, self.x_err, self.y_err])[0]
+            header = '%s %serr %s %serr' % (self.x_label, self.y_label, self.x_label, self.y_label)
         
         np.savetxt( outfile, data, header=header )
     

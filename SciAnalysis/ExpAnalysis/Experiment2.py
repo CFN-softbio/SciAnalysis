@@ -1,8 +1,9 @@
 import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import pandas as pd
-import glob, os, time
+import glob, os, time, datetime
 import databroker
 import imageio
 
@@ -17,38 +18,51 @@ cat = databroker.catalog['cms']
 class experiment():
     def __init__(self, name, folder=None, det='saxs'):
         
-        #self.name = name
+        self.name = name
         self.det = det
         
-        if folder==None:
+        if folder is None:
             self.folder = os.getcwd() 
 #             self.folder = '/nsls2/data/cms/legacy/xf11bm/data/2022_1/'+'user'+det
         else:
             self.folder = folder
         
-        self.dict = {'exp': name,
-                     'type': det,
-                    }                     
+        self.dict = {'exp': self.name,
+                     'type': self.det,
+                    }
+                     
         self.dict['expinfo'] = {}
         self.dict['expinfo']['filename'] = []
         self.dict['expinfo']['time'] = []
         self.dict['expinfo']['clock'] = []
         self.dict['expinfo']['scan_id'] = []
         self.dict['expinfo']['uid'] = []
-        self.dict['expinfo']['filenumber']=0 # total number of files
-
+        self.dict['expinfo']['filenumber']=0 # total number of input files (could be number of total frames for a series measurement)
+        
+        self.dict['expinfo']['series_measure'] = False
+        # if series_measure is True:
+        # self.dict['expinfo']['num_frames'] = 1
+        # self.dict['expinfo']['exposure_period'] = 0.1
+    
+        self.dict['data'] = {}
+        
+        self.dict['corr'] = [] # parameters to check correlations
+        self.dict['corrdata'] = {}
+ 
+        self.dict['mdata_list'] = [] # parameters to pull the metadata
         self.dict['metadata'] = {}
-        self.dict['mdata_list'] = []
+        
+        self.dict['exp_protocol'] = [] # parameters to run experimental analysis
         self.dict['analysis'] = {}
-        self.dict['protocol'] = []
+        
     
     def defFiles(self, fn = None, scanid=None, uid=None, stitched=False, burstmode=False):
         #define the files in the experiment
         #search raw tiff, return the list of scanid or uid or filenames (RL_t0, RL_t1, ...) 
-        # and also look up metadata with the scanid
-#         keys = ['sample_x', 'sample_temperature', 'scan_id' ] 
+        #and also look up metadata with the scanid
+        #keys = ['sample_x', 'sample_temperature', 'scan_id' ] 
         
-        if fn==None:
+        if fn is None:
             fn = self.name
             
         # define the source_dir
@@ -58,7 +72,7 @@ class experiment():
             source_dir = self.folder + self.det + '/stitched/'
         
         #
-        if uid != None:
+        if uid is not None:
             for uidt in uid:
                 h = cat[uidt]
                 self.dict['expinfo']['filename'].append(h.metadata['start']['filename'])
@@ -93,24 +107,26 @@ class experiment():
                 self.dict['expinfo']['clock'].append(h.metadata['start']['sample_clock'])
                 self.dict['expinfo']['scan_id'].append(h.metadata['start']['scan_id'])
                 self.dict['expinfo']['uid'].append(h.metadata['start']['uid'])
-        self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['uid'])
+
+        if self.dict['expinfo']['series_measure']:
+            self.dict['expinfo']['filenumber'] = self.dict['expinfo']['num_frames']
+        else:
+            self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['uid'])
                 
     def defFiles_query(self, cycle=None, SAF=None, fn=None, timerange=None, folder=None, scanid=None, verbose=1):
 
         if folder is None:
             folder = self.folder
             
-        while folder[-1]=='/': folder = folder[:-1]
+        while folder[-1]=='/':
+            folder = folder[:-1]
         folder = folder + '/'
+        
         if verbose>0:
             print(folder)
 
         query = {
              'experiment_alias_directory': {'$in': [folder, folder[:-1]]},
-#              'scan_id':{'$gte': scanid[0], '$lte': scanid[-1]},
-#              'sample_name':fn,
-#              'time_range'
-#              'experiment_SAF_number': SAF,
                 }
         
         if scanid is not None:
@@ -121,13 +137,13 @@ class experiment():
         if SAF is not None:
             query['experiment_SAF_number'] = SAF
         if timerange is not None:
-            query['time_range'] = time_range
+            query['time_range'] = timerange
         if cycle is not None:
             query['experiment_cycle'] = cycle
 
-        ## To save the ROI intensity from the detector
-        if 'data' not in self.dict:
-            self.dict['data'] = {} # create a dict for data loading
+        # ## To save the ROI intensity from the detector
+        # if 'data' not in self.dict:
+        #     self.dict['data'] = {} # create a dict for data loading
         self.dict['data']['det']= {}
         for i in range(1,5):
             self.dict['data']['det'][f'roi{i}']=[]
@@ -152,19 +168,33 @@ class experiment():
             if verbose>1: print(uid)
 #             infile_scanid = infile.split('_'+self.det)[0].split('_')[-1]
             h = results[uid]
+
             self.dict['expinfo']['filename'].append(h.metadata['start']['filename'])
             self.dict['expinfo']['time'].append(h.metadata['start']['time']) #linux time
             self.dict['expinfo']['clock'].append(h.metadata['start']['sample_clock'])
             self.dict['expinfo']['scan_id'].append(h.metadata['start']['scan_id'])
             self.dict['expinfo']['uid'].append(h.metadata['start']['uid'])
             
+            # series measurements
+            if h.metadata['start'].get('measure_type') == 'Series_measure':
+                self.dict['expinfo']['series_measure'] = True
+                self.dict['expinfo']['num_frames'] = h.metadata['start']['measure_series_num_frames']
+                self.dict['expinfo']['exposure_time'] = h.metadata['start']['exposure_time']
+                
+                if h.metadata['start'].get('exposure_period', None) is not None: ## series measurements before 2023 does not have this field
+                    self.dict['expinfo']['exposure_period'] = h.metadata['start']['exposure_period']
             
             #### primary.read() is very slow
 #             print(h.primary['data']['pilatus800_stats1_total'])
 #             print(h.primary.read()['pilatus800_stats1_total'].values[0])
 #             for i in range(1,5):
 #                 self.dict['data']['det'][f'roi{i}'].append(h.primary.read()[f'{detector}_stats{i}_total'].values[0])
-        self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['uid'])
+
+        if self.dict['expinfo']['series_measure']:
+            self.dict['expinfo']['filenumber'] = self.dict['expinfo']['num_frames']
+        else:
+            self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['uid'])
+
         print('Loaded {} files, took {}s.'.format(self.dict['expinfo']['filenumber'], time.time()-t0))
 
         return results
@@ -248,11 +278,34 @@ class experiment():
                 key = folder.split('/')[-2]
                 keys.append(key)
         
-#         print(folders)
-#         print(keys)
-        Nfile = len(self.dict['expinfo']['filename'])
+        ### Filenames to load
+        Nfile = self.dict['expinfo']['filenumber']
 
-        for nn, infile in enumerate(self.dict['expinfo']['filename']):
+        # for regular scan/snap measurements
+        if not self.dict['expinfo']['series_measure']:
+            filenames = self.dict['expinfo']['filename']
+        
+        # series measurements
+        else: 
+            infile = self.dict['expinfo']['filename'][0]
+            
+            # to remove extension
+            if infile[:-5] == '.tiff':
+                infile = infile[:-5]
+            
+            # to remove scanid in the filename for the data before 2023 (incorrect scanid) and add the exposure_period
+            jan2023 = time.mktime(datetime.datetime.strptime('01/01/2023',"%m/%d/%Y").timetuple())
+            if self.dict['expinfo']['time'][0] < jan2023:
+                infile = '_'.join(infile.split('_')[:-1]) 
+                exposure_period = float(infile.split('_')[-1].split('s')[0])
+                self.dict['expinfo']['exposure_period'] = exposure_period
+                scan_id = self.dict['expinfo']['scan_id'][0]
+                infile = '_'.join([infile,str(scan_id+1)])
+
+            filenames = ['_'.join([infile,str(kk).zfill(6)]) for kk in range(Nfile)]
+        
+        ### load files
+        for nn, infile in enumerate(filenames):
             if verbose>0: 
                 if np.mod(nn, 200)==0: print('[{:.0f}%] '.format(nn/Nfile*100))
             if verbose>1: print('Searching analysis results for {}'.format(infile))
@@ -310,9 +363,7 @@ class experiment():
                         self.dict['data'][key][name].append(values[kk])  
 
         print('loadSciAnalysisData time = {:.1f}s'.format(time.time()-t0))             
-        
                     
-
 
     #TODO
     def doPlot(self, protocol, key):
@@ -322,24 +373,26 @@ class experiment():
 
     #TODO
     #plotting all heat maps
-    def plotHeatmap(self, key, y_axes=None, flag_log = 1, plot_range=np.arange(0,100)):
+    def plotHeatmap(self, key, y_axes=None, flag_log = 1, plot_xrange=None):
         '''
         plot the heatmap for the 2D arrays
         '''
 
-        print('0')
+        # print('0')
 
-        xy_axes = list(self.dict['data'][key][0].keys())  
-        x_axis = self.dict['analysis']['2Darray'][key][xy_axes[0]]
-        I_array = self.dict['analysis']['2Darray'][key]['I_array']
+        xy_axes = list(self.dict['data'][key][str(0)].keys())  
+        x_axis = self.dict['corrdata']['2Darray'][key][xy_axes[0]]
+        I_array = self.dict['corrdata']['2Darray'][key]['I_array']
         if flag_log==1:
             I_array = np.log10(I_array)
 
         y_idx = np.arange(self.dict['expinfo']['filenumber'])
-        
-        print('1')
+        if plot_xrange is None:
+            plot_xrange = np.arange(len(x_axis))
+
+        # print('1')
         if y_axes is not None:
-            y_axis = self.dict['analysis']['2Darray'][key][y_axes[0]]    
+            y_axis = self.dict['corrdata']['2Darray'][key][y_axes[0]]            
         
         fig = plt.figure() 
         plt.clf()
@@ -353,35 +406,42 @@ class experiment():
         fig_height = 1.0-top_buf-bottom_buf
         fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
 
-        print('2')
-    
+        # print('2')
         ## 2D plot
-        plt.pcolormesh(x_axis[plot_range], y_idx, I_array[:,plot_range])
+        plt.pcolormesh(x_axis[plot_xrange], y_idx, I_array[:,plot_xrange])
 
         plt.xlabel('{}.(A^-1 or azi angle)'.format(xy_axes[0]))
-        plt.ylabel('idx')
+        plt.ylabel('index')
         if y_axes is not None:
             plt.yticks(y_idx, y_axis)
             plt.ylabel(y_axes[0])
         plt.colorbar()
-        print('3')
+        # print('3')
 
         ## plot the 1D
-        y_params = list(self.dict['analysis']['2Darray'][key].keys())
+        y_params = list(self.dict['corrdata']['2Darray'][key].keys())
+
         y_params.remove(xy_axes[0])
+        y_params.remove('file_index')
         y_params.remove('I_array')
         
         cmap = plt.get_cmap('jet',len(y_params))
         
-        fig, axs = plt.subplots(len(y_params), 1, sharex=True)
+        fig, axs = plt.subplots(len(y_params), 1, sharex=True, figsize = [8,4])
+
         # Remove horizontal space between axes
         fig.subplots_adjust(hspace=0)
 
-        for kk, ax in enumerate(axs.flat):
-            ax.plot(y_idx, self.dict['analysis']['2Darray'][key][y_params[kk]], color = cmap(kk), marker='o')
-            ax.set_ylabel(y_params[kk])
-
-        ax.set_xlabel('index')
+        if len(y_params) == 1:
+            axs.plot(y_idx, self.dict['corrdata']['2Darray'][key][y_params[0]], color = cmap(0), marker='o')
+            axs.set_ylabel(y_params[0])
+            axs.set_xlabel('index')
+            
+        elif len(y_params) > 1:
+            for kk, ax in enumerate(axs.flat):
+                ax.plot(y_idx, self.dict['corrdata']['2Darray'][key][y_params[kk]], color = cmap(kk), marker='o')
+                ax.set_ylabel(y_params[kk])
+            ax.set_xlabel('index')
 #         plt.tight_layout()
             
 #         fig,ax = plt.subplots()
@@ -398,21 +458,23 @@ class experiment():
         # plt.show()
         
 
-    def plotWaterfall(self, key, y_axes=None, gridlines=True, flag_log = [0, 0], plot_range=np.arange(0,100)):
+    def plotWaterfall(self, key, y_spacing = None, gridlines=True, flag_log = [0, 0], plot_xrange=None, lw = 1):
         '''
         plot waterfall for the 2D arrays
         '''
-        xy_axes = list(self.dict['data'][key][0].keys())  
-        x_axis = self.dict['analysis']['2Darray'][key][xy_axes[0]]
-        I_array = self.dict['analysis']['2Darray'][key]['I_array']
+        xy_axes = list(self.dict['data'][key][str(0)].keys())  
+        x_axis = self.dict['corrdata']['2Darray'][key][xy_axes[0]]
+        I_array = self.dict['corrdata']['2Darray'][key]['I_array']
         if flag_log[1]==1:
             I_array = np.log10(I_array)
         if flag_log[0]==1:
             x_axis = np.log10(x_axis)
+
+        if plot_xrange is None:
+            plot_xrange = np.arange(len(x_axis))
+    
         y_idx = np.arange(self.dict['expinfo']['filenumber'])
         
-        if y_axes is not None:
-            y_axis = self.dict['analysis']['2Darray'][key][y_axes[0]]    
         
         fig = plt.figure() 
         plt.clf()
@@ -427,18 +489,25 @@ class experiment():
         fig.add_axes( [left_buf, bottom_buf, fig_width, fig_height] )
         
         ## 2D plot
-        spacing = np.mean(I_array)*2
+        if y_spacing is None:
+            y_spacing = np.mean(I_array)*2
         N = len(I_array)
+
+
+        cmap = mpl.colormaps['viridis']
+        colors = cmap(np.linspace(0.0, 1.0, N))
+
         for nn, curve in enumerate(I_array):
-            plt.plot(x_axis[plot_range], curve[plot_range] + spacing*nn, color=[0.1+nn/N, 1-nn/N, 0.8-nn/N/2])
+            plt.plot(x_axis[plot_xrange], curve[plot_xrange] + y_spacing*nn, color=colors[nn], lw=lw)
 
         plt.xlabel('{}.(A^-1 or azi angle)'.format(xy_axes[0]))
+        plt.ylabel('Intensity')
         if gridlines:
             plt.grid()
 
     
     
-    def addProtocol(self, fitting=False, verbosity=3):
+    def addCorr(self, fitting=False, verbosity=3):
         
         #print out the list of data            
         if verbosity>=3:
@@ -446,7 +515,7 @@ class experiment():
                 print(key)
         data = input('select the dataset:')
 
-        #print out the list of protocols
+        #print out the list of corr parameters
         if verbosity>=3:
             for key in self.dict['metadata'].keys():
                 print(key)       
@@ -464,22 +533,22 @@ class experiment():
             
         
         if fitting == True:
-            self.dict[protocol].append([data, medata, fitting])
+            self.dict['corr'].append([data, medata, fitting])
         else:
-            self.dict[protocol].append([data, medata])
+            self.dict['corr'].append([data, medata])
         
-    def listProtocol(self, verbosity=3):        
-        for protocol in self.dict[protocol]:
-            print(protocol)
+    def listCorr(self, verbosity=3):        
+        for corr in self.dict['corr']:
+            print(corr)
         
-    def doAnalysis(self, protocols=None):
+    def doCorr(self, corrs=None):
         '''
             input : 
-                protocols = [['2Darray'],
-                             ['circular_average','temperature'],
-                             # For peak q0, plot peak intensity (or width etc) vs. sample position x
-                                ['circular_average_fitting',  'sample_x', 'peak_q',] 
-                             # 2D mapping in smx and smy : For peak q0, plot peak intensity (or width etc) vs (x,y)
+                corr = [['2Darray'],
+                        ['circular_average','temperature'],
+                        # For peak q0, plot peak intensity (or width etc) vs. sample position x
+                        ['circular_average_fitting',  'sample_x', 'peak_q',] 
+                        # 2D mapping in smx and smy : For peak q0, plot peak intensity (or width etc) vs (x,y)
                             ]
 
                 2Darray 
@@ -487,17 +556,18 @@ class experiment():
                 circular_average_fitting*sample_x*peak_q]
 
             results:
-                self.dict['analysis']['circular_average__temperature'] #save 2D array, (optional export PNG)
-                self.dict['analysis']['peak_q__sample_x']
+                self.dict['corrdata']['circular_average__temperature'] #save 2D array, (optional export PNG)
+                self.dict['corrdata']['peak_q__sample_x']
+                self.dict['corrdata']['2Darray]
 
         '''    
-        if protocols == None:
-            protocols = self.dict['protocol']
+        if corrs is None:
+            corrs = self.dict['corr']
             
-        for protocol in protocols:
+        for corr in corrs:
             
             #2D array
-            if protocol == ['2Darray']:
+            if corr == ['2Darray']:
                 for key in self.dict['data'].keys():
                     if ('average' in key) or ('linecut' in key):
                         
@@ -505,67 +575,73 @@ class experiment():
                         # 2D array: 'Iq_array' (nrow x ncol)
                         # 1D array: 'q' (len = ncol)
                         # 1D array: 'scan_id', 'time', and other parameters in the 'mdata_list' (len = nrow)
+                        #            for series measurement: 'time_series'
 
-                        self.dict['analysis'][protocol[0]] = {}
+                        self.dict['corrdata'][corr[0]] = {}
                         print(key)
-                        self.dict['analysis'][protocol[0]][key] = {}
+                        self.dict['corrdata'][corr[0]][key] = {}
                         
+                        xy_axes = list(self.dict['data'][key][str(0)].keys())
+                        self.dict['corrdata'][corr[0]][key][xy_axes[0]] = self.dict['data'][key][str(0)][xy_axes[0]]
+
+                        qIq = np.array([v for _,one_scan in self.dict['data'][key].items() 
+                                          for k,v in one_scan.items()])
+                        self.dict['corrdata'][corr[0]][key]['I_array'] = qIq[1::2,:]
                         
-                        xy_axes = list(self.dict['data'][key][0].keys())
-                        
-                        self.dict['analysis'][protocol[0]][key][xy_axes[0]] = self.dict['data'][key][0][xy_axes[0]] 
-                        
-                        ## Include basic parameters (always)
-                        basic_params = ['scan_id', 'time']
-                        for basic_param in basic_params:
-                            self.dict['analysis'][protocol[0]][key][basic_param] = np.array(self.dict['expinfo'][basic_param])       
-                    
+                        ## Include corr parameter 
+                        # add basic param (always), such as 'file_index'
+                        self.dict['corrdata'][corr[0]][key]['file_index'] = np.array(list(self.dict['data'][key].keys()))
+
+                        if self.dict['expinfo']['series_measure']: # Add 'time_series' for series_measurement
+                            self.dict['corrdata'][corr[0]][key]['time_series'] = np.arange(self.dict['expinfo']['num_frames']) * self.dict['expinfo']['exposure_period']
+                        else:
+                            corr_params = ['scan_id', 'time'] # Add 'scan_id' and 'time' for scan/snap measurements
+                            for basic_param in corr_params:
+                                self.dict['corrdata'][corr[0]][key][basic_param] = np.array(self.dict['expinfo'][basic_param])       
+
                         ## Include corresponding metadata
                         for param in self.dict['mdata_list']:
-                            self.dict['analysis'][protocol[0]][key][param] = np.array(self.dict['metadata'][param])
-                        
-                        # Iq 2D array
-                        self.dict['analysis'][protocol[0]][key]['I_array'] = np.array([
-                            self.dict['data'][key][i][xy_axes[1]] for i in range(self.dict['expinfo']['filenumber'])])                    
+                            self.dict['corrdata'][corr[0]][key][param] = np.array(self.dict['metadata'][param])
+          
                             
-            if 'reduction' in protocol:
+            # if 'reduction' in corr:
 
-                print('reduction is working')
-                for item in set(self.dict['metadata'][protocol[-1]]):
-                    reduction_protocol = data + protocol[-1] + str(item)
-                    self.dict['analysis'][reduction_protocol] = []
-                    for ii, data in enumerate(self.dict['metadata'][protocol]):
-                        if data == item:
+            #     print('reduction is working')
+            #     for item in set(self.dict['metadata'][corr[-1]]):
+            #         reduction_protocol = data + corr[-1] + str(item)
+            #         self.dict['analysis'][reduction_protocol] = []
+            #         for ii, data in enumerate(self.dict['metadata'][corr]):
+            #             if data == item:
 
-                            for key in self.dict['data'].keys():
-                                if ('average' in key) or ('linecut' in key):
+            #                 for key in self.dict['data'].keys():
+            #                     if ('average' in key) or ('linecut' in key):
                                     
-                                    # Data in a 2D dict
-                                    # 2D array: 'Iq_array' (nrow x ncol)
-                                    # 1D array: 'q' (len = ncol)
-                                    # 1D array: 'scan_id', 'time', and other parameters in the 'mdata_list' (len = nrow)
+            #                         # Data in a 2D dict
+            #                         # 2D array: 'Iq_array' (nrow x ncol)
+            #                         # 1D array: 'q' (len = ncol)
+            #                         # 1D array: 'scan_id', 'time', and other parameters in the 'mdata_list' (len = nrow)
 
-                                    self.dict['analysis'][protocol[0]] = {}
-                                    print(key)
-                                    self.dict['analysis'][protocol[0]][key] = {}
+            #                         self.dict['analysis'][protocol[0]] = {}
+            #                         print(key)
+            #                         self.dict['analysis'][protocol[0]][key] = {}
                                     
                                     
-                                    xy_axes = list(self.dict['data'][key][0].keys())
+            #                         xy_axes = list(self.dict['data'][key][0].keys())
                                     
-                                    self.dict['analysis'][protocol[0]][key][xy_axes[0]] = self.dict['data'][key][0][xy_axes[0]] 
+            #                         self.dict['analysis'][protocol[0]][key][xy_axes[0]] = self.dict['data'][key][0][xy_axes[0]] 
                                     
-                                    ## Include basic parameters (always)
-                                    basic_params = ['scan_id', 'time']
-                                    for basic_param in basic_params:
-                                        self.dict['analysis'][protocol[0]][key][basic_param] = np.array(self.dict['expinfo'][basic_param])       
+            #                         ## Include basic parameters (always)
+            #                         basic_params = ['scan_id', 'time']
+            #                         for basic_param in basic_params:
+            #                             self.dict['analysis'][protocol[0]][key][basic_param] = np.array(self.dict['expinfo'][basic_param])       
                                 
-                                    ## Include corresponding metadata
-                                    for param in self.dict['mdata_list']:
-                                        self.dict['analysis'][protocol[0]][key][param] = np.array(self.dict['metadata'][param])
+            #                         ## Include corresponding metadata
+            #                         for param in self.dict['mdata_list']:
+            #                             self.dict['analysis'][protocol[0]][key][param] = np.array(self.dict['metadata'][param])
                                     
-                                    # Iq 2D array
-                                    self.dict['analysis'][protocol[0]][key]['I_array'] = np.array([
-                                        self.dict['data'][key][i][xy_axes[1]] for i in range(self.dict['expinfo']['filenumber'])])        
+            #                         # Iq 2D array
+            #                         self.dict['analysis'][protocol[0]][key]['I_array'] = np.array([
+            #                             self.dict['data'][key][i][xy_axes[1]] for i in range(self.dict['expinfo']['filenumber'])])        
 #                         #load x as the first row
 #                         self.dict['analysis'][protocol][key] = self.dict['data'][key]
                         
@@ -617,11 +693,51 @@ class experiment():
 #                             #read xml for the results
 #                             fittingresult = self.loadxml(pp)
 #                             self.dict['analysis'][pname][pp][index] = fittingresult
-
-                
-
     
+    
+    
+    # TODO
+    def doExpAnalysis(self, exp_protocol=None):
+        '''
+        exp analysis
+        '''          
+        pass
+    
+    def listExpProtocol(self, verbosity=3):        
+        for protocol in self.dict['exp_protocol']:
+            print(protocol)
+    
+    # TODO
+    def addExpProtocol(self, fitting=False, verbosity=3):
         
+        #print out the list of data            
+        if verbosity>=3:
+            for key in self.dict['data'].keys():
+                print(key)
+        data = input('select the dataset:')
+
+        #print out the list of protocols
+        if verbosity>=3:
+            for key in self.dict['metadata'].keys():
+                print(key)       
+        mdata = input('select the metada:')
+        
+        #TODO:locate the fitting keys
+        #print out the list of fitting results
+        if fitting==True:
+            if verbosity>=3:
+                xml = loadxml
+                
+                for key in xml.keys:
+                    print(key)       
+            mdata = input('select the metada:')
+            
+        
+        if fitting == True:
+            self.dict['exp_protocol'].append([data, medata, fitting])
+        else:
+            self.dict['exp_protocol'].append([data, medata])
+
     def doDict(self):
         #print out of all steps to make self.dict
 
