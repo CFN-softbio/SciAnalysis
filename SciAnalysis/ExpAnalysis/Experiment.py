@@ -3,7 +3,6 @@ import scipy as sc
 import matplotlib.pyplot as plt
 import pandas as pd
 import glob, os, time
-import databroker
 import imageio
 
 from SciAnalysis import tools
@@ -12,13 +11,16 @@ from SciAnalysis.XSAnalysis import Protocols
 from SciAnalysis.Result import *
 
 #db = databroker.DataBroker.named('cms')
-cat = databroker.catalog['cms']
+#cat = databroker.catalog['cms']
 
 class experiment():
-    def __init__(self, name, folder=None, det='saxs'):
+    def __init__(self, name, folder=None, det='saxs', beamline='cms'):
         
         #self.name = name
         self.det = det
+        self.beamline = beamline
+        if beamline is not None:
+            import databroker
         
         if folder==None:
             self.folder = os.getcwd() 
@@ -42,7 +44,7 @@ class experiment():
         self.dict['analysis'] = {}
         self.dict['protocol'] = []
     
-    def defFiles(self, fn = None, scanid=None, uid=None, stitched=False, burstmode=False):
+    def defFiles(self, fn = None, scanid=None, uid=None, stitched=False, burstmode=False, verbose=1):
         #define the files in the experiment
         #search raw tiff, return the list of scanid or uid or filenames (RL_t0, RL_t1, ...) 
         # and also look up metadata with the scanid
@@ -56,9 +58,13 @@ class experiment():
             source_dir = self.folder + self.det + '/raw/'
         else:
             source_dir = self.folder + self.det + '/stitched/'
+        if verbose>0:
+            print(source_dir)
         
         #
-        if uid != None:
+        #if self.beamline == 'cms': cat = databroker.catalog['cms']
+        if uid != None and self.beamline is not None:
+            cat = databroker.catalog[self.beamline]
             for uidt in uid:
                 h = cat[uidt]
                 self.dict['expinfo']['filename'].append(h.metadata['start']['filename'])
@@ -68,7 +74,8 @@ class experiment():
                 self.dict['expinfo']['uid'].append(h.metadata['start']['uid'])
 
                 
-        else:
+        elif self.beamline is not None:
+            cat = databroker.catalog[self.beamline]
             # define infiles
             infiles = []
             if scanid is None: 
@@ -93,10 +100,45 @@ class experiment():
                 self.dict['expinfo']['clock'].append(h.metadata['start']['sample_clock'])
                 self.dict['expinfo']['scan_id'].append(h.metadata['start']['scan_id'])
                 self.dict['expinfo']['uid'].append(h.metadata['start']['uid'])
-        self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['uid'])
+        else:
+            # define infiles
+            infiles = []
+            if scanid is None: 
+                infiles = glob.glob(os.path.join(source_dir, fn + '*.tiff'))
+            else:
+                for sid in range(scanid[0], scanid[-1]+1):
+                    infile = os.path.join(source_dir, fn + '*' + str(sid) + '*.tiff')
+                    if os.isfile(infile):
+                        infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.tiff'))
+
+            #sort infiles by the scanid
+            infiles = sorted(infiles, key=lambda x: x.split('_'+self.det)[0].split('_')[-1])        
+         
+            #input exp. info
+            for infile in infiles:
+                filename = infile.split('_'+self.det)[0]
+                filename = filename.split('/')[-1]
+                scan_id = infile.split('_'+self.det)[0].split('_')[-1]
+                self.dict['expinfo']['filename'].append(filename)
+                #self.dict['expinfo']['time'].append(h.metadata['start']['time']) #linux time
+                self.dict['expinfo']['scan_id'].append(scan_id)
+     
+        
+        self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['filename'])
+        if verbose>0:
+            print('Loaded {} files.'.format(self.dict['expinfo']['filenumber']))
                 
     def defFiles_query(self, cycle=None, SAF=None, fn=None, timerange=None, folder=None, scanid=None, verbose=1):
 
+        if self.beamline is not None:
+            cat = databroker.catalog[self.beamline]
+        else:
+            print('Databroker catelog currently not working unless at beamline.')
+            print('Use exp.defFiles(fn=sample) instead')
+            return();
+            
+            
+            
         if folder is None:
             folder = self.folder
             
@@ -177,6 +219,14 @@ class experiment():
     
     def loadMetadata(self, keys=None, verbose=1):
         t0 = time.time()
+        
+        if self.beamline is not None:
+            cat = databroker.catalog[self.beamline]
+        else:
+            print('Databroker catelog currently not working unless at beamline.')
+            return();
+                    
+        
         if keys is None:
             keys = self.dict['mdata_list']
         
@@ -199,6 +249,13 @@ class experiment():
         '''
         list of the keys in Metadata to input
         '''
+        if self.beamline is not None:
+            cat = databroker.catalog[self.beamline]
+        else:
+            print('Databroker catelog currently not working unless at beamline.')
+            return();
+            
+
     
         if scanid is None:
             scanid = self.dict['expinfo']['uid'][0]
@@ -239,7 +296,7 @@ class experiment():
             self.dict['data'] = {} # create a dict for data loading
         
         analysis_folder = self.folder + '/' + self.det + '/analysis/'
-        if verbose > 0: print(analysis_folder)
+        if verbose > 0: print('analysis_folder = {}'.format(analysis_folder))
 
         if keys is None:
             folders = glob.glob(analysis_folder + '/*/')
@@ -262,6 +319,7 @@ class experiment():
                 if key not in self.dict['data']:
                     self.dict['data'][key] = {}
 
+                if verbose>1: print(os.path.join(analysis_folder+key, infile+'*.dat'))
                 if 'average' in key:
                     files = glob.glob(os.path.join(analysis_folder+key, infile+'*.dat'))
                     if len(files) == 0:

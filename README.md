@@ -10,9 +10,12 @@ Kevin Yager.
 
 http://gisaxs.com/index.php/SciAnalysis
 
-INSTALL:
+INSTALL: 
 
  * python setup.py develop
+ 
+ OR, simply download the package and see examples/beamlines/NSLSII_11BM_CMS/UShell/SciAnalysis_jn.ipynb for tutorial.
+
 
 ---
 

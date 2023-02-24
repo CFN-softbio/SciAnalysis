@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 ###################################################################
 # SciAnalysis
-# version 0.5
-# Oct 2015
 ###################################################################
 # Author: Kevin G. Yager
 # Affiliation: Brookhaven National Lab, Center for Functional Nanomaterials
@@ -14,3 +12,7 @@
 #  This file is simply a placeholder to tell Python that this
 # directory should be parsed as a package.
 ###################################################################
+
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
