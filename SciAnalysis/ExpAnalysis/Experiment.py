@@ -12,7 +12,7 @@ from SciAnalysis.XSAnalysis import Protocols
 from SciAnalysis.Result import *
 
 #db = databroker.DataBroker.named('cms')
-cat = databroker.catalog['cms']
+#cat = databroker.catalog['cms']
 
 class experiment():
     def __init__(self, name, folder=None, det='saxs', beamline='cms'):
@@ -21,7 +21,10 @@ class experiment():
         self.det = det
         self.beamline = beamline
         if beamline is not None:
+            print('At beamline, importing databroker')
             import databroker
+        else:
+            print('Not at beamline, cannot use databroker')
         
         if folder is None:
             self.folder = os.getcwd() 
@@ -77,6 +80,7 @@ class experiment():
         #
 
         if uid != None and self.beamline is not None:
+            import databroker
             cat = databroker.catalog[self.beamline]
             for uidt in uid:
                 h = cat[uidt]
@@ -88,6 +92,7 @@ class experiment():
 
                 
         elif self.beamline is not None:
+            import databroker
             cat = databroker.catalog[self.beamline]
             # define infiles
             infiles = []
@@ -150,6 +155,7 @@ class experiment():
     def defFiles_query(self, cycle=None, SAF=None, fn=None, timerange=None, folder=None, scanid=None, verbose=1):
 
         if self.beamline is not None:
+            import databroker
             cat = databroker.catalog[self.beamline]
         else:
             print('Databroker catelog currently not working unless at beamline.')
