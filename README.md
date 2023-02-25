@@ -32,7 +32,7 @@ Example protocals for X-ray scattering data:
 
 run_args = { 'verbosity' : 3,
 
-            #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
+            'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
             
             'rcParams': {'axes.labelsize': 25,
                             'xtick.labelsize': 20,
