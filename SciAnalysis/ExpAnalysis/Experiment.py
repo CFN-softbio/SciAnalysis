@@ -255,6 +255,7 @@ class experiment():
     def loadMetadata(self, keys=None, verbose=1):
 
         if self.beamline is not None:
+            import databroker
             cat = databroker.catalog[self.beamline]
         else:
             print('Databroker catelog currently not working unless at beamline.')
@@ -285,6 +286,7 @@ class experiment():
         '''
 
         if self.beamline is not None:
+            import databroker
             cat = databroker.catalog[self.beamline]
         else:
             print('Databroker catelog currently not working unless at beamline.')
