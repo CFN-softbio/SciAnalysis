@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pandas as pd
 import glob, os, time, datetime
-import imageio
+import imageio, pprint
 
 from SciAnalysis import tools
 from SciAnalysis.XSAnalysis.Data import *
@@ -21,7 +21,7 @@ class experiment():
         self.det = det
         self.beamline = beamline
         if beamline is not None:
-            print('At beamline, importing databroker')
+            print('At beamline, can use databroker')
             import databroker
         else:
             print('Not at beamline, cannot use databroker')
@@ -32,8 +32,10 @@ class experiment():
         else:
             self.folder = folder
         
-        self.dict = {'exp': self.name,
-                     'type': self.det,
+        self.dict = {'expname': self.name,
+                     'detector': self.det,
+                     'beamline': self.beamline,
+                     'folder': folder
                     }
                      
         self.dict['expinfo'] = {}
@@ -67,6 +69,8 @@ class experiment():
         #and also look up metadata with the scanid
         #keys = ['sample_x', 'sample_temperature', 'scan_id' ] 
         
+        t0 = time.time()
+
         if fn is None:
             fn = self.name
             
@@ -82,7 +86,7 @@ class experiment():
         if uid != None and self.beamline is not None:
             import databroker
             cat = databroker.catalog[self.beamline]
-            for uidt in uid:
+            for uidt in uid:           
                 h = cat[uidt]
                 self.dict['expinfo']['filename'].append(h.metadata['start']['filename'])
                 self.dict['expinfo']['time'].append(h.metadata['start']['time']) #linux time
@@ -111,7 +115,9 @@ class experiment():
         
             #input exp. info
             for infile in infiles:
+
                 infile_scanid = infile.split('_'+self.det)[0].split('_')[-1]
+
                 h = cat[infile_scanid]
                 self.dict['expinfo']['filename'].append(h.metadata['start']['filename'])
                 self.dict['expinfo']['time'].append(h.metadata['start']['time']) #linux time
@@ -132,12 +138,13 @@ class experiment():
 
             #sort infiles by the scanid
             infiles = sorted(infiles, key=lambda x: x.split('_'+self.det)[0].split('_')[-1])        
-
             #input exp. info
             for infile in infiles:
                 filename = infile.split('_'+self.det)[0]
                 filename = filename.split('/')[-1]
                 scan_id = infile.split('_'+self.det)[0].split('_')[-1]
+
+
                 self.dict['expinfo']['filename'].append(filename)
                 #self.dict['expinfo']['time'].append(h.metadata['start']['time']) #linux time
                 self.dict['expinfo']['scan_id'].append(scan_id)
@@ -150,7 +157,10 @@ class experiment():
         if self.dict['expinfo']['series_measure']:
             self.dict['expinfo']['filenumber'] = self.dict['expinfo']['num_frames']
         else:
-            self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['uid'])
+            self.dict['expinfo']['filenumber'] = len(self.dict['expinfo']['filename'])
+
+        if verbose>0:
+            print('(defFiles time = {:.1f}s)'.format(time.time()-t0))
                 
     def defFiles_query(self, cycle=None, SAF=None, fn=None, timerange=None, folder=None, scanid=None, verbose=1):
 
@@ -252,6 +262,10 @@ class experiment():
 #         for key in keys:
 #             self.dict['metadata'][key] = h.start['uid'][key]
     
+
+
+
+
     def loadMetadata(self, keys=None, verbose=1):
 
         if self.beamline is not None:
@@ -277,7 +291,7 @@ class experiment():
             h = cat[uid]
             for key in keys:
                 self.dict['metadata'][key].append(h.metadata['start'][key])
-        print('loadMetadata time = {:.1f}s'.format(time.time()-t0))
+        print('(loadMetadata time = {:.1f}s)'.format(time.time()-t0))
 
     #TODO: change fn to self.dict
     def listMetadata(self, scanid=None, uid=None, verbosity=3):
@@ -319,6 +333,31 @@ class experiment():
                 
                 #         return scanids
 
+    def showMetadata(self, scanid=None, uid=None, md_interest = None, verbosity=1):
+        # md_interest = ['scan_id']
+
+        if self.beamline is not None:
+            import databroker
+            cat = databroker.catalog[self.beamline]
+        else:
+            print('Databroker catelog currently not working unless at beamline.')
+            return();
+    
+        if scanid is None:
+            scanid = self.dict['expinfo']['uid'][0]
+
+        h = cat[scanid]
+
+        if md_interest is not None:
+            print('### Scan {}:'.format(scanid))
+            for md in md_interest:
+                print('{}: {}\n'.format(md, h.metadata['start'][md]))
+        else:
+            print('### Scan {}:'.format(scanid))
+            pprint.pprint(h.metadata['start'])
+
+
+
     #load the reducted data (SciAanalysis) files via the key 
     #key = 'circurlar_average'  or 'linecut_qr-q=0.1'
     #filename full path: 'circular_average/RL_t0.dat',  'qr_image/RL_t0.npz'
@@ -326,12 +365,14 @@ class experiment():
 
     
     
-    def loadSciAnalysisData(self, keys=None, verbose=0):
+    def loadSciAnalysisData(self, keys=None, analysis_folder=None, verbose=0):
         t0 = time.time()
         if 'data' not in self.dict:
             self.dict['data'] = {} # create a dict for data loading
         
-        analysis_folder = self.folder + '/' + self.det + '/analysis/'
+
+        if analysis_folder is None:
+            analysis_folder = self.folder + '/' + self.det + '/analysis/'
         if verbose > 0: print('analysis_folder = {}'.format(analysis_folder))
 
         if keys is None:
@@ -434,6 +475,7 @@ class experiment():
     def doPlot(self, protocol, key):
         pass
         
+
         
 
     #TODO
@@ -569,6 +611,7 @@ class experiment():
         plt.ylabel('Intensity')
         if gridlines:
             plt.grid()
+        plt.title('Experiment {}, {}'.format(self.name, key))
 
     
     
@@ -633,6 +676,7 @@ class experiment():
             
             #2D array
             if corr == ['2Darray']:
+                self.dict['corrdata'][corr[0]] = {}
                 for key in self.dict['data'].keys():
                     if ('average' in key) or ('linecut' in key):
                         
@@ -642,8 +686,7 @@ class experiment():
                         # 1D array: 'scan_id', 'time', and other parameters in the 'mdata_list' (len = nrow)
                         #            for series measurement: 'time_series'
 
-                        self.dict['corrdata'][corr[0]] = {}
-                        print(key)
+                        print('doCorr {}'.format(key))
                         self.dict['corrdata'][corr[0]][key] = {}
                         
                         xy_axes = list(self.dict['data'][key][str(0)].keys())
