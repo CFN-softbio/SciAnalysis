@@ -31,14 +31,16 @@ class experiment():
 #             self.folder = '/nsls2/data/cms/legacy/xf11bm/data/2022_1/'+'user'+det
         else:
             self.folder = folder
-        
-        self.dict = {'expname': self.name,
-                     'detector': self.det,
-                     'beamline': self.beamline,
-                     'folder': folder
+   
+        self.dict = {'expinfo': 
+                        {'expname': self.name,
+                        'detector': self.det,
+                        'beamline': self.beamline,
+                        'folder': folder
+                        }
                     }
                      
-        self.dict['expinfo'] = {}
+        #self.dict['expinfo'] = {}
         self.dict['expinfo']['filename'] = []
         self.dict['expinfo']['time'] = []
         self.dict['expinfo']['clock'] = []
@@ -62,6 +64,44 @@ class experiment():
         self.dict['exp_protocol'] = [] # parameters to run experimental analysis
         self.dict['analysis'] = {}
         
+    def show(self, verbose=0):
+        print('=== Overview of experiment dictionary ===')        
+        for key, val in self.dict.items():
+            print('exp.dict[\'{}\']'.format(key))
+            self._show(key, val, level=0, verbose=verbose)
+
+    def _show(self, key, val, level=0, verbose=0):
+           
+        if type(val) == dict:
+            keys = list(val.keys())            
+
+            if verbose>0:
+                for ii in np.arange(level): print('    -', end ="")
+                print('    keys = {}'.format(keys))
+            else:  
+                if len(keys)>0:
+                    if list(val.keys())[0].isnumeric() == False: # only print when not index (e.g. '0') 
+                        for ii in np.arange(level): print('    -', end ="")
+                        print('    keys = {}'.format(keys))
+
+            for k, v in val.items():
+                if k.isnumeric()==False:
+                    self._show(k, v, level=level+1, verbose=verbose)
+                    
+        else:
+            for ii in np.arange(level): print('    -', end ="")
+            
+            if isinstance(val, np.ndarray)==True and val.shape==():
+                print('    key = {}, val = {}'.format(key, val))  
+            elif isinstance(val, np.ndarray)==True and len(val)<10:
+                print('    key = {}, val = {}'.format(key, val))  
+            elif isinstance(val, list)==False and isinstance(val, np.ndarray)==False:
+                print('    key = {}, val = {}'.format(key, val))
+            else:
+                print('    key = {}, val.shape = {}'.format(key, val.shape))
+
+
+
     
     def defFiles(self, fn = None, scanid=None, uid=None, stitched=False, burstmode=False, verbose=1):
         #define the files in the experiment
