@@ -15,13 +15,13 @@ from SciAnalysis.Result import *
 #cat = databroker.catalog['cms']
 
 class experiment():
-    def __init__(self, name, folder=None, det='saxs', beamline='cms'):
+    def __init__(self, name, folder=None, det='saxs', beamline='cms', series_measure=False, verbose=0):
         
-        if beamline is not None:
-            print('At beamline, can use databroker')
+        if beamline != 'None':
+            if verbose>0:  print('At beamline, can use databroker')
             import databroker
         else:
-            print('Not at beamline, cannot use databroker')
+            if verbose>0:  print('Not at beamline, cannot use databroker')
         
         if folder is None:
             folder = os.getcwd() 
@@ -45,21 +45,20 @@ class experiment():
         self.dict['rawinfo']['uid'] = []
         self.dict['rawinfo']['filenumber']=0 # total number of input files (could be number of total frames for a series measurement)
         
-        self.dict['rawinfo']['series_measure'] = False
+        self.dict['rawinfo']['series_measure'] = series_measure
         # if series_measure is True:
         # self.dict['rawinfo']['num_frames'] = 1
         # self.dict['rawinfo']['exposure_period'] = 0.1
     
         self.dict['analysis'] = {}
         
-        self.dict['corr'] = [] # parameters to check correlations
-        self.dict['corrdata'] = {}
+        #self.dict['corr'] = [] # parameters to check correlations
+        #self.dict['corrdata'] = {}
  
-        self.dict['mdata_list'] = [] # parameters to pull the metadata
-        self.dict['metadata'] = {}
-        
-        self.dict['exp_protocol'] = [] # parameters to run experimental analysis
-        self.dict['analysis'] = {}
+        #self.dict['mdata_list'] = [] # parameters to pull the metadata
+        self.dict['metadata'] = {}        
+        self.dict['advanced'] = {} # parameters to run experimental analysis
+
         
     def show(self, verbose=0):
         print('\n=== Overview of experiment dictionary ===')        
@@ -68,44 +67,55 @@ class experiment():
             self._show(key, val, level=0, verbose=verbose)
 
     def _show(self, key, val, level=0, verbose=0):
-           
+
         if type(val) == dict:
+
+            if level>0: 
+                for ii in np.arange(level): print('  -', end ="")
+                print('  key = {}'.format(key))
+
+
             keys = list(val.keys())            
 
             if verbose>0:
-                for ii in np.arange(level): print('    -', end ="")
-                print('    keys = {}'.format(keys))
+                for ii in np.arange(level+1): print('  -', end ="")
+                print('  keys = {}'.format(keys))
             else:  
                 if len(keys)>0:
                     if list(val.keys())[0].isnumeric() == False: # only print when not index (e.g. '0') 
-                        for ii in np.arange(level): print('    -', end ="")
-                        print('    keys = {}'.format(keys))
+                        for ii in np.arange(level+1): print('  -', end ="")
+                        print('  keys = {}'.format(keys))
 
             for k, v in val.items():
                 if k.isnumeric()==False:
                     self._show(k, v, level=level+1, verbose=verbose)
                     
         else:
-            for ii in np.arange(level): print('    -', end ="")
+            for ii in np.arange(level): print('  -', end ="")
             
             if isinstance(val, np.ndarray)==True and val.shape==():
-                print('    key = {}, val = {}'.format(key, val))  
+                print('  key = {}, {}, val = {}'.format(key, type(val), val))  
             elif isinstance(val, np.ndarray)==True and len(val)<10:
-                print('    key = {}, val = {}'.format(key, val))  
-            elif isinstance(val, list)==False and isinstance(val, np.ndarray)==False:
-                print('    key = {}, val = {}'.format(key, val))
+                print('  key = {}, {}, val = {}'.format(key, type(val), val))  
             elif isinstance(val, np.ndarray)==True:
-                print('    key = {}, val.shape = {}'.format(key, val.shape))
+                print('  key = {}, {}, val.shape = {}'.format(key, type(val), val.shape))
+
+            elif isinstance(val, list)==False and isinstance(val, np.ndarray)==False:
+                print('  key = {}, {}, val = {}'.format(key, type(val), val))
             elif isinstance(val, list)==True and len(val)<10:
-                print('    key = {}, val = {}'.format(key, val))
+                if len(str(val))<10:
+                    print('  key = {}, {}, val = {}'.format(key, type(val), val))
+                else:
+                    print('  key = {}, {}'.format(key, type(val)))
             elif isinstance(val, list)==True:
-                print('    key = {}, len(shape) = {}'.format(key, len(val)))
+                print('  key = {}, {}, len(shape) = {}'.format(key, type(val), len(val)))
+
             else:
-                print('    key = {}, type(val) = {}'.format(key, type(val)))
+                print('  key = {}, {}'.format(key, type(val)))
 
 
     
-    def defFiles(self, fn = None, scanid=None, uid=None, stitched=False, burstmode=False, verbose=1):
+    def defFiles(self, fn = None, scanid=None, uid=None, stitched=False, verbose=1):
         #define the files in the experiment
         #search raw tiff, return the list of scanid or uid or filenames (RL_t0, RL_t1, ...) 
         #and also look up metadata with the scanid
@@ -114,6 +124,9 @@ class experiment():
         beamline = self.dict['expinfo']['beamline']
         det = self.dict['expinfo']['det']
         folder = self.dict['expinfo']['folder']
+
+        #self.dict['rawinfo']['series_measure'] = series_measure
+        series_measure = self.dict['rawinfo']['series_measure'] 
 
         t0 = time.time()
 
@@ -129,7 +142,7 @@ class experiment():
             print(source_dir)        
         #
 
-        if uid != None and self.beamline is not None:
+        if uid != None and self.beamline != 'None':
             import databroker
             cat = databroker.catalog[self.beamline]
             for uidt in uid:           
@@ -141,7 +154,7 @@ class experiment():
                 self.dict['rawinfo']['uid'].append(h.metadata['start']['uid'])
 
                 
-        elif beamline is not None:
+        elif beamline != 'None':
             import databroker
             cat = databroker.catalog[beamline]
             # define infiles
@@ -161,8 +174,10 @@ class experiment():
         
             #input exp. info
             for infile in infiles:
-
-                infile_scanid = infile.split('_'+det)[0].split('_')[-1]
+                if series_measure:
+                    infile_scanid = infile.split('_'+det)[0].split('_')[-2]
+                else:
+                    infile_scanid = infile.split('_'+det)[0].split('_')[-1]
 
                 h = cat[infile_scanid]
                 self.dict['rawinfo']['filename'].append(h.metadata['start']['filename'])
@@ -183,17 +198,26 @@ class experiment():
                         infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.tiff'))
 
             #sort infiles by the scanid
-            infiles = sorted(infiles, key=lambda x: x.split('_'+det)[0].split('_')[-1])        
+            infiles = sorted(infiles, key=lambda x: x.split('_'+det)[0].split('_')[-1])    
+    
             #input exp. info
+            num_frames = 1
             for infile in infiles:
                 filename = infile.split('_'+det)[0]
                 filename = filename.split('/')[-1]
-                scan_id = infile.split('_'+det)[0].split('_')[-1]
+                #scan_id = infile.split('_'+det)[0].split('_')[-1]
+                if series_measure:
+                    scan_id = infile.split('_'+det)[0].split('_')[-2]
+                    frame = int(infile.split('_'+det)[0].split('_')[-1])
+                    if frame+1 > num_frames: num_frames = frame+1
+                else:
+                    scan_id = infile.split('_'+det)[0].split('_')[-1]
 
 
                 self.dict['rawinfo']['filename'].append(filename)
                 #self.dict['rawinfo']['time'].append(h.metadata['start']['time']) #linux time
                 self.dict['rawinfo']['scan_id'].append(scan_id)
+                self.dict['rawinfo']['num_frames'] = num_frames
 
 
         self.dict['rawinfo']['filenumber'] = len(self.dict['rawinfo']['filename'])
@@ -214,7 +238,7 @@ class experiment():
         folder = self.dict['expinfo']['folder']
         det = self.dict['expinfo']['det']
 
-        if beamline is not None:
+        if beamline != 'None':
             import databroker
             cat = databroker.catalog[beamline]
         else:
@@ -236,30 +260,30 @@ class experiment():
              'experiment_alias_directory': {'$in': [folder, folder[:-1]]},
                 }
         
-        if scanid is not None:
+        if scanid != None:
             query['scan_id'] = {'$gte': scanid[0], '$lte': scanid[-1]}
-        if fn is not None:
+        if fn != None:
             #query['sample_name'] = fn  #Sample name does not contain information on x, y, th, etc
             query['filename'] = {'$regex': fn }
-        if SAF is not None:
+        if SAF != None:
             query['experiment_SAF_number'] = SAF
-        if timerange is not None:
+        if timerange != None:
             query['time_range'] = timerange
-        if cycle is not None:
+        if cycle != None:
             query['experiment_cycle'] = cycle
 
         # ## To save the ROI intensity from the detector
         # if 'data' not in self.dict:
         #     self.dict['data'] = {} # create a dict for data loading
-        self.dict['data']['det']= {}
+        self.dict['rawinfo']['det']= {}
         for i in range(1,5):
-            self.dict['data']['det'][f'roi{i}']=[]
+            self.dict['rawinfo']['det'][f'roi{i}']=[]
     
-        if self.dict['type'] == 'saxs':
+        if self.dict['expinfo']['det'] == 'saxs':
             detector = 'pilatus2M'
-        if self.dict['type'] == 'waxs':
+        if self.dict['expinfo']['det'] == 'waxs':
             detector = 'pilatus800'
-        if self.dict['type'] == 'maxs':
+        if self.dict['expinfo']['det'] == 'maxs':
             detector = 'pilatus8002'
             
         t0 = time.time()
@@ -288,7 +312,7 @@ class experiment():
                 self.dict['rawinfo']['num_frames'] = h.metadata['start']['measure_series_num_frames']
                 self.dict['rawinfo']['exposure_time'] = h.metadata['start']['exposure_time']
                 
-                if h.metadata['start'].get('exposure_period', None) is not None: ## series measurements before 2023 does not have this field
+                if h.metadata['start'].get('exposure_period', None) != None: ## series measurements before 2023 does not have this field
                     self.dict['rawinfo']['exposure_period'] = h.metadata['start']['exposure_period']
             
             #### primary.read() is very slow
@@ -314,7 +338,7 @@ class experiment():
     
 
     def showFileInfo(self, idx=0, verbose=0):
-        print('\n=== Information for File {} ==='.format(idx))        
+        print('\n=== Raw Information for File {} ==='.format(idx))        
         for key in self.dict['rawinfo'].keys():
             if isinstance(self.dict['rawinfo'][key], list)==True and len(self.dict['rawinfo'][key])>0:
                 print('exp.dict[\'rawinfo\'][\'{}\'][{}] = {}'.format(key, idx, self.dict['rawinfo'][key][idx]))
@@ -323,7 +347,7 @@ class experiment():
     def loadMetadata(self, keys=None, verbose=1):
 
         beamline = self.dict['expinfo']['beamline']
-        if beamline is not None:
+        if beamline != 'None':
             import databroker
             cat = databroker.catalog[beamline]
         else:
@@ -354,7 +378,7 @@ class experiment():
         list of the keys in Metadata to input
         '''
         beamline = self.dict['expinfo']['beamline'] 
-        if beamline is not None:
+        if beamline != 'None':
             import databroker
             cat = databroker.catalog[beamline]
         else:
@@ -392,7 +416,7 @@ class experiment():
         # md_interest = ['scan_id']
 
         beamline = self.dict['expinfo']['beamline'] 
-        if beamline is not None:
+        if beamline != 'None':
             import databroker
             cat = databroker.catalog[beamline]
         else:
@@ -404,7 +428,7 @@ class experiment():
 
         h = cat[scanid]
 
-        if md_interest is not None:
+        if md_interest != None:
             print('### Scan {}:'.format(scanid))
             for md in md_interest:
                 print('{}: {}\n'.format(md, h.metadata['start'][md]))
