@@ -46,6 +46,7 @@ class experiment():
         self.dict['rawinfo']['filenumber']=0 # total number of input files (could be number of total frames for a series measurement)
         
         self.dict['rawinfo']['series_measure'] = series_measure
+        self.dict['rawinfo']['num_frames'] = []
         # if series_measure is True:
         # self.dict['rawinfo']['num_frames'] = 1
         # self.dict['rawinfo']['exposure_period'] = 0.1
@@ -152,6 +153,8 @@ class experiment():
                 self.dict['rawinfo']['clock'].append(h.metadata['start']['sample_clock'])
                 self.dict['rawinfo']['scan_id'].append(h.metadata['start']['scan_id'])
                 self.dict['rawinfo']['uid'].append(h.metadata['start']['uid'])
+                if series_measure:
+                    self.dict['rawinfo']['num_frames'].append(h.metadata['start']['measure_series_num_frames'])
 
                 
         elif beamline != 'None':
@@ -185,6 +188,8 @@ class experiment():
                 self.dict['rawinfo']['clock'].append(h.metadata['start']['sample_clock'])
                 self.dict['rawinfo']['scan_id'].append(h.metadata['start']['scan_id'])
                 self.dict['rawinfo']['uid'].append(h.metadata['start']['uid'])
+                if series_measure:
+                    self.dict['rawinfo']['num_frames'].append(h.metadata['start']['measure_series_num_frames'])
 
         else:
             # define infiles
