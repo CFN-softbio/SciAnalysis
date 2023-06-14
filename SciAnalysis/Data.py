@@ -519,9 +519,9 @@ class DataLine(object):
     
     def _plot_interact(self):
         
-        self.fig.canvas.set_window_title('SciAnalysis')
+        #self.fig.canvas.set_window_title('SciAnalysis')
         #plt.get_current_fig_manager().toolbar.pan()
-        self.fig.canvas.toolbar.pan()
+        #self.fig.canvas.toolbar.pan()
         self.fig.canvas.mpl_connect('scroll_event', self._scroll_event )
         #self.fig.canvas.mpl_connect('motion_notify_event', self._move_event )
         #self.fig.canvas.mpl_connect('key_press_event', self._key_press_event)
@@ -2173,9 +2173,9 @@ class Data2D(object):
     
     def _plot_interact(self):
         
-        self.fig.canvas.set_window_title('SciAnalysis')
+        #self.fig.canvas.set_window_title('SciAnalysis')
         #plt.get_current_fig_manager().toolbar.pan()
-        self.fig.canvas.toolbar.pan()
+        #self.fig.canvas.toolbar.pan()
         self.fig.canvas.mpl_connect('scroll_event', self._scroll_event )
         #self.fig.canvas.mpl_connect('motion_notify_event', self._move_event )
         self.fig.canvas.mpl_connect('key_press_event', self._key_press_event)
