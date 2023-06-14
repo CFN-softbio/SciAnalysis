@@ -15,14 +15,14 @@ from SciAnalysis.Result import *
 #cat = databroker.catalog['cms']
 
 class experiment():
-    def __init__(self, name, folder=None, det='saxs', beamline='cms', series_measure=False, verbose=0):
+    def __init__(self, name, folder=None, det='saxs', beamline='cms', ext='tiff', series_measure=False, verbose=0):
         
-        if beamline != 'None':
+        if beamline != 'None' or beamline != 'none':
             if verbose>0:  print('At beamline, can use databroker')
             import databroker
         else:
             if verbose>0:  print('Not at beamline, cannot use databroker')
-        
+
         if folder is None:
             folder = os.getcwd() 
 #             self.folder = '/nsls2/data/cms/legacy/xf11bm/data/2022_1/'+'user'+det
@@ -33,7 +33,8 @@ class experiment():
                         {'expname': name,
                         'det': det,
                         'beamline': beamline,
-                        'folder': folder
+                        'folder': folder,
+                        'ext': ext
                         }
                     }
                      
@@ -116,7 +117,7 @@ class experiment():
 
 
     
-    def defFiles(self, fn = None, scanid=None, uid=None, stitched=False, verbose=1):
+    def defFiles(self, fn = None, scanid=None, uid=None, stitched=False, source_dir = None, verbose=1):
         #define the files in the experiment
         #search raw tiff, return the list of scanid or uid or filenames (RL_t0, RL_t1, ...) 
         #and also look up metadata with the scanid
@@ -125,6 +126,7 @@ class experiment():
         beamline = self.dict['expinfo']['beamline']
         det = self.dict['expinfo']['det']
         folder = self.dict['expinfo']['folder']
+        ext = self.dict['expinfo']['ext']
 
         #self.dict['rawinfo']['series_measure'] = series_measure
         series_measure = self.dict['rawinfo']['series_measure'] 
@@ -135,10 +137,12 @@ class experiment():
             fn = self.name
             
         # define the source_dir
-        if stitched == False:
-            source_dir = folder + det + '/raw/'
-        else:
-            source_dir = folder + det + '/stitched/'
+        if source_dir is None:
+            if stitched == False:
+                source_dir = folder + det + '/raw/'
+            else:
+                source_dir = folder + det + '/stitched/'
+        
         if verbose>0:
             print(source_dir)        
         #
@@ -163,12 +167,12 @@ class experiment():
             # define infiles
             infiles = []
             if scanid is None: 
-                infiles = glob.glob(os.path.join(source_dir, fn + '*.tiff'))
+                infiles = glob.glob(os.path.join(source_dir, fn + '*.' + ext))
             else:
                 for sid in range(scanid[0], scanid[-1]+1):
-                    infile = os.path.join(source_dir, fn + '*' + str(sid) + '*.tiff')
+                    infile = os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext)
                     if os.isfile(infile):
-                        infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.tiff'))
+                        infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext))
 
             #sort infiles by the scanid
             infiles = sorted(infiles, key=lambda x: x.split('_'+det)[0].split('_')[-1])        
@@ -195,29 +199,39 @@ class experiment():
             # define infiles
             infiles = []
             if scanid is None: 
-                infiles = glob.glob(os.path.join(source_dir, fn + '*.tiff'))
+                infiles = glob.glob(os.path.join(source_dir, fn + '*.' + ext))
             else:
                 for sid in range(scanid[0], scanid[-1]+1):
-                    infile = os.path.join(source_dir, fn + '*' + str(sid) + '*.tiff')
+                    infile = os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext)
                     if os.isfile(infile):
-                        infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.tiff'))
+                        infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext))
+
+            if verbose>0: print('Loading {} files'.format(len(infiles)))
 
             #sort infiles by the scanid
-            infiles = sorted(infiles, key=lambda x: x.split('_'+det)[0].split('_')[-1])    
+            if ext == 'tiff':   #beamline =='cms' or beamline=='CMS':
+                infiles = sorted(infiles, key=lambda x: x.split('_'+det)[0].split('_')[-1])   
+            elif ext == 'tif':  #beamline =='smi' or beamline=='SMI':
+                infiles = sorted(infiles, key=lambda x: x.split('id')[1].split('_')[0])   
+            
     
             #input exp. info
             num_frames = 1
             for infile in infiles:
-                filename = infile.split('_'+det)[0]
-                filename = filename.split('/')[-1]
-                #scan_id = infile.split('_'+det)[0].split('_')[-1]
-                if series_measure:
-                    scan_id = infile.split('_'+det)[0].split('_')[-2]
-                    frame = int(infile.split('_'+det)[0].split('_')[-1])
-                    if frame+1 > num_frames: num_frames = frame+1
-                else:
-                    scan_id = infile.split('_'+det)[0].split('_')[-1]
-
+                if ext == 'tiff':
+                    filename = infile.split('_'+det)[0]
+                    filename = filename.split('/')[-1]
+                    #scan_id = infile.split('_'+det)[0].split('_')[-1]
+                    if series_measure:
+                        scan_id = infile.split('_'+det)[0].split('_')[-2]
+                        frame = int(infile.split('_'+det)[0].split('_')[-1])
+                        if frame+1 > num_frames: num_frames = frame+1
+                    else:
+                        scan_id = infile.split('_'+det)[0].split('_')[-1]
+                elif ext == 'tif':
+                    filename = infile.split('_'+det)[0]
+                    filename = filename.split('/')[-1]
+                    scan_id = infile.split('id')[1].split('_')[0]
 
                 self.dict['rawinfo']['filename'].append(filename)
                 #self.dict['rawinfo']['time'].append(h.metadata['start']['time']) #linux time
