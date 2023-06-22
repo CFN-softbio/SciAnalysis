@@ -29,8 +29,11 @@ Example protocals for X-ray scattering data:
  * Protocols.sector_average(angle=70, dangle=10, plot_range=[1.2, 3.7, 0, 1200], show_region=True) #pie-shaped
  * Protocols.roi(show_region=True, qx=1, dqx=0.02, qz=1, dqz=0.02, prepend='stats_')
 
+
 run_args = { 'verbosity' : 3,
-            #'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
+
+            'save_results' : ['xml', 'plots', 'txt', 'hdf5'],
+            
             'rcParams': {'axes.labelsize': 25,
                             'xtick.labelsize': 20,
                             'ytick.labelsize': 20,

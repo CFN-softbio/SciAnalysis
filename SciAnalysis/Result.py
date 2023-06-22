@@ -391,6 +391,7 @@ class ResultsDB():
         WHERE filename like ? ESCAPE ? 
         ORDER BY filename
         '''
+        print(pattern)
         self.db_cursor.execute(sql, ( pattern, "\\", ))
         result_rows = self.db_cursor.fetchall()
         

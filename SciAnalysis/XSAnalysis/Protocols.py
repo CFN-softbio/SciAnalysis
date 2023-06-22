@@ -1070,7 +1070,7 @@ class sector_average(Protocol):
             'bins_relative' : 1.0,
             'markersize' : 0,
             'linewidth' : 1.5,
-            'error' : True, 
+            # 'error' : True, 
             'show_region' : False,
             }
         self.run_args.update(kwargs)
@@ -1099,7 +1099,8 @@ class sector_average(Protocol):
         if 'plots' in run_args['save_results']:
             self.label_filename(data, line, **run_args)
             outfile = self.get_outfile(data.name, output_dir)
-            line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+            # line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+            line.plot(save=outfile, error_band=False,   **run_args)
 
         if 'txt' in run_args['save_results']:
             outfile = self.get_outfile(data.name, output_dir, ext='.dat')

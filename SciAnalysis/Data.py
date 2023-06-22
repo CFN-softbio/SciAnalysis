@@ -159,16 +159,16 @@ class DataLine(object):
             header = '%s %s' % (self.x_label, self.y_label)
         
         elif self.y_err is None:
-            data = np.dstack([self.x, self.x_err, self.y])[0]
-            header = '%s %serr %s' % (self.x_label, self.x_label, self.y_label)
+            data = np.dstack([self.x, self.y, self.x_err])[0]
+            header = '%s %serr %s' % (self.x_label, self.y_label, self.x_label )
             
         elif self.x_err is None:
             data = np.dstack([self.x, self.y, self.y_err])[0]
             header = '%s %s %serr' % (self.x_label, self.y_label, self.y_label)
             
         else:
-            data = np.dstack([self.x, self.x_err, self.y, self.y_err])[0]
-            header = '%s %serr %s %serr' % (self.x_label, self.x_label, self.y_label, self.y_label)
+            data = np.dstack([self.x, self.y, self.x_err, self.y_err])[0]
+            header = '%s %serr %s %serr' % (self.x_label, self.y_label, self.x_label, self.y_label)
         
         np.savetxt( outfile, data, header=header )
     
@@ -519,9 +519,9 @@ class DataLine(object):
     
     def _plot_interact(self):
         
-        self.fig.canvas.set_window_title('SciAnalysis')
+        #self.fig.canvas.set_window_title('SciAnalysis')
         #plt.get_current_fig_manager().toolbar.pan()
-        self.fig.canvas.toolbar.pan()
+        #self.fig.canvas.toolbar.pan()
         self.fig.canvas.mpl_connect('scroll_event', self._scroll_event )
         #self.fig.canvas.mpl_connect('motion_notify_event', self._move_event )
         #self.fig.canvas.mpl_connect('key_press_event', self._key_press_event)
@@ -2173,9 +2173,9 @@ class Data2D(object):
     
     def _plot_interact(self):
         
-        self.fig.canvas.set_window_title('SciAnalysis')
+        #self.fig.canvas.set_window_title('SciAnalysis')
         #plt.get_current_fig_manager().toolbar.pan()
-        self.fig.canvas.toolbar.pan()
+        #self.fig.canvas.toolbar.pan()
         self.fig.canvas.mpl_connect('scroll_event', self._scroll_event )
         #self.fig.canvas.mpl_connect('motion_notify_event', self._move_event )
         self.fig.canvas.mpl_connect('key_press_event', self._key_press_event)
