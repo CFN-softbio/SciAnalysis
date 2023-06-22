@@ -27,6 +27,8 @@ from SciAnalysis.tools import * #from ..tools import *
 import copy, glob
 
 class ProcessorXS(Processor):
+    '''Processor (and data loader) intended for loading x-ray scattering data
+    from files stored on disk.'''
 
     
     def load(self, infile, **kwargs):
@@ -176,7 +178,8 @@ class ProcessorXS(Processor):
 
 
     def get_db(self, recent_days=None, verbosity=3, **constraints):
-        
+        '''Retrieve a databroker "header", based on a set of constraints.
+        For instance, the constraints could specify the exact uid of the scan.'''
         if recent_days is not None:
             constraints['since'] = time.time() - recent_days*24*60*60
         
@@ -188,7 +191,27 @@ class ProcessorXS(Processor):
         
         
         return headers[0]
-            
+    
+    
+
+
+class ProcessorBS(ProcessorXS):
+    '''Processor (and data loader) intended for loading x-ray scattering data
+    from Bluesky databroker.'''
+
+
+    def get_detector_image(self, recent_days=None, verbosity=3, **constraints):
+        '''Retrieve a detector image (2D array from databroker,
+        based on a set of constraints. For instance, the constraints 
+        could specify the exact uid of the scan.'''
+        
+        h = self.get_db(recent_days=recent_days, verbosity=verbosity, **constraints)
+        detector_image = h.table(fill=True)["pilatus2M_image"].to_numpy()
+        
+        return detector_image
+    
+    
+    
         
 class HDF5(Protocol):
 
