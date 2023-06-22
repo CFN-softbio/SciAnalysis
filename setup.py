@@ -44,7 +44,7 @@ setup(
     author="Kevin Yager",
     author_email="kyager@bnl.gov",
     keywords="Analysis",
-    url="https://github.com//CFN-softbio//SciAnalysis",
+    url="https://github.com/CFN-softbio/SciAnalysis",
     python_requires=">={}".format(".".join(str(n) for n in min_version)),
     packages=find_packages(exclude=["docs", "tests"]),
     entry_points={
