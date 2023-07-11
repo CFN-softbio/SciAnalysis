@@ -152,6 +152,7 @@ class experiment():
             cat = databroker.catalog[self.beamline]
             for uidt in uid:           
                 h = cat[uidt]
+
                 self.dict['rawinfo']['filename'].append(h.metadata['start']['filename'])
                 self.dict['rawinfo']['time'].append(h.metadata['start']['time']) #linux time
                 self.dict['rawinfo']['clock'].append(h.metadata['start']['sample_clock'])
@@ -250,7 +251,130 @@ class experiment():
 
         if verbose>0:
             print('(defFiles time = {:.1f}s)'.format(time.time()-t0))
+
+
+    def defFiles_ScanID_ONLY(self, fn = None, num_frames=1000, scanid=None, uid=None, stitched=False, source_dir = None, verbose=1):
+        #define the files in the experiment
+        #search raw tiff, return the list of scanid or uid or filenames (RL_t0, RL_t1, ...) 
+        #and also look up metadata with the scanid
+        #keys = ['sample_x', 'sample_temperature', 'scan_id' ] 
+        
+        beamline = self.dict['expinfo']['beamline']
+        det = self.dict['expinfo']['det']
+        folder = self.dict['expinfo']['folder']
+        ext = self.dict['expinfo']['ext']
+
+        #self.dict['rawinfo']['series_measure'] = series_measure
+        series_measure = self.dict['rawinfo']['series_measure'] 
+
+        t0 = time.time()
+
+        if fn is None:
+            fn = self.name
+            
+        # define the source_dir
+        if source_dir is None:
+            if stitched == False:
+                source_dir = folder + det + '/raw/'
+            else:
+                source_dir = folder + det + '/stitched/'
+        
+        if verbose>0:
+            print(source_dir)        
+        #
+
                 
+        if beamline != 'None':
+            import databroker
+            cat = databroker.catalog[beamline]
+            # define infiles
+            # infiles = []
+            infiles = glob.glob(os.path.join(source_dir, fn + '*' + str(scanid[0]) + '*.' + ext))
+
+            #sort infiles by the scanid
+            infiles = sorted(infiles, key=lambda x: x.split('_'+det)[0].split('_')[-1])        
+    #         infiles.sort()
+#             print(infiles)
+        
+            #input exp. info
+            for infile in infiles:
+                if series_measure:
+                    infile_scanid = infile.split('_'+det)[0].split('_')[-2]
+                else:
+                    infile_scanid = infile.split('_'+det)[0].split('_')[-1]
+
+                h = cat[infile_scanid]
+
+                # query = {'scan_id': {'$gte': scan_id, '$lte': scan_id}}
+                # res = cat.search(query)
+                # h = cat[list(res)[1]]
+
+                self.dict['rawinfo']['filename'].append(fn)
+                self.dict['rawinfo']['time'].append(0) #linux time
+                self.dict['rawinfo']['clock'].append(0)
+                self.dict['rawinfo']['scan_id'].append(h.metadata['start']['scan_id'])
+                self.dict['rawinfo']['uid'].append(h.metadata['start']['uid'])
+                if series_measure:
+                    self.dict['rawinfo']['num_frames'].append(num_frames)
+
+        else:
+            # define infiles
+            infiles = []
+            if scanid is None: 
+                infiles = glob.glob(os.path.join(source_dir, fn + '*.' + ext))
+            else:
+                for sid in range(scanid[0], scanid[-1]+1):
+                    infile = os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext)
+                    if os.isfile(infile):
+                        infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext))
+
+            if verbose>0: print('Loading {} files'.format(len(infiles)))
+
+            #sort infiles by the scanid
+            if ext == 'tiff':   #beamline =='cms' or beamline=='CMS':
+                infiles = sorted(infiles, key=lambda x: x.split('_'+det)[0].split('_')[-1])   
+            elif ext == 'tif':  #beamline =='smi' or beamline=='SMI':
+                infiles = sorted(infiles, key=lambda x: x.split('id')[1].split('_')[0])   
+            
+    
+            #input exp. info
+            num_frames = 1
+            for infile in infiles:
+                if ext == 'tiff':
+                    filename = infile.split('_'+det)[0]
+                    filename = filename.split('/')[-1]
+                    #scan_id = infile.split('_'+det)[0].split('_')[-1]
+                    if series_measure:
+                        scan_id = infile.split('_'+det)[0].split('_')[-2]
+                        frame = int(infile.split('_'+det)[0].split('_')[-1])
+                        if frame+1 > num_frames: num_frames = frame+1
+                    else:
+                        scan_id = infile.split('_'+det)[0].split('_')[-1]
+                elif ext == 'tif':
+                    filename = infile.split('_'+det)[0]
+                    filename = filename.split('/')[-1]
+                    scan_id = infile.split('id')[1].split('_')[0]
+
+                self.dict['rawinfo']['filename'].append(filename)
+                #self.dict['rawinfo']['time'].append(h.metadata['start']['time']) #linux time
+                self.dict['rawinfo']['scan_id'].append(scan_id)
+                self.dict['rawinfo']['num_frames'] = num_frames
+
+
+        self.dict['rawinfo']['filenumber'] = len(self.dict['rawinfo']['filename'])
+        if verbose>0:
+            print('Loaded {} files.'.format(self.dict['rawinfo']['filenumber']))
+
+        if self.dict['rawinfo']['series_measure']:
+            self.dict['rawinfo']['filenumber'] = self.dict['rawinfo']['num_frames']
+        else:
+            self.dict['rawinfo']['filenumber'] = len(self.dict['rawinfo']['filename'])
+
+        if verbose>0:
+            print('(defFiles time = {:.1f}s)'.format(time.time()-t0))
+
+        return infiles
+
     def defFiles_query(self, cycle=None, SAF=None, fn=None, timerange=None, folder=None, scanid=None, verbose=1):
 
         beamline = self.dict['expinfo']['beamline']
