@@ -3,7 +3,7 @@
 import numpy as np
 import matplotlib as mpl
 mpl.rcParams['mathtext.fontset'] = 'cm'
-import pylab as plt
+import pylab as plt # switch to: import matplotlib.pyplot as plt
 
 
 
