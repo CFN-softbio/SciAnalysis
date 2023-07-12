@@ -2693,7 +2693,7 @@ class fit_calibration(Protocol):
         
         results = {}
         
-        if run_args['material'] is 'AgBH01':
+        if run_args['material'] == 'AgBH01':
             
             import lmfit
             # https://lmfit.github.io/lmfit-py/parameters.html#simple-example
