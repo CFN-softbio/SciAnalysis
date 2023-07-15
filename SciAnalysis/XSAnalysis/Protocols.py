@@ -1261,7 +1261,7 @@ class linecut_angle(Protocol):
         if 'show_region' in run_args:
             if run_args['show_region']=='save':
                 outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
-                data.plot(save=outfile, ztrim=run_args['ztrim'])
+                data.plot(save=outfile) #, ztrim=run_args['ztrim'])
             elif run_args['show_region']:
                 data.plot(show=True)
             
@@ -1398,7 +1398,7 @@ class linecut_angle_graininess(linecut_angle):
         if 'show_region' in run_args:
             if run_args['show_region']=='save':
                 outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
-                data.plot(save=outfile, ztrim=run_args['ztrim'])
+                data.plot(save=outfile) #, ztrim=run_args['ztrim'])
             elif run_args['show_region']:
                 data.plot(show=True)
             
