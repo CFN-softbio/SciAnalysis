@@ -8,7 +8,7 @@ import glob
 SciAnalysis_PATH='/home/kyager/current/code/SciAnalysis/main/'
 SciAnalysis_PATH in sys.path or sys.path.append(SciAnalysis_PATH)
 from SciAnalysis import tools
-#from SciAnalysis.XSAnalysis.Data import *
+from SciAnalysis.XSAnalysis.Data import *
 from SciAnalysis.ImAnalysis.Data import *
 from SciAnalysis.ImAnalysis import Protocols
 

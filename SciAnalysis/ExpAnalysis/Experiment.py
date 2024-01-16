@@ -207,13 +207,19 @@ class experiment():
                     if os.path.isfile(infile):
                         infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext))
 
+            
             if verbose>0: print('Loading {} files'.format(len(infiles)))
 
             #sort infiles by the scanid
+            print('Sorting files by scanid')
             if ext == 'tiff':   #beamline =='cms' or beamline=='CMS':
+                print('CMS')
                 infiles = sorted(infiles, key=lambda x: x.split('_'+det)[0].split('_')[-1])   
             elif ext == 'tif':  #beamline =='smi' or beamline=='SMI':
-                infiles = sorted(infiles, key=lambda x: x.split('id')[1].split('_')[0])   
+                print('SMI')
+                infiles = sorted(infiles, key=lambda x: x.split('id')[1].split('_')[0])
+                infiles = sorted(infiles, key=lambda x: x.split('_'+det)[0].split('_')[-1]) #for burst mode 
+                #infiles = sorted(infiles, key=lambda x: x.split('id')[1].split('_')[0])   
             
     
             #input exp. info
