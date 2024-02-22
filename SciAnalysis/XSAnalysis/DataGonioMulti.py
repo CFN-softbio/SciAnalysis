@@ -50,47 +50,10 @@ class CalibrationGonioMulti(CalibrationGonio):
 
     # Maps
     ########################################
-
-    # def q_map(self):
-    #     if self.q_map_data is None:
-    #         self._generate_qxyz_maps() 
-        
-    #     return self.q_map_data
-
     def q_map(self):
-        print('##### IN Multi q_map........')       
         if self.q_map_data is None:
             self._generate_qxyz_maps()
-
-            cali0 = CalibrationGonio(wavelength_A=self.wavelength_A)
-            cali0.set_image_size(1475, height=195) 
-            cali0.set_beam_position(self.x0, self.y0)
-            cali0.set_distance(self.distance_m)
-            cali0.set_pixel_size(self.pixel_size_um)
-            cali0.set_angles(det_phi_g=self.det_theta_g , det_theta_g=self.det_theta_g - 7.8) #7.59
-            cali0._generate_qxyz_maps() 
-
-            cali1 = CalibrationGonio(wavelength_A=self.wavelength_A)
-            cali1.set_image_size(1475, height=195) 
-            cali1.set_beam_position(self.x0, self.y0)
-            cali1.set_distance(self.distance_m)
-            cali1.set_pixel_size(self.pixel_size_um)
-            cali1.set_angles(det_phi_g=self.det_theta_g, det_theta_g=self.det_theta_g)
-            cali1._generate_qxyz_maps() 
-
-            cali2 = CalibrationGonio(wavelength_A=self.wavelength_A)
-            cali2.set_image_size(1475, height=195) 
-            cali2.set_beam_position(self.x0, self.y0)
-            cali2.set_distance(self.distance_m)
-            cali2.set_pixel_size(self.pixel_size_um)
-            cali2.set_angles(det_phi_g=self.det_theta_g , det_theta_g=self.det_theta_g + 7.8)
-            cali2._generate_qxyz_maps() 
-
-            self.q_map_data = self.q_map_data*0.0
-            self.q_map_data[0:195, :] = cali0.q_map_data
-            self.q_map_data[212:407, :] = cali1.q_map_data
-            self.q_map_data[-195::, :] = cali2.q_map_data
-         
+        
         return self.q_map_data
     
     def angle_map(self):      
