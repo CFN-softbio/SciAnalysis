@@ -281,7 +281,8 @@ class thumbnails(Protocol):
             outfile = self.get_outfile(data.name, output_dir)
         
         #print(data.stats())
-        
+        # print('thumbnail output test')
+
         if 'plots' in run_args['save_results']:
             results['files_saved'] = [
                 { 'filename': '{}'.format(outfile) ,
@@ -311,7 +312,7 @@ class circular_average(Protocol):
         
     @run_default
     def run(self, data, output_dir, **run_args):
-        
+
         results = {}
         
         if 'dezing' in run_args and run_args['dezing']:
@@ -1111,7 +1112,58 @@ class sector_average(Protocol):
 
         return results
     
+class peak_feature(Protocol):
 
+    def __init__(self, name=None, **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+            'bins_relative' : 1.0,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            # 'error' : True, 
+            'show_region' : False,
+            }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if 'dezing' in run_args and run_args['dezing']:
+            data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
+        
+        
+        line_sector_average = data.sector_average_q_bin(**run_args)
+        #line.smooth(2.0, bins=10)
+        
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+        
+        
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, line_sector_average, **run_args)
+            outfile = self.get_outfile(data.name, output_dir)
+            # line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+            line.plot(save=outfile, error_band=False,   **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:          
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
+
+        return results
+    
 class sector_average_fit(sector_average, fit_peaks):
 
     def __init__(self, name=None, **kwargs):

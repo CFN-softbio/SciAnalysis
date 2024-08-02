@@ -172,7 +172,7 @@ class experiment():
             else:
                 for sid in range(scanid[0], scanid[-1]+1):
                     infile = os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext)
-                    if os.isfile(infile):
+                    if os.path.isfile(infile):
                         infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext))
 
             #sort infiles by the scanid
@@ -186,7 +186,7 @@ class experiment():
                     infile_scanid = infile.split('_'+det)[0].split('_')[-2]
                 else:
                     infile_scanid = infile.split('_'+det)[0].split('_')[-1]
-
+                infile_scanid = int(infile_scanid)
                 h = cat[infile_scanid]
                 self.dict['rawinfo']['filename'].append(h.metadata['start']['filename'])
                 self.dict['rawinfo']['time'].append(h.metadata['start']['time']) #linux time
@@ -204,7 +204,7 @@ class experiment():
             else:
                 for sid in range(scanid[0], scanid[-1]+1):
                     infile = os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext)
-                    if os.isfile(infile):
+                    if os.path.isfile(infile):
                         infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext))
 
             
@@ -331,7 +331,7 @@ class experiment():
             else:
                 for sid in range(scanid[0], scanid[-1]+1):
                     infile = os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext)
-                    if os.isfile(infile):
+                    if os.path.isfile(infile):
                         infiles.append(os.path.join(source_dir, fn + '*' + str(sid) + '*.' + ext))
 
             if verbose>0: print('Loading {} files'.format(len(infiles)))
