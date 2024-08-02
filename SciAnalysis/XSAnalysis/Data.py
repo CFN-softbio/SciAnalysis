@@ -970,10 +970,10 @@ class Data2DScattering(Data2D):
         
         bins = [ int( abs(qz_max-qz_min)/dq ) , int( abs(qx_max-qx_min)/dq ) ]
         
-        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=D)
+        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=D)
 
         # Normalize by the binning
-        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=None)
+        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=None)
         remesh_data = np.nan_to_num( remesh_data/num_per_bin )
         
         q_data = Data2DReciprocal()
@@ -1009,10 +1009,10 @@ class Data2DScattering(Data2D):
         
         bins = [ int( abs(qz_max-qz_min)/dq ) , int( abs(qx_max-qx_min)/dq ) ]
         
-        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=D)
+        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=D)
 
         # Normalize by the binning
-        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=None)
+        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=None)
         remesh_data = np.nan_to_num( remesh_data/num_per_bin )
         
         q_data = Data2DReciprocal()
@@ -1062,8 +1062,8 @@ class Data2DScattering(Data2D):
         
         bins = [ int( abs(phi_max-phi_min)/dphi ) , int( abs(q_max-q_min)/dq ) ]
         
-        remesh_data, zbins, xbins = np.histogram2d(PHI, Q, bins=bins, range=[[phi_min,phi_max], [q_min,q_max]], normed=False, weights=D)
-        #num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=None)
+        remesh_data, zbins, xbins = np.histogram2d(PHI, Q, bins=bins, range=[[phi_min,phi_max], [q_min,q_max]], density=False, weights=D)
+        #num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=None)
         #remesh_data = np.nan_to_num( remesh_data/num_per_bin )
         
         q_phi_data = Data2DQPhi()
@@ -1097,10 +1097,10 @@ class Data2DScattering(Data2D):
         bins = [num_qz, num_qx]
         range = [ [qz_min,qz_max], [qx_min,qx_max] ]
         
-        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, normed=False, weights=D)
+        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, density=False, weights=D)
 
         # Normalize by the binning
-        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, normed=False, weights=None)
+        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, density=False, weights=None)
         #remesh_data = np.nan_to_num( remesh_data/num_per_bin )
         
         return remesh_data, num_per_bin
