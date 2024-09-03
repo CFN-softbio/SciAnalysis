@@ -1308,6 +1308,7 @@ class Data2D(object):
         self.origin = [0, 0]
         
         self.regions = None # Optional overlay highlighting some region of interest
+        self.q_regions = None # Optional overlay highlighting some region of interest
         
         self._kwargs = kwargs # Save incase later methods depend on these settings
         
@@ -1906,6 +1907,13 @@ class Data2D(object):
                 # TODO: Handle the case where the image has coordinates assigned to it.
                 plt.imshow(region, cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75)
                 #plt.imshow(np.flipud(region), cmap=mpl.cm.spring, interpolation='nearest', alpha=0.75, origin='lower')
+        
+        # Added 2024-08-30 to plot regions on corresponding coordinates
+        if self.q_regions is not None:
+            for region in self.q_regions:
+                # This adds gray shades to all area except region of interest, adjust as needed
+                plt.pcolormesh(self.x_axis, self.y_axis, ~region, cmap='gray', alpha=0.3)
+
 
         x_label = self.x_rlabel if self.x_rlabel is not None else self.x_label
         y_label = self.y_rlabel if self.y_rlabel is not None else self.y_label
