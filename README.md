@@ -25,7 +25,8 @@ Example protocals for X-ray scattering data:
  * Protocols.linecut_qr(qz=0.025, dq=0.02, ylog=True, show_region='save', gridlines=True); #dq is half-width
  * Protocols.linecut_qz(name='linecut_qz_new', ylog=True, qr=0, dq=0.02, qmode = 'qx', show_region=True, plot_range=[0.2, 0.4, None, None]) # qmode = 'qx' or 'qr' (default)
  * Protocols.linecut_qz_fit(qr=0.0, dq=0.01, show_region=True, label_filename=True, trim_range=[0.01, 0.4], fit_range=[0.093, 0.115], plot_range=[0.01, 0.4, 0, None], q0=[0.11]) 
- * Protocols.circular_average_q2I_fit(plot_range=[0.8, 1.3, 0, None], qn_power=0.0, trim_range=[0.1, 3.5], fit_range=[0.95, 1.4], num_curves=2, q0=[1.00, 1.2], sigma=0.02, show_curves=1, label_filename=True), 
+ * Protocols.circular_average_q2I_fit(plot_range=[0.8, 1.3, 0, None], qn_power=0.0, trim_range=[0.1, 3.5], fit_range=[0.95, 1.4], num_curves=2, q0=[1.00, 1.2], sigma=0.02, show_curves=1, label_filename=True),
+ * Protocols.circular_average_sum('sum001', plot_range=[0, 3, 0, 1200], sum_range=[0.9, 1.1]) #range in q
  * Protocols.sector_average(angle=70, dangle=10, plot_range=[1.2, 3.7, 0, 1200], show_region=True) #pie-shaped with dangle opening (full angle)
  * Protocols.roi(show_region=True, qx=1, dqx=0.02, qz=1, dqz=0.02, prepend='stats_')
 
