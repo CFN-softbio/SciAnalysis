@@ -29,7 +29,8 @@ Example protocals for X-ray scattering data:
  * Protocols.circular_average_sum('sum001', plot_range=[0, 3, 0, 1200], sum_range=[0.9, 1.1]) #range in q
  * Protocols.sector_average(angle=70, dangle=10, plot_range=[1.2, 3.7, 0, 1200], show_region=True) #pie-shaped with dangle opening (full angle)
  * Protocols.roi(show_region=True, qx=1, dqx=0.02, qz=1, dqz=0.02, prepend='stats_')
-
+ * [NEW] Protocols.sector_average_qr(name = 'qr_sector_int_45', angle=45, dangle=5, gridlines=True, show_region='save') ,
+   
 
 run_args = { 'verbosity' : 3,
 
