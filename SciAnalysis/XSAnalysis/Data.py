@@ -1140,7 +1140,7 @@ class Data2DScattering(Data2D):
 
         # Remesh the mask too
         if flag_mask:
-            remesh_mask_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=mask_data.ravel())
+            remesh_mask_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=mask_data.ravel())
             remesh_mask_data = np.nan_to_num( remesh_mask_data/num_per_bin )
 
         q_data = Data2DReciprocal()
