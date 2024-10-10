@@ -555,7 +555,6 @@ class Data2DScattering(Data2D):
         Q = self.calibration.q_map().ravel()
         dq = self.calibration.get_q_per_pixel()
         A = self.calibration.angle_map().ravel()
-
         
         
         pixel_list = np.where( (mask.ravel()==1) & (abs(A-angle)<dangle/2) )
@@ -613,6 +612,121 @@ class Data2DScattering(Data2D):
         
         
         return line    
+
+
+
+    def sector_average_qr_bin(self, angle=0, dangle=30, bins_relative=1.0, error=False, **kwargs):
+        '''Returns a 1D curve that is a sector average of the 2D data on qr. The
+        data is average over 'chi' across the range specified by angle and 
+        dangle, so that the resulting curve is as a function of q.
+        
+        'bins_relative' controls the binning (q-spacing in data).
+            1.0 means the q-spacing is (approximately) a single pixel
+            2.0 means there are twice as many bins (spacing is half a pixel)
+            0.1 means there are one-tenth the number of bins (i.e. each data point is 10 pixels)
+            
+        'error' sets whether or not error-bars are calculated.
+        '''
+        
+        verbose = 0
+
+        if 1: #Remesh data to qr, define Q and A accordingly
+            flag_mask = True
+            q_data = self.remesh_qr_bin(flag_mask=flag_mask, **kwargs)
+            remesh_data = q_data.data
+            if flag_mask: 
+                remesh_mask_data = q_data.mask.data
+        
+            q_X, q_Y = np.meshgrid(q_data.x_axis, q_data.y_axis)
+            q_map = np.sqrt(q_X**2 + q_Y**2)
+            q_angle_map = np.degrees(np.arctan2(q_X, q_Y))
+
+            if verbose:
+                print("q_map shape = {}".format(np.shape(q_map)))
+                print("q_angle_map shape = {}".format(np.shape(q_angle_map)))
+                print("remesh_data shape = {}".format(np.shape(remesh_data)))
+                if flag_mask: print("remesh_mask_data shape = {}".format(np.shape(remesh_mask_data)))
+            
+            data = remesh_data.ravel()
+
+            Q = q_map.ravel()
+            dq = self.calibration.get_q_per_pixel()/bins_relative      
+            A = q_angle_map.ravel()
+     
+        else: # From sector_average_q_bin, can remove once code stable
+            data = self.data.ravel()        
+        
+            Q = self.calibration.q_map().ravel()
+            dq = self.calibration.get_q_per_pixel()
+            A = self.calibration.angle_map().ravel()
+
+        if flag_mask:
+            pixel_list = np.where( (remesh_mask_data.ravel()==1) & (abs(A-angle)<dangle/2) )
+        else:
+            pixel_list = np.where( (abs(A-angle)<dangle/2) )
+
+        if 'show_region' in kwargs and kwargs['show_region']:
+            # region = np.ma.masked_where(abs(self.calibration.angle_map()-angle)>dangle/2, self.calibration.qr_map())
+            temp = np.ma.masked_where(abs(q_angle_map-angle)>dangle/2, q_angle_map)
+
+            region = temp.mask  # Region of interest
+            q_data.q_regions =  [region]  
+
+
+
+        #### The following are the SAME as sector_average_q_bin
+
+        x_range = [np.min(Q[pixel_list]), np.max(Q[pixel_list])]
+
+        if verbose: print("----debug 0") 
+        bins = int( bins_relative * abs(x_range[1]-x_range[0])/dq )
+        num_per_bin, rbins = np.histogram(Q[pixel_list], bins=bins, range=x_range)
+        idx = np.where(num_per_bin!=0) # Bins that actually have data
+        if verbose: print("----debug 1") 
+
+        if error:
+            # TODO: Include error calculations
+            
+            x_vals, rbins = np.histogram( Q[pixel_list], bins=bins, range=x_range, weights=Q[pixel_list] )
+            
+            # Create array of the average values (mu), in the original array layout
+            locations = np.digitize( Q[pixel_list], bins=rbins, right=True) # Mark the bin IDs in the original array layout
+            mu = (x_vals/num_per_bin)[locations-1]
+            
+            weights = np.square(Q[pixel_list] - mu)
+            
+            x_err, rbins = np.histogram( Q[pixel_list], bins=bins, range=x_range, weights=weights )
+            x_err = np.sqrt( x_err[idx]/num_per_bin[idx] )
+            x_err[0] = dq/2 # np.digitize includes all the values less than the minimum bin into the first element
+            
+            x_vals = x_vals[idx]/num_per_bin[idx]
+            
+            I_vals, rbins = np.histogram( Q[pixel_list], bins=bins, range=x_range, weights=data[pixel_list] )
+            I_err_shot = np.sqrt(I_vals)[idx]/num_per_bin[idx]
+            
+            mu = (I_vals/num_per_bin)[locations-1]
+            weights = np.square(data[pixel_list] - mu)
+            I_err_std, rbins = np.histogram( Q[pixel_list], bins=bins, range=x_range, weights=weights )
+            I_err_std = np.sqrt( I_err_std[idx]/num_per_bin[idx] )
+                
+            y_err = np.sqrt( np.square(I_err_shot) + np.square(I_err_std) )
+            I_vals = I_vals[idx]/num_per_bin[idx]
+            
+            line = DataLine( x=x_vals, y=I_vals, x_err=x_err, y_err=y_err, x_label='q', y_label='I(q)', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+            
+            
+        else:
+            x_vals, rbins = np.histogram( Q[pixel_list], bins=bins, range=x_range, weights=Q[pixel_list] )
+            x_vals = x_vals[idx]/num_per_bin[idx]
+            I_vals, rbins = np.histogram( Q[pixel_list], bins=bins, range=x_range, weights=data[pixel_list] )
+            I_vals = I_vals[idx]/num_per_bin[idx]
+            
+            line = DataLine( x=x_vals, y=I_vals, x_label='q', y_label='I(q)', x_rlabel='$q \, (\mathrm{\AA^{-1}})$', y_rlabel=r'$I(q) \, (\mathrm{counts/pixel})$' )
+        
+        
+        
+        return line, q_data
+    
     
     def overlay_ring(self, q0, dq, clear=False):
         '''Add an overlay region that is a ring of constant q.'''
@@ -970,10 +1084,10 @@ class Data2DScattering(Data2D):
         
         bins = [ int( abs(qz_max-qz_min)/dq ) , int( abs(qx_max-qx_min)/dq ) ]
         
-        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=D)
+        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=D)
 
         # Normalize by the binning
-        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=None)
+        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=None)
         remesh_data = np.nan_to_num( remesh_data/num_per_bin )
         
         q_data = Data2DReciprocal()
@@ -988,13 +1102,20 @@ class Data2DScattering(Data2D):
         return q_data
     
     
-    def remesh_qr_bin(self, bins_relative=1.0, **kwargs):
+    def remesh_qr_bin(self, bins_relative=1.0, flag_mask=False, **kwargs):
         '''Converts the data from detector-space into reciprocal-space. The returned
         object has a regular grid in reciprocal-space.
         The data is converted into a (qx,qz) plane (qy contribution ignored).'''
         
         # TODO: Account for masking
-        
+        flag_mask = flag_mask & (self.mask is not None)
+        if flag_mask:
+            print('## Accounting for mask')
+            #if self.mask is None:
+                #mask_data = np.ones(self.data.shape)
+            #else:
+            mask_data = self.mask.data
+
         # Determine limits
         dq = self.calibration.get_q_per_pixel()/bins_relative
         
@@ -1007,14 +1128,20 @@ class Data2DScattering(Data2D):
         qx_min = np.min(QX)
         qx_max = np.max(QX)
         
+        # This changes image size
         bins = [ int( abs(qz_max-qz_min)/dq ) , int( abs(qx_max-qx_min)/dq ) ]
         
-        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=D)
+        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=D)
 
         # Normalize by the binning
-        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=None)
+        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=None)
         remesh_data = np.nan_to_num( remesh_data/num_per_bin )
-        
+
+        # Remesh the mask too
+        if flag_mask:
+            remesh_mask_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=mask_data.ravel())
+            remesh_mask_data = np.nan_to_num( remesh_mask_data/num_per_bin )
+
         q_data = Data2DReciprocal()
         q_data.data = remesh_data
         
@@ -1022,7 +1149,10 @@ class Data2DScattering(Data2D):
         q_data.y_scale = (zbins[1]-zbins[0])
         q_data.x_axis = xbins[:-1] + (xbins[1]-xbins[0]) # convert from bin edges to bin centers
         q_data.y_axis = zbins[:-1] + (zbins[1]-zbins[0]) # convert from bin edges to bin centers
-        
+
+        if flag_mask:
+            q_data.mask = Mask()
+            q_data.mask.data = remesh_mask_data
         
         return q_data
         
@@ -1062,8 +1192,8 @@ class Data2DScattering(Data2D):
         
         bins = [ int( abs(phi_max-phi_min)/dphi ) , int( abs(q_max-q_min)/dq ) ]
         
-        remesh_data, zbins, xbins = np.histogram2d(PHI, Q, bins=bins, range=[[phi_min,phi_max], [q_min,q_max]], normed=False, weights=D)
-        #num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], normed=False, weights=None)
+        remesh_data, zbins, xbins = np.histogram2d(PHI, Q, bins=bins, range=[[phi_min,phi_max], [q_min,q_max]], density=False, weights=D)
+        #num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=[[qz_min,qz_max], [qx_min,qx_max]], density=False, weights=None)
         #remesh_data = np.nan_to_num( remesh_data/num_per_bin )
         
         q_phi_data = Data2DQPhi()
@@ -1097,10 +1227,10 @@ class Data2DScattering(Data2D):
         bins = [num_qz, num_qx]
         range = [ [qz_min,qz_max], [qx_min,qx_max] ]
         
-        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, normed=False, weights=D)
+        remesh_data, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, density=False, weights=D)
 
         # Normalize by the binning
-        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, normed=False, weights=None)
+        num_per_bin, zbins, xbins = np.histogram2d(QZ, QX, bins=bins, range=range, density=False, weights=None)
         #remesh_data = np.nan_to_num( remesh_data/num_per_bin )
         
         return remesh_data, num_per_bin

@@ -1111,6 +1111,61 @@ class sector_average(Protocol):
             self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
 
         return results
+
+class sector_average_qr(Protocol):
+
+    def __init__(self, name=None, **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+            'bins_relative' : 1.0,
+            'markersize' : 0,
+            'linewidth' : 1.5,
+            # 'error' : True, 
+            'show_region' : False,
+            }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        if 'dezing' in run_args and run_args['dezing']:
+            data.dezinger(sigma=3, tol=100, mode='median', mask=True, fill=False)
+        
+        line, q_data = data.sector_average_qr_bin(**run_args)
+        #line.smooth(2.0, bins=10)
+        
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+
+                q_data.plot(save=outfile, **run_args)
+                # q_data.plot_image(save=outfile, **run_args)
+                # q_data.plot_image()
+
+            elif run_args['show_region']:
+                q_data.plot(show=True)
+        
+        
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
+            outfile = self.get_outfile(data.name, output_dir)
+            # line.plot(save=outfile, error_band=False, ecolor='0.75', capsize=2, elinewidth=1, **run_args)
+            line.plot(save=outfile, error_band=False,   **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+
+        if 'hdf5' in run_args['save_results']:          
+            self.save_DataLine_HDF5(line, data.name, output_dir, results=results) 
+
+        return results
     
 class peak_feature(Protocol):
 
@@ -1488,6 +1543,49 @@ class linecut_angle_graininess(linecut_angle):
 class linecut_qr(Protocol):
 
     def __init__(self, name='linecut_qr', **kwargs):
+        
+        self.name = self.__class__.__name__ if name is None else name
+        
+        self.default_ext = '.png'
+        self.run_args = {
+            'show_region' : False,
+            'plot_range' : [None, None, 0, None]
+            }
+        self.run_args.update(kwargs)
+    
+        
+    @run_default
+    def run(self, data, output_dir, **run_args):
+        
+        results = {}
+        
+        line = data.linecut_qr(**run_args)
+        
+        if 'show_region' in run_args:
+            if run_args['show_region']=='save':
+                outfile = self.get_outfile(data.name, output_dir, ext='_region.png')
+                data.plot(save=outfile)
+            elif run_args['show_region']:
+                data.plot(show=True)
+            
+        
+        #line.smooth(2.0, bins=10)
+
+        if 'plots' in run_args['save_results']:
+            self.label_filename(data, line, **run_args)
+            outfile = self.get_outfile(data.name, output_dir)
+            line.plot(save=outfile, **run_args)
+
+        if 'txt' in run_args['save_results']:
+            outfile = self.get_outfile(data.name, output_dir, ext='.dat')
+            line.save_data(outfile)
+        
+        return results
+
+
+class linecut_qx(Protocol): #qx on corrected space
+
+    def __init__(self, name='linecut_qx', **kwargs):
         
         self.name = self.__class__.__name__ if name is None else name
         

@@ -665,7 +665,7 @@ class experiment():
                     
                     self.dict['analysis'][key][str(nn)] = {}
                     self.dict['analysis'][key][str(nn)][headers[0]] = dat[headers[0]].values
-                    self.dict['analysis'][key][str(nn)][headers[2]] = dat[headers[2]].values
+                    self.dict['analysis'][key][str(nn)][headers[1]] = dat[headers[1]].values
                     
 
                 if 'linecut' in key:
