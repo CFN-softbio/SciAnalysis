@@ -57,7 +57,7 @@ class CalibrationGonioMulti(CalibrationGonio):
         return self.q_map_data
     
     def angle_map(self):      
-        if self.angle_map_data is not None:
+        if self.angle_map_data is None:
             self._generate_qxyz_maps()
         
         return self.angle_map_data
@@ -129,6 +129,8 @@ class CalibrationGonioMulti(CalibrationGonio):
         self.qy_map_data = qy_c
         self.qz_map_data = qz_c
         self.q_map_data = q_c
+
+        self.angle_map_data = np.degrees(np.arctan2(X, Y))
         
         
 
@@ -146,7 +148,7 @@ class CalibrationGonioMulti(CalibrationGonio):
 
         cali0 = CalibrationGonio(wavelength_A=self.wavelength_A)
         cali0.set_image_size(1475, height=195) 
-        cali0.set_beam_position(self.x0, self.y0)
+        cali0.set_beam_position(self.x0, self.y0-195-17)
         cali0.set_distance(self.distance_m)
         cali0.set_pixel_size(self.pixel_size_um)
         cali0.set_angles(det_phi_g=self.det_theta_g , det_theta_g=self.det_theta_g - 7.8) #7.59
@@ -154,7 +156,7 @@ class CalibrationGonioMulti(CalibrationGonio):
 
         cali1 = CalibrationGonio(wavelength_A=self.wavelength_A)
         cali1.set_image_size(1475, height=195) 
-        cali1.set_beam_position(self.x0, self.y0)
+        cali1.set_beam_position(self.x0, self.y0-195-17)
         cali1.set_distance(self.distance_m)
         cali1.set_pixel_size(self.pixel_size_um)
         cali1.set_angles(det_phi_g=self.det_theta_g, det_theta_g=self.det_theta_g)
@@ -162,11 +164,12 @@ class CalibrationGonioMulti(CalibrationGonio):
 
         cali2 = CalibrationGonio(wavelength_A=self.wavelength_A)
         cali2.set_image_size(1475, height=195) 
-        cali2.set_beam_position(self.x0, self.y0)
+        cali2.set_beam_position(self.x0, self.y0-195-17)
         cali2.set_distance(self.distance_m)
         cali2.set_pixel_size(self.pixel_size_um)
         cali2.set_angles(det_phi_g=self.det_theta_g , det_theta_g=self.det_theta_g + 7.8)
-        cali2._generate_qxyz_maps()         
+        cali2._generate_qxyz_maps() 
+        
 
         # self.q_map_data = self.q_map_data*0.0
         # self.q_map_data[0:195, :] = cali0.q_map_data
@@ -178,7 +181,7 @@ class CalibrationGonioMulti(CalibrationGonio):
         self.qx_map_data = self.combine_waxs(img=self.qx_map_data, img0=cali0.qx_map_data,  img1=cali1.qx_map_data, img2=cali2.qx_map_data)
         self.qy_map_data = self.combine_waxs(img=self.qy_map_data, img0=cali0.qy_map_data,  img1=cali1.qy_map_data, img2=cali2.qy_map_data)
         self.qz_map_data = self.combine_waxs(img=self.qz_map_data, img0=cali0.qz_map_data,  img1=cali1.qz_map_data, img2=cali2.qz_map_data)
-
+        
         # self.qr_map_data         
         # self.qx_map_data = qx_c
         # self.qy_map_data = qy_c

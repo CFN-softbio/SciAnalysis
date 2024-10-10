@@ -58,7 +58,7 @@ class CalibrationGonio(Calibration):
     
     def angle_map(self):
         
-        if self.angle_map_data is not None:
+        if self.angle_map_data is None:
             self._generate_qxyz_maps()
         
         return self.angle_map_data
@@ -121,6 +121,10 @@ class CalibrationGonio(Calibration):
         self.qy_map_data = qy_c
         self.qz_map_data = qz_c
         self.q_map_data = q_c
+
+        self.angle_map_data = np.degrees(np.arctan2(X, Y))
+
+
         
         
         
