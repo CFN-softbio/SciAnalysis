@@ -59,7 +59,7 @@ if 1:
     # calibration.set_beam_position(106-7, 1475.0-88.0) # det_phi_g=-3.5
     # calibration.set_beam_position(310-195, 1475.0-219.0) # det_phi_g=-3.5
     # calibration.set_beam_position(219, 310-195-17)  
-    calibration.set_beam_position(219, 310-195-17)  
+    calibration.set_beam_position(219, 310)  
     # calibration.set_beam_position(310-195, 1475.0-219.0) # det_phi_g=-3.5
     # calibration.set_distance(0.273900)
     calibration.set_distance(0.268)
