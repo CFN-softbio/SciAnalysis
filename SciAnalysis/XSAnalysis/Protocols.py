@@ -2990,6 +2990,7 @@ class q_image(Protocol):
         
         q_data = data.remesh_q_bin(**run_args)
         
+        
         if run_args['verbosity']>=10:
             # Diagnostic
             

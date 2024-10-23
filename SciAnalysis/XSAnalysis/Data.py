@@ -549,14 +549,13 @@ class Data2DScattering(Data2D):
             
         # .ravel() is used to convert the 2D grids into 1D arrays.
         # This is not strictly necessary, but improves speed somewhat.
-        
         data = self.data.ravel()
         
-        
+
         Q = self.calibration.q_map().ravel()
         dq = self.calibration.get_q_per_pixel()
         A = self.calibration.angle_map().ravel()
-
+        
         
         pixel_list = np.where( (mask.ravel()==1) & (abs(A-angle)<dangle/2) )
         
