@@ -17,7 +17,7 @@ from SciAnalysis.Result import *
 class experiment():
     def __init__(self, name, folder=None, det='saxs', beamline='cms', ext='tiff', series_measure=False, verbose=0):
         
-        if beamline != 'None' or beamline != 'none':
+        if beamline != 'None' and beamline != 'none':
             if verbose>0:  print('At beamline, can use databroker')
             import databroker
         else:
