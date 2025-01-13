@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# if [ "$#" -ne 1 ]; then
+#     echo "Usgage: ./open_window <window name>"
+#     exit 2
+# fi
+
+if [ -z "$(xdotool search --name VISION-Ana)" ]; then
+	echo "Opening new window!"
+	xdotool key "ctrl+shift+n"
+	sleep 1
+	xdotool getactivewindow set_window --name VISION-Ana
+
+	wid="$(xdotool search --name VISION-Ana)"
+	echo "Window ID: $wid"
+	# for i in $(seq 1 1);
+	# do
+	# 	#xdotool windowactivate $wid key "ctrl+shift+plus"
+	# 	xdotool windowactivate $wid key KP_Enter
+	# done
+else
+	wid="$(xdotool search --name VISION-Ana)"
+	xdotool windowactivate $wid 
+fi
+xdotool keyup --window $wid a type "conda activate 2024-1.0-py311"
+xdotool key KP_Enter
+
+xdotool keyup --window $wid a type "cd /nsls2/data/cms/legacy/xf11bm/data/"
+xdotool key KP_Enter
+
+#xdotool keyup --window $wid a type "ssh -o ProxyCommand='ssh etsai@ssh.bnl.gov nc -w 10 %h %p' -X -t etsai@130.199.242.229 'cd ~ && exec bash -l'"
+#xdotool key KP_Enter
