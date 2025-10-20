@@ -64,11 +64,18 @@ class CalibrationGonioMulti(CalibrationGonio):
     
     
     def combine_waxs(self, img, img0, img1, img2):
-        #print('##### IN combine_waxs........')       
+        # print('##### IN combine_waxs........')       
         img = img*0.0  
-        img[0:195, :] = img0
-        img[212:407, :] = img1
-        img[-195::, :] = img2
+        print(img.shape)
+        # print(img0.shape)
+        if 0:
+            img[0:195, :] = img0
+            img[212:407, :] = img1
+            img[-195::, :] = img2
+        else:
+            img[:, 0:195] = img0
+            img[:, 212:407] = img1
+            img[:, -195::] = img2
 
         return img
 
@@ -78,7 +85,7 @@ class CalibrationGonioMulti(CalibrationGonio):
         http://gisaxs.com/index.php/Geometry:WAXS_3D
         
         """    
-        
+
         d = self.distance_m
         pix_size = self.pixel_size_um/1e6
         phi_g = np.radians(self.det_phi_g)
@@ -101,8 +108,6 @@ class CalibrationGonioMulti(CalibrationGonio):
         q_c = np.sqrt(np.square(qx_c) + np.square(qy_c) + np.square(qz_c))
         
         
-        
-        
         # Conversion factor for pixel coordinates
         # (where sample-detector distance is set to d = 1)
         c = (self.pixel_size_um/1e6)/self.distance_m
@@ -117,7 +122,7 @@ class CalibrationGonioMulti(CalibrationGonio):
         #alpha_f_prime = np.arctan2( Y*c, 1 ) # radians
         alpha_f = np.arctan2( Y*c*np.cos(theta_f), 1 ) # radians
         
-        
+
         self.qx_map_data = self.get_k()*np.sin(theta_f)*np.cos(alpha_f)
         self.qy_map_data = self.get_k()*( np.cos(theta_f)*np.cos(alpha_f) - 1 ) # TODO: Check sign
         self.qz_map_data = -1.0*self.get_k()*np.sin(alpha_f)
@@ -144,30 +149,37 @@ class CalibrationGonioMulti(CalibrationGonio):
 
         print('##### IN Multi _generate_qxyz_maps........')     
 
-        self._generate_qxyz_maps_0()
+        self._generate_qxyz_maps_0() 
+
+
+        phi_center = 0.6
+        phi_tilt = 7.6
 
         cali0 = CalibrationGonio(wavelength_A=self.wavelength_A)
-        cali0.set_image_size(1475, height=195) 
-        cali0.set_beam_position(self.x0, self.y0-195-17)
+        # cali0.set_image_size(1475, height=195) 
+        cali0.set_image_size(195, height=1475)
+        cali0.set_beam_position(self.x0, self.y0)
         cali0.set_distance(self.distance_m)
         cali0.set_pixel_size(self.pixel_size_um)
-        cali0.set_angles(det_phi_g=self.det_theta_g , det_theta_g=self.det_theta_g - 7.8) #7.59
+        cali0.set_angles(det_phi_g=self.det_phi_g + phi_center+ phi_tilt, det_theta_g=self.det_theta_g  ) # 6.1, 7.37, 7.8, 7.59
         cali0._generate_qxyz_maps() 
+  
 
         cali1 = CalibrationGonio(wavelength_A=self.wavelength_A)
-        cali1.set_image_size(1475, height=195) 
-        cali1.set_beam_position(self.x0, self.y0-195-17)
+        cali1.set_image_size(195, height=1475)
+        cali1.set_beam_position(self.x0, self.y0)
         cali1.set_distance(self.distance_m)
         cali1.set_pixel_size(self.pixel_size_um)
-        cali1.set_angles(det_phi_g=self.det_theta_g, det_theta_g=self.det_theta_g)
+        cali1.set_angles(det_phi_g=self.det_phi_g + phi_center, det_theta_g=self.det_theta_g  )
         cali1._generate_qxyz_maps() 
 
+
         cali2 = CalibrationGonio(wavelength_A=self.wavelength_A)
-        cali2.set_image_size(1475, height=195) 
-        cali2.set_beam_position(self.x0, self.y0-195-17)
+        cali2.set_image_size(195, height=1475)
+        cali2.set_beam_position(self.x0, self.y0)
         cali2.set_distance(self.distance_m)
         cali2.set_pixel_size(self.pixel_size_um)
-        cali2.set_angles(det_phi_g=self.det_theta_g , det_theta_g=self.det_theta_g + 7.8)
+        cali2.set_angles(det_phi_g=self.det_phi_g + phi_center - phi_tilt , det_theta_g=self.det_theta_g ) #7.8
         cali2._generate_qxyz_maps() 
         
 
@@ -176,11 +188,32 @@ class CalibrationGonioMulti(CalibrationGonio):
         # self.q_map_data[212:407, :] = cali1.q_map_data
         # self.q_map_data[-195::, :] = cali2.q_map_data
 
-        self.q_map_data = self.combine_waxs(img=self.q_map_data, img0=cali0.q_map_data, img1=cali1.q_map_data, img2=cali2.q_map_data)
-        self.qr_map_data = self.combine_waxs(img=self.qr_map_data, img0=cali0.qr_map_data,  img1=cali1.qr_map_data, img2=cali2.qr_map_data)
-        self.qx_map_data = self.combine_waxs(img=self.qx_map_data, img0=cali0.qx_map_data,  img1=cali1.qx_map_data, img2=cali2.qx_map_data)
-        self.qy_map_data = self.combine_waxs(img=self.qy_map_data, img0=cali0.qy_map_data,  img1=cali1.qy_map_data, img2=cali2.qy_map_data)
-        self.qz_map_data = self.combine_waxs(img=self.qz_map_data, img0=cali0.qz_map_data,  img1=cali1.qz_map_data, img2=cali2.qz_map_data)
+        # self.q_map_data = self.combine_waxs(img=self.q_map_data, img0=cali0.q_map_data, img1=cali1.q_map_data, img2=cali2.q_map_data)
+        # self.qr_map_data = self.combine_waxs(img=self.qr_map_data, img0=cali0.qr_map_data,  img1=cali1.qr_map_data, img2=cali2.qr_map_data)
+
+
+        qx_c = self.combine_waxs(img=self.qx_map_data, img0=cali0.qx_map_data,  img1=cali1.qx_map_data, img2=cali2.qx_map_data)
+        qy_c = self.combine_waxs(img=self.qy_map_data, img0=cali0.qy_map_data,  img1=cali1.qy_map_data, img2=cali2.qy_map_data)
+        qz_c = self.combine_waxs(img=self.qz_map_data, img0=cali0.qz_map_data,  img1=cali1.qz_map_data, img2=cali2.qz_map_data)
+ 
+        self.qx_map_data = qx_c
+        self.qy_map_data = qy_c
+        self.qz_map_data = qz_c
+
+        self.qr_map_data = np.sqrt(np.square(qx_c) + np.square(qy_c))        
+        self.q_map_data = np.sqrt(np.square(qx_c) + np.square(qy_c) + np.square(qz_c))
+
+        if 0:
+            x = np.arange(1475) - self.x0
+            y = np.arange(619) - self.y0
+        else:
+            x = np.arange(619) - self.x0
+            y = np.arange(1475) - self.y0
+        X, Y = np.meshgrid(x, y)
+        R = np.sqrt(X**2 + Y**2)
+
+        self.angle_map_data = np.degrees(np.arctan2(X, Y))
+
         
         # self.qr_map_data         
         # self.qx_map_data = qx_c

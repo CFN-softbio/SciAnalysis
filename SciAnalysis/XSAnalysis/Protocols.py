@@ -2795,6 +2795,14 @@ class calibration_check(Protocol):
             data.overlay_ring(q0, q0*dq)
             for q in qlist:
                 data.overlay_ring(q, q*dq)                
+
+        if 'temp' in run_args and run_args['temp']:
+
+            qlist = np.array([1.38, 1.51, 1.61, 1.79, 2.34, 4.8])
+
+            for q in qlist:
+                data.overlay_ring(q, q*dq)  
+
                 
         if 'q0'  in run_args:
             q0 = run_args['q0']
